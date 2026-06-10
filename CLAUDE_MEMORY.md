@@ -44,6 +44,12 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [ ] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md`
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
 - [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
+- [ ] **15** — Adattamento formato Excel reale → `prompts/utilities/15-adattamento-excel-reale.md`
+  - Quando disponibili gli Excel definitivi (formazioni + listone), verificare:
+    1. Formato colonne listone reale → aggiornare alias in `backend/api/routers/players.py` (`_find_columns`)
+    2. Formato colonne formazioni reale → aggiornare parser in `backend/api/routers/lineups.py` (`_parse_excel`)
+    3. Aggiornare `prompts/backend/05-import-formazioni.md` con il formato reale
+    4. Aggiungere test con file Excel reale (o campione anonimizzato)
 
 ---
 
