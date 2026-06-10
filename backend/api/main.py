@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from backend.api.db import init_db
-from backend.api.routers import auth, league, lineups, mapping, matchday, players
+from backend.api.routers import auth, league, lineups, mapping, matchday, players, standings
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ app.include_router(players.router)
 app.include_router(mapping.router)
 app.include_router(matchday.router)
 app.include_router(lineups.router)
+app.include_router(standings.router)
 
 
 @app.get("/health")
