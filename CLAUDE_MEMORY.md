@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/task-09-nsvx6j`
-**PR in corso:** da aprire — task/09-layout-base
+**Branch attivo:** `claude/memory-cr-labels-check-3fbvsq`
+**PR in corso:** nessuna — tutte le PR fino al task 09 sono state mergiate
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,8 +11,7 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `claude/task-09-nsvx6j` → `main` per il task 09 (layout base)
-2. Implementa task 10 seguendo `prompts/frontend/10-admin-pages.md`
+1. Implementa task 10 seguendo `prompts/frontend/10-admin-pages.md`
 3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -60,13 +59,13 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 
 ## PR completate
 
-- [#1](https://github.com/simonediroma/fantanostalgia/pull/1) — task/00-seed-poc (aperta, da mergiare)
-- [#2](https://github.com/simonediroma/fantanostalgia/pull/2) — task/01-bootstrap (aperta, da mergiare)
-- [#3](https://github.com/simonediroma/fantanostalgia/pull/3) — task/02-import-listone (aperta, da mergiare)
-- PR #4 da aprire — task/03-mapping-alter-ego (`claude/gallant-archimedes-lwbn3i`)
-- [#8](https://github.com/simonediroma/fantanostalgia/pull/8) — task/04-apertura-buste (`claude/kind-volta-oqq3rf`)
-- PR da aprire — task/05-import-formazioni (`claude/tender-allen-uyaspn`)
-- PR da aprire — task/06-sorteggio-giornata (`claude/prossimo-task-gztmd8`)
-- PR da aprire — task/07-calcolo-punteggi (`claude/prlssimo-task-fzkcwv`)
-- PR da aprire — task/08-api-classifica (`claude/memory-file-review-fecztn`)
-- PR da aprire — task/09-layout-base (`claude/task-09-nsvx6j`)
+- [#1](https://github.com/simonediroma/fantanostalgia/pull/1) — task/00-seed-poc ✓ mergiata
+- [#2](https://github.com/simonediroma/fantanostalgia/pull/2) — task/01-bootstrap ✓ mergiata
+- [#3](https://github.com/simonediroma/fantanostalgia/pull/3) — task/02-import-listone ✓ mergiata
+- [#7](https://github.com/simonediroma/fantanostalgia/pull/7) — task/03-mapping-alter-ego (`claude/gallant-archimedes-lwbn3i`) ✓ mergiata
+- [#8](https://github.com/simonediroma/fantanostalgia/pull/8) — task/04-apertura-buste (`claude/kind-volta-oqq3rf`) ✓ mergiata
+- [#9](https://github.com/simonediroma/fantanostalgia/pull/9) — task/05-import-formazioni (`claude/tender-allen-uyaspn`) ✓ mergiata
+- [#10](https://github.com/simonediroma/fantanostalgia/pull/10) — task/06-sorteggio-giornata (`claude/prossimo-task-gztmd8`) ✓ mergiata
+- [#11](https://github.com/simonediroma/fantanostalgia/pull/11) — task/07-calcolo-punteggi (`claude/prlssimo-task-fzkcwv`) ✓ mergiata
+- [#12](https://github.com/simonediroma/fantanostalgia/pull/12) — task/08-api-classifica (`claude/memory-file-review-fecztn`) ✓ mergiata
+- [#13](https://github.com/simonediroma/fantanostalgia/pull/13) — task/09-layout-base (`claude/task-09-nsvx6j`) ✓ mergiata
