@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/memory-file-review-fecztn`
-**PR in corso:** da aprire — task/08-api-classifica
+**Branch attivo:** `claude/task-09-nsvx6j`
+**PR in corso:** da aprire — task/09-layout-base
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,8 +11,8 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `claude/memory-file-review-fecztn` → `main` per il task 08 (API classifica)
-2. Implementa task 09 seguendo `prompts/frontend/09-layout-base.md`
+1. Apri PR `claude/task-09-nsvx6j` → `main` per il task 09 (layout base)
+2. Implementa task 10 seguendo `prompts/frontend/10-admin-pages.md`
 3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -36,7 +36,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **08** — API classifica pubblica → `prompts/backend/08-api-classifica.md` (branch: `claude/memory-file-review-fecztn`)
 
 ### Epica 2 — Frontend
-- [ ] **09** — Layout base + navigazione → `prompts/frontend/09-layout-base.md`
+- [x] **09** — Layout base + navigazione → `prompts/frontend/09-layout-base.md` (branch: `claude/task-09-nsvx6j`)
 - [ ] **10** — Admin pages (setup + listone + mapping + formazioni) → `prompts/frontend/10-admin-pages.md`
 - [ ] **11** — Pagine pubbliche SSR Jinja2 → `prompts/frontend/11-pagine-pubbliche.md`
 
@@ -69,3 +69,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - PR da aprire — task/06-sorteggio-giornata (`claude/prossimo-task-gztmd8`)
 - PR da aprire — task/07-calcolo-punteggi (`claude/prlssimo-task-fzkcwv`)
 - PR da aprire — task/08-api-classifica (`claude/memory-file-review-fecztn`)
+- PR da aprire — task/09-layout-base (`claude/task-09-nsvx6j`)
