@@ -58,4 +58,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#2](https://github.com/simonediroma/fantanostalgia/pull/2) — task/01-bootstrap (aperta, da mergiare)
 - [#3](https://github.com/simonediroma/fantanostalgia/pull/3) — task/02-import-listone (aperta, da mergiare)
 - PR #4 da aprire — task/03-mapping-alter-ego (`claude/gallant-archimedes-lwbn3i`)
-- PR #5 da aprire — task/04-apertura-buste (`claude/kind-volta-oqq3rf`)
+- [#8](https://github.com/simonediroma/fantanostalgia/pull/8) — task/04-apertura-buste (`claude/kind-volta-oqq3rf`)
