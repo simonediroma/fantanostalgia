@@ -1,0 +1,8 @@
+FROM nginx:alpine
+
+COPY frontend/public/ /usr/share/nginx/html/
+COPY frontend/src/ /usr/share/nginx/html/
+
+EXPOSE 8080
+
+CMD ["nginx", "-g", "daemon off;"]

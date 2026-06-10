@@ -1,0 +1,64 @@
+steps:
+  # Build backend
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - build
+      - -t
+      - "gcr.io/$PROJECT_ID/fantanostalgia-api:$COMMIT_SHA"
+      - -f
+      - Dockerfile.backend
+      - .
+
+  # Build frontend
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - build
+      - -t
+      - "gcr.io/$PROJECT_ID/fantanostalgia-web:$COMMIT_SHA"
+      - -f
+      - Dockerfile.frontend
+      - .
+
+  # Push backend
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - "gcr.io/$PROJECT_ID/fantanostalgia-api:$COMMIT_SHA"
+
+  # Push frontend
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - "gcr.io/$PROJECT_ID/fantanostalgia-web:$COMMIT_SHA"
+
+  # Deploy backend su Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - fantanostalgia-api
+      - --image=gcr.io/$PROJECT_ID/fantanostalgia-api:$COMMIT_SHA
+      - --region=europe-west1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --set-env-vars=ENV=production,GCS_BUCKET=$_GCS_BUCKET,GCP_PROJECT=$PROJECT_ID
+
+  # Deploy frontend su Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - fantanostalgia-web
+      - --image=gcr.io/$PROJECT_ID/fantanostalgia-web:$COMMIT_SHA
+      - --region=europe-west1
+      - --platform=managed
+      - --allow-unauthenticated
+
+substitutions:
+  _GCS_BUCKET: fantanostalgia-db
+
+images:
+  - "gcr.io/$PROJECT_ID/fantanostalgia-api:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/fantanostalgia-web:$COMMIT_SHA"
