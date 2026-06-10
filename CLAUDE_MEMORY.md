@@ -56,4 +56,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 ## PR completate
 
 - [#1](https://github.com/simonediroma/fantanostalgia/pull/1) — task/00-seed-poc (aperta, da mergiare)
-- task/01-bootstrap — pushato, da aprire PR
+- [#2](https://github.com/simonediroma/fantanostalgia/pull/2) — task/01-bootstrap (aperta, da mergiare)
