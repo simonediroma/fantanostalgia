@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS league (
     season_historic TEXT NOT NULL,
     budget INTEGER DEFAULT 500,
     buste_aperte INTEGER DEFAULT 0,
+    buste_aperte_at TIMESTAMP,
     mapping_seed TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

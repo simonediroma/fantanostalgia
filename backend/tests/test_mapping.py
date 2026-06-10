@@ -233,3 +233,84 @@ def test_mapping_seed_saved(client):
         row = conn.execute("SELECT mapping_seed FROM league WHERE id = ?", (league_id,)).fetchone()
     assert row["mapping_seed"] is not None
     assert len(row["mapping_seed"]) > 0
+
+
+# ── Reveal (apertura buste) ───────────────────────────────────────────────────
+
+def _setup_with_mapping(client) -> int:
+    _seed_historic(client)
+    league_id, _ = _create_league_with_listone(client)
+    client.post(f"/admin/league/{league_id}/mapping/generate")
+    return league_id
+
+
+def test_reveal_ok(client):
+    league_id = _setup_with_mapping(client)
+
+    r = client.post(f"/admin/league/{league_id}/mapping/reveal")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "league" in data
+    assert "managers" in data
+    assert "buste_aperte_at" in data
+    assert data["buste_aperte_at"] is not None
+    assert len(data["managers"]) > 0
+
+
+def test_reveal_already_open(client):
+    league_id = _setup_with_mapping(client)
+
+    client.post(f"/admin/league/{league_id}/mapping/reveal")
+    r = client.post(f"/admin/league/{league_id}/mapping/reveal")
+    assert r.status_code == 400
+    assert "già aperte" in r.json()["detail"]
+
+
+def test_reveal_404(client):
+    r = client.post("/admin/league/99999/mapping/reveal")
+    assert r.status_code == 404
+
+
+def test_reveal_requires_auth(client):
+    client.post("/auth/logout")
+    r = client.post("/admin/league/1/mapping/reveal")
+    assert r.status_code == 401
+    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
+
+
+# ── Public mapping ────────────────────────────────────────────────────────────
+
+def test_public_mapping_not_open(client):
+    league_id = _setup_with_mapping(client)
+
+    r = client.get(f"/league/{league_id}/mapping")
+    assert r.status_code == 404
+    assert "non sono ancora state aperte" in r.json()["detail"]
+
+
+def test_public_mapping_ok(client):
+    league_id = _setup_with_mapping(client)
+    client.post(f"/admin/league/{league_id}/mapping/reveal")
+
+    r = client.get(f"/league/{league_id}/mapping")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["league"] is not None
+    assert data["season_historic"] == "2003/04"
+    assert data["buste_aperte_at"] is not None
+
+    managers = data["managers"]
+    assert len(managers) > 0
+    for mgr in managers:
+        assert "name" in mgr
+        assert "players" in mgr
+        for p in mgr["players"]:
+            assert "current" in p
+            assert "historic" in p
+            assert "is_duplicate" in p
+            assert p["current"]["role"] == p["historic"]["role"]
+
+
+def test_public_mapping_404(client):
+    r = client.get("/league/99999/mapping")
+    assert r.status_code == 404

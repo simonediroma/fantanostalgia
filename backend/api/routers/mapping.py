@@ -55,6 +55,93 @@ def generate_alter_ego_mapping(
     }
 
 
+def _build_public_mapping(conn, league_id: int) -> dict:
+    league = conn.execute(
+        "SELECT name, season_historic, buste_aperte_at FROM league WHERE id = ?", (league_id,)
+    ).fetchone()
+
+    rows = conn.execute(
+        """
+        SELECT
+            m.name   AS manager_name,
+            pc.name  AS current_name,
+            pc.role,
+            pc.team  AS current_team,
+            ph.name  AS historic_name,
+            ph.team  AS historic_team,
+            ph.season AS historic_season,
+            ae.is_duplicate
+        FROM alter_ego ae
+        JOIN player_current  pc ON pc.id = ae.player_current_id
+        JOIN player_historic ph ON ph.id = ae.player_historic_id
+        LEFT JOIN manager    m  ON m.id  = pc.manager_id
+        WHERE ae.league_id = ?
+        ORDER BY m.name, pc.role, pc.name
+        """,
+        (league_id,),
+    ).fetchall()
+
+    managers: dict[str, list] = {}
+    for r in rows:
+        key = r["manager_name"] or ""
+        managers.setdefault(key, []).append({
+            "current": {"name": r["current_name"], "role": r["role"], "team": r["current_team"]},
+            "historic": {
+                "name": r["historic_name"],
+                "role": r["role"],
+                "team": r["historic_team"],
+                "season": r["historic_season"],
+            },
+            "is_duplicate": bool(r["is_duplicate"]),
+        })
+
+    return {
+        "league": league["name"],
+        "season_historic": league["season_historic"],
+        "buste_aperte_at": league["buste_aperte_at"],
+        "managers": [{"name": name, "players": players} for name, players in managers.items()],
+    }
+
+
+@router.post("/admin/league/{league_id}/mapping/reveal")
+def reveal_mapping(
+    league_id: int,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        _require_league(conn, league_id)
+
+        league = conn.execute(
+            "SELECT buste_aperte FROM league WHERE id = ?", (league_id,)
+        ).fetchone()
+        if league["buste_aperte"] == 1:
+            raise HTTPException(status_code=400, detail="Buste già aperte")
+
+        conn.execute(
+            "UPDATE league SET buste_aperte = 1, buste_aperte_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (league_id,),
+        )
+        result = _build_public_mapping(conn, league_id)
+
+    return result
+
+
+@router.get("/league/{league_id}/mapping")
+def get_public_mapping(league_id: int):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT id, buste_aperte FROM league WHERE id = ?", (league_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Lega non trovata")
+        if row["buste_aperte"] == 0:
+            raise HTTPException(status_code=404, detail="Le buste non sono ancora state aperte")
+
+        result = _build_public_mapping(conn, league_id)
+
+    return result
+
+
 @router.get("/admin/league/{league_id}/mapping")
 def get_mapping(
     league_id: int,
