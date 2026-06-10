@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/kind-volta-oqq3rf`
-**PR in corso:** da aprire — task/04-apertura-buste
+**Branch attivo:** `claude/tender-allen-uyaspn`
+**PR in corso:** da aprire — task/05-import-formazioni
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,9 +11,9 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `claude/gallant-archimedes-lwbn3i` → `main` per il task 03 (mapping alter ego) se non già fatto
-2. Apri PR `claude/kind-volta-oqq3rf` → `main` per il task 04 (apertura buste)
-3. Dopo merge, implementa task 05 seguendo `prompts/backend/05-import-formazioni.md`
+1. Apri PR `claude/tender-allen-uyaspn` → `main` per il task 05 (import formazioni, formato POC)
+2. Implementa task 06 seguendo `prompts/backend/06-sorteggio-giornata.md`
+3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -30,7 +30,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **02** — Import listone Excel → `prompts/backend/02-import-listone.md` (branch: `claude/nice-albattani-4197op`)
 - [x] **03** — Algoritmo mapping alter ego → `prompts/backend/03-mapping-alter-ego.md` (branch: `claude/gallant-archimedes-lwbn3i`)
 - [x] **04** — Apertura buste → `prompts/backend/04-apertura-buste.md` (branch: `claude/kind-volta-oqq3rf`)
-- [ ] **05** — Import formazioni Excel → `prompts/backend/05-import-formazioni.md`
+- [x] **05** — Import formazioni Excel → `prompts/backend/05-import-formazioni.md` (branch: `claude/tender-allen-uyaspn`, formato POC)
 - [ ] **06** — Sorteggio giornata storica → `prompts/backend/06-sorteggio-giornata.md`
 - [ ] **07** — Calcolo punteggi → `prompts/backend/07-calcolo-punteggi.md`
 - [ ] **08** — API classifica pubblica → `prompts/backend/08-api-classifica.md`
@@ -44,6 +44,12 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [ ] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md`
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
 - [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
+- [ ] **15** — Adattamento formato Excel reale → `prompts/utilities/15-adattamento-excel-reale.md`
+  - Quando disponibili gli Excel definitivi (formazioni + listone), verificare:
+    1. Formato colonne listone reale → aggiornare alias in `backend/api/routers/players.py` (`_find_columns`)
+    2. Formato colonne formazioni reale → aggiornare parser in `backend/api/routers/lineups.py` (`_parse_excel`)
+    3. Aggiornare `prompts/backend/05-import-formazioni.md` con il formato reale
+    4. Aggiungere test con file Excel reale (o campione anonimizzato)
 
 ---
 
@@ -59,3 +65,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#3](https://github.com/simonediroma/fantanostalgia/pull/3) — task/02-import-listone (aperta, da mergiare)
 - PR #4 da aprire — task/03-mapping-alter-ego (`claude/gallant-archimedes-lwbn3i`)
 - [#8](https://github.com/simonediroma/fantanostalgia/pull/8) — task/04-apertura-buste (`claude/kind-volta-oqq3rf`)
+- PR da aprire — task/05-import-formazioni (`claude/tender-allen-uyaspn`)
