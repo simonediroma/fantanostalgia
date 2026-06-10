@@ -2,8 +2,8 @@
 > Gitignored. Aggiornato da Claude a fine sessione.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `task/00-seed-poc` (pushato, PR da aprire)
-**PR in corso:** nessuna
+**Branch attivo:** `task/00-seed-poc`
+**PR in corso:** [#1 — task/00-seed-poc → main](https://github.com/simonediroma/fantanostalgia/pull/1)
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -55,4 +55,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 
 ## PR completate
 
-nessuna
+- [#1](https://github.com/simonediroma/fantanostalgia/pull/1) — task/00-seed-poc (aperta, da mergiare)
