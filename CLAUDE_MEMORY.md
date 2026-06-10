@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/gallant-archimedes-lwbn3i`
-**PR in corso:** da aprire — task/03-mapping-alter-ego
+**Branch attivo:** `claude/kind-volta-oqq3rf`
+**PR in corso:** da aprire — task/04-apertura-buste
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,10 +11,9 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `claude/gallant-archimedes-lwbn3i` → `main` per il task 03 (mapping alter ego)
-2. Dopo merge, crea branch `task/04-apertura-buste` da `main`
-3. Implementa task 04 seguendo `prompts/backend/04-apertura-buste.md`
-4. Apri PR `task/04-apertura-buste` → `main`
+1. Apri PR `claude/gallant-archimedes-lwbn3i` → `main` per il task 03 (mapping alter ego) se non già fatto
+2. Apri PR `claude/kind-volta-oqq3rf` → `main` per il task 04 (apertura buste)
+3. Dopo merge, implementa task 05 seguendo `prompts/backend/05-import-formazioni.md`
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -30,7 +29,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **01** — Bootstrap (DB + Auth + Gestione Lega) → `prompts/backend/01-bootstrap.md` (branch: `task/01-bootstrap`)
 - [x] **02** — Import listone Excel → `prompts/backend/02-import-listone.md` (branch: `claude/nice-albattani-4197op`)
 - [x] **03** — Algoritmo mapping alter ego → `prompts/backend/03-mapping-alter-ego.md` (branch: `claude/gallant-archimedes-lwbn3i`)
-- [ ] **04** — Apertura buste → `prompts/backend/04-apertura-buste.md`
+- [x] **04** — Apertura buste → `prompts/backend/04-apertura-buste.md` (branch: `claude/kind-volta-oqq3rf`)
 - [ ] **05** — Import formazioni Excel → `prompts/backend/05-import-formazioni.md`
 - [ ] **06** — Sorteggio giornata storica → `prompts/backend/06-sorteggio-giornata.md`
 - [ ] **07** — Calcolo punteggi → `prompts/backend/07-calcolo-punteggi.md`
@@ -59,3 +58,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#2](https://github.com/simonediroma/fantanostalgia/pull/2) — task/01-bootstrap (aperta, da mergiare)
 - [#3](https://github.com/simonediroma/fantanostalgia/pull/3) — task/02-import-listone (aperta, da mergiare)
 - PR #4 da aprire — task/03-mapping-alter-ego (`claude/gallant-archimedes-lwbn3i`)
+- PR #5 da aprire — task/04-apertura-buste (`claude/kind-volta-oqq3rf`)
