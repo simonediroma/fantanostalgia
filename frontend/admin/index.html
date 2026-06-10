@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FantaNostalgia — Admin</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --accent: #c8a96e;
+      --text: #f0ece0;
+      --muted: #888;
+      --green: #4caf50;
+      --red: #e53935;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.65rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .topbar .logo {
+      font-family: Georgia, serif;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+    .topbar .badge {
+      background: var(--border);
+      color: var(--muted);
+      border-radius: 3px;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      font-family: monospace;
+    }
+    .login-box { display: flex; gap: 0.5rem; align-items: center; }
+    .login-box input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 0.3rem 0.6rem;
+      width: 160px;
+    }
+    .login-box input:focus { outline: 1px solid var(--accent); }
+    button {
+      background: var(--accent);
+      border: none;
+      border-radius: 3px;
+      color: var(--bg);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.35rem 0.9rem;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button.secondary {
+      background: var(--border);
+      color: var(--text);
+      font-weight: 400;
+    }
+    button.danger { background: var(--red); color: #fff; }
+
+    /* ── Layout ──────────────────────────────────────────── */
+    .app { display: flex; flex: 1; }
+
+    aside {
+      width: 200px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1rem 0;
+    }
+
+    aside nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      padding: 0.5rem 1.25rem;
+      transition: color 0.12s, background 0.12s;
+    }
+    aside nav a:hover { color: var(--text); }
+    aside nav a.active {
+      color: var(--accent);
+      background: rgba(200, 169, 110, 0.07);
+      border-left: 2px solid var(--accent);
+      padding-left: calc(1.25rem - 2px);
+    }
+
+    .section-label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-family: Georgia, serif;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.9rem 1.25rem 0.3rem;
+    }
+
+    /* ── Content ─────────────────────────────────────────── */
+    .content { flex: 1; padding: 1.75rem 2rem; overflow-y: auto; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    h2 {
+      font-family: Georgia, serif;
+      color: var(--accent);
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Cards / panels ──────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .panel h3 {
+      font-family: Georgia, serif;
+      color: var(--accent);
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    form { display: flex; flex-direction: column; gap: 0.6rem; max-width: 400px; }
+    label { font-size: 0.82rem; color: var(--muted); }
+    input[type="text"], input[type="number"], select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      font-size: 0.875rem;
+      padding: 0.4rem 0.65rem;
+      width: 100%;
+    }
+    input:focus, select:focus { outline: 1px solid var(--accent); }
+
+    /* ── Table ───────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      color: var(--accent);
+      font-family: Georgia, serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--surface); }
+    tbody td { padding: 0.5rem 0.75rem; }
+
+    /* ── Status messages ─────────────────────────────────── */
+    .msg {
+      border-radius: 3px;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      padding: 0.5rem 0.85rem;
+    }
+    .msg.ok { background: rgba(76,175,80,0.15); color: var(--green); border: 1px solid var(--green); }
+    .msg.err { background: rgba(229,57,53,0.15); color: var(--red); border: 1px solid var(--red); }
+
+    .empty { color: var(--muted); font-style: italic; font-size: 0.875rem; padding: 0.5rem 0; }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 640px) {
+      aside { display: none; }
+      .content { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">⚽ FantaNostalgia <span class="badge">admin</span></span>
+  <div class="login-box" id="loginBox">
+    <input type="password" id="tokenInput" placeholder="Token admin">
+    <button onclick="setToken()">Accedi</button>
+  </div>
+  <div id="loggedBox" style="display:none;gap:0.5rem;align-items:center;display:none">
+    <span id="loggedLabel" style="font-size:0.8rem;color:var(--muted)"></span>
+    <button class="secondary" onclick="logout()">Esci</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside>
+    <div class="section-label">Lega</div>
+    <nav>
+      <a href="#leghe" class="nav-link active" onclick="navigate('leghe',this)">Leghe</a>
+    </nav>
+    <div class="section-label">Roster</div>
+    <nav>
+      <a href="#listone" class="nav-link" onclick="navigate('listone',this)">Listone Excel</a>
+      <a href="#mapping" class="nav-link" onclick="navigate('mapping',this)">Mapping Alter Ego</a>
+    </nav>
+    <div class="section-label">Giornata</div>
+    <nav>
+      <a href="#formazioni" class="nav-link" onclick="navigate('formazioni',this)">Formazioni</a>
+      <a href="#sorteggio" class="nav-link" onclick="navigate('sorteggio',this)">Sorteggio</a>
+    </nav>
+    <div class="section-label">Pubblico</div>
+    <nav>
+      <a href="/" target="_blank">← Vai al sito</a>
+    </nav>
+  </aside>
+
+  <div class="content">
+
+    <!-- Leghe -->
+    <div class="page active" id="page-leghe">
+      <h2>Leghe</h2>
+      <div id="leagueMsg"></div>
+      <div id="leagueList" class="table-wrap"><div class="empty">Caricamento…</div></div>
+
+      <div class="panel" style="margin-top:1.5rem">
+        <h3>Nuova lega</h3>
+        <form id="createLeagueForm" onsubmit="createLeague(event)">
+          <label>Nome</label>
+          <input type="text" id="lName" required>
+          <label>Stagione corrente (es. 2024/25)</label>
+          <input type="text" id="lCurrent" required>
+          <label>Stagione storica (es. 2003/04)</label>
+          <input type="text" id="lHistoric" required>
+          <label>Budget</label>
+          <input type="number" id="lBudget" value="500" min="100" required>
+          <div style="margin-top:0.25rem">
+            <button type="submit">Crea lega</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Listone -->
+    <div class="page" id="page-listone">
+      <h2>Listone Excel</h2>
+      <div id="listonMsg"></div>
+      <div class="panel">
+        <h3>Carica listone</h3>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
+          <label>Lega</label>
+          <select id="listonLeague"></select>
+          <label>File Excel (.xlsx)</label>
+          <input type="file" id="listonFile" accept=".xlsx"
+                 style="color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0.4rem 0.65rem">
+          <div style="margin-top:0.25rem">
+            <button onclick="uploadListone()">Carica</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mapping -->
+    <div class="page" id="page-mapping">
+      <h2>Mapping Alter Ego</h2>
+      <div id="mappingMsg"></div>
+      <div class="panel">
+        <h3>Genera mapping</h3>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
+          <label>Lega</label>
+          <select id="mappingLeague"></select>
+          <div style="display:flex;gap:0.5rem;margin-top:0.25rem;flex-wrap:wrap">
+            <button onclick="generateMapping()">Genera mapping</button>
+            <button class="secondary" onclick="revealMapping()">Apri buste</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formazioni -->
+    <div class="page" id="page-formazioni">
+      <h2>Formazioni</h2>
+      <div id="formazioniMsg"></div>
+      <div class="panel">
+        <h3>Carica formazioni</h3>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
+          <label>Lega</label>
+          <select id="formazioniLeague"></select>
+          <label>Giornata</label>
+          <input type="number" id="formazioniGiornata" min="1" placeholder="es. 1">
+          <label>File Excel (.xlsx)</label>
+          <input type="file" id="formazioniFile" accept=".xlsx"
+                 style="color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0.4rem 0.65rem">
+          <div style="margin-top:0.25rem">
+            <button onclick="uploadFormazioni()">Carica</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sorteggio -->
+    <div class="page" id="page-sorteggio">
+      <h2>Sorteggio Giornata Storica</h2>
+      <div id="sorteggioMsg"></div>
+      <div class="panel">
+        <h3>Esegui sorteggio</h3>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
+          <label>Lega</label>
+          <select id="sorteggioLeague"></select>
+          <div style="margin-top:0.25rem">
+            <button onclick="drawMatchday()">Sorteggia giornata</button>
+          </div>
+        </div>
+      </div>
+      <div id="sorteggioResult"></div>
+    </div>
+
+  </div><!-- .content -->
+</div><!-- .app -->
+
+<script>
+const API = '';  // same origin
+
+let token = localStorage.getItem('fn_token') || '';
+if (token) showLoggedIn();
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+function setToken() {
+  token = document.getElementById('tokenInput').value.trim();
+  if (!token) return;
+  localStorage.setItem('fn_token', token);
+  showLoggedIn();
+  loadAll();
+}
+
+function logout() {
+  token = '';
+  localStorage.removeItem('fn_token');
+  document.getElementById('loggedBox').style.display = 'none';
+  document.getElementById('loginBox').style.display = 'flex';
+}
+
+function showLoggedIn() {
+  document.getElementById('loginBox').style.display = 'none';
+  const box = document.getElementById('loggedBox');
+  box.style.display = 'flex';
+  document.getElementById('loggedLabel').textContent = 'Admin';
+  loadAll();
+}
+
+function authHeaders() {
+  return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function navigate(page, el) {
+  event.preventDefault();
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── Generic helpers ──────────────────────────────────────────────────────────
+function showMsg(id, text, isError) {
+  const el = document.getElementById(id);
+  el.innerHTML = `<div class="msg ${isError ? 'err' : 'ok'}">${text}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+// ── Leagues ──────────────────────────────────────────────────────────────────
+async function loadLeagues() {
+  const leagues = await apiFetch('/league').catch(() => []);
+
+  // table
+  const wrap = document.getElementById('leagueList');
+  if (!leagues.length) { wrap.innerHTML = '<div class="empty">Nessuna lega.</div>'; }
+  else {
+    wrap.innerHTML = `<table>
+      <thead><tr><th>#</th><th>Nome</th><th>Corrente</th><th>Storica</th><th>Budget</th></tr></thead>
+      <tbody>${leagues.map(l => `
+        <tr>
+          <td>${l.id}</td>
+          <td>${l.name}</td>
+          <td>${l.season_current}</td>
+          <td>${l.season_historic}</td>
+          <td>${l.budget ?? '—'}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  // populate selects
+  ['listonLeague','mappingLeague','formazioniLeague','sorteggioLeague'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = leagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+  });
+
+  return leagues;
+}
+
+async function createLeague(e) {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('lName').value,
+    season_current: document.getElementById('lCurrent').value,
+    season_historic: document.getElementById('lHistoric').value,
+    budget: parseInt(document.getElementById('lBudget').value),
+  };
+  try {
+    await apiFetch('/admin/league', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+    showMsg('leagueMsg', 'Lega creata.');
+    e.target.reset();
+    loadLeagues();
+  } catch (err) {
+    showMsg('leagueMsg', err.message, true);
+  }
+}
+
+// ── Listone ──────────────────────────────────────────────────────────────────
+async function uploadListone() {
+  const leagueId = document.getElementById('listonLeague').value;
+  const file = document.getElementById('listonFile').files[0];
+  if (!file) { showMsg('listonMsg', 'Seleziona un file Excel.', true); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    await fetch(`/admin/league/${leagueId}/players/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: fd,
+    }).then(async r => { if (!r.ok) throw new Error((await r.json()).detail); return r.json(); });
+    showMsg('listonMsg', 'Listone caricato.');
+  } catch (err) {
+    showMsg('listonMsg', err.message, true);
+  }
+}
+
+// ── Mapping ──────────────────────────────────────────────────────────────────
+async function generateMapping() {
+  const id = document.getElementById('mappingLeague').value;
+  try {
+    const res = await apiFetch(`/admin/league/${id}/mapping/generate`, {
+      method: 'POST', headers: authHeaders(),
+    });
+    showMsg('mappingMsg', `Mapping generato: ${res.mapped} giocatori mappati.`);
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
+  }
+}
+
+async function revealMapping() {
+  if (!confirm('Aprire le buste? L\'operazione è irreversibile.')) return;
+  const id = document.getElementById('mappingLeague').value;
+  try {
+    await apiFetch(`/admin/league/${id}/mapping/reveal`, { method: 'POST', headers: authHeaders() });
+    showMsg('mappingMsg', 'Buste aperte. Il mapping è ora pubblico.');
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
+  }
+}
+
+// ── Formazioni ───────────────────────────────────────────────────────────────
+async function uploadFormazioni() {
+  const leagueId = document.getElementById('formazioniLeague').value;
+  const matchday = document.getElementById('formazioniGiornata').value;
+  const file = document.getElementById('formazioniFile').files[0];
+  if (!file || !matchday) { showMsg('formazioniMsg', 'Compila tutti i campi.', true); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    await fetch(`/admin/league/${leagueId}/lineups/upload?matchday=${matchday}`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: fd,
+    }).then(async r => { if (!r.ok) throw new Error((await r.json()).detail); return r.json(); });
+    showMsg('formazioniMsg', 'Formazioni caricate.');
+  } catch (err) {
+    showMsg('formazioniMsg', err.message, true);
+  }
+}
+
+// ── Sorteggio ─────────────────────────────────────────────────────────────────
+async function drawMatchday() {
+  const id = document.getElementById('sorteggioLeague').value;
+  try {
+    const res = await apiFetch(`/admin/league/${id}/matchday/draw`, {
+      method: 'POST', headers: authHeaders(),
+    });
+    document.getElementById('sorteggioResult').innerHTML = `
+      <div class="panel" style="margin-top:1rem">
+        <h3>Risultato sorteggio</h3>
+        <p>Giornata corrente: <strong>${res.matchday_current}</strong></p>
+        <p>Giornata storica: <strong>${res.matchday_historic}</strong></p>
+      </div>`;
+    showMsg('sorteggioMsg', 'Sorteggio completato.');
+  } catch (err) {
+    showMsg('sorteggioMsg', err.message, true);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function loadAll() {
+  await loadLeagues();
+}
+
+if (token) loadAll();
+</script>
+</body>
+</html>

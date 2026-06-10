@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Classifica — {{ league.name }}{% endblock %}
+
+{% block nav %}
+<a href="/">Home</a>
+<a href="/lega/{{ league.id }}/mapping">Alter Ego</a>
+{% endblock %}
+
+{% block content %}
+<h1>{{ league.name }}</h1>
+<p class="subtitle">
+  Stagione {{ league.season_current }} &nbsp;·&nbsp;
+  Storica: {{ league.season_historic }}
+  {% if last_matchday %}&nbsp;·&nbsp; Giornata {{ last_matchday }}{% endif %}
+</p>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('nostalgia', this)">FantaNostalgia</button>
+  <button class="tab-btn" onclick="switchTab('normale', this)">Normale</button>
+</div>
+
+<div id="tab-nostalgia" class="tab-panel active">
+  {% if nostalgia %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Manager</th>
+          <th>Totale</th>
+          <th>Ultima giornata</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in nostalgia %}
+        <tr>
+          <td class="rank">{{ row.rank or '—' }}</td>
+          <td>{{ row.manager }}</td>
+          <td class="total">{{ '%.1f'|format(row.total or 0) }}</td>
+          <td class="score">
+            {% if row.last_matchday is not none %}
+              {{ '%.1f'|format(row.last_matchday) }}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Nessun dato disponibile.</div>
+  {% endif %}
+</div>
+
+<div id="tab-normale" class="tab-panel">
+  {% if normal %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Manager</th>
+          <th>Totale</th>
+          <th>Ultima giornata</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in normal %}
+        <tr>
+          <td class="rank">{{ row.rank or '—' }}</td>
+          <td>{{ row.manager }}</td>
+          <td class="total">{{ '%.1f'|format(row.total or 0) }}</td>
+          <td class="score">
+            {% if row.last_matchday is not none %}
+              {{ '%.1f'|format(row.last_matchday) }}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Nessun dato disponibile.</div>
+  {% endif %}
+</div>
+
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}

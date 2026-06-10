@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}FantaNostalgia{% endblock %}
+
+{% block content %}
+<h1>FantaNostalgia</h1>
+<p class="subtitle">Le leghe attive</p>
+
+{% if leagues %}
+<div class="league-list">
+  {% for league in leagues %}
+  <a href="/lega/{{ league.id }}/classifica" class="league-card">
+    <h3>{{ league.name }}</h3>
+    <div class="seasons">
+      Stagione corrente: {{ league.season_current }} &nbsp;·&nbsp;
+      Stagione storica: {{ league.season_historic }}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">Nessuna lega disponibile.</div>
+{% endif %}
+{% endblock %}
