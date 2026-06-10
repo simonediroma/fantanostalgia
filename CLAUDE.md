@@ -10,8 +10,8 @@
    - Aggiorna `Ultima sessione` con la data odierna
    - Scrivi `Prossima sessione — inizia da qui` in modo esplicito e actionable
    - Aggiorna `PR corrente` e `Branch` se cambiati
-3. **Branch:** lavora sempre su `main`. Mai push su `main`.
-4. **PR:** una PR per sessione di lavoro. Ogni PR deve essere indipendente e reviewable.
+3. **Branch:** crea un branch dedicato per ogni task, con naming `task/NN-nome-breve` (es. `task/01-bootstrap`). Parti sempre da `main` aggiornato. Mai push diretto su `main`.
+4. **PR:** una PR per task. Ogni PR dal branch del task verso `main`. Ogni PR deve essere indipendente e reviewable. Aggiorna `CLAUDE_MEMORY.md` con il link alla PR aperta.
 5. **File invariati:** non toccare mai `database/schema.sql` senza approvazione esplicita.
 
 ---

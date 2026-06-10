@@ -2,14 +2,20 @@
 > Gitignored. Aggiornato da Claude a fine sessione.
 
 **Ultima sessione:** 2026-06-10
-**Branch:** `main`
+**Branch attivo:** nessuno (prossimo: `task/01-bootstrap`)
 **PR in corso:** nessuna
+
+**Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
 ---
 
 ## Prossima sessione — inizia da qui
 
-Eseguire i task nell'ordine indicato. Ogni task ha un prompt dedicato in `prompts/`.
+1. Crea branch `task/01-bootstrap` da `main`
+2. Implementa task 01 seguendo `prompts/backend/01-bootstrap.md`
+3. Apri PR `task/01-bootstrap` → `main`
+
+Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
 
 ---
