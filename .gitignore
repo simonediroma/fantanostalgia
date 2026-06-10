@@ -1,0 +1,15 @@
+# Database locale (generato da seed_poc.py)
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Venv
+.venv/
+venv/
+
+# OS
+.DS_Store
