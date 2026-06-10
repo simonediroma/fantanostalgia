@@ -14,5 +14,3 @@ venv/
 # OS
 .DS_Store
 
-# Memoria di sessione Claude (locale, non versionata)
-CLAUDE_MEMORY.md
