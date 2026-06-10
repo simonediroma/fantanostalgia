@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Alter Ego — {{ league_name }}{% endblock %}
+
+{% block nav %}
+<a href="/">Home</a>
+<a href="/lega/{{ league_id }}/classifica">Classifica</a>
+{% endblock %}
+
+{% block content %}
+<h1>Alter Ego</h1>
+<p class="subtitle">{{ league_name }} &nbsp;·&nbsp; Stagione storica: {{ season_historic }}</p>
+
+{% if not buste_aperte %}
+<div class="empty">
+  🔒 Le buste non sono ancora state aperte.<br>
+  Il mapping degli alter ego sarà visibile dopo l'apertura ufficiale.
+</div>
+{% else %}
+  {% if managers %}
+    {% for mgr in managers %}
+    <div class="manager-block">
+      <h3>{{ mgr.name }}</h3>
+      {% for p in mgr.players %}
+      <div class="player-row">
+        <div>
+          <span class="role-badge">{{ p.current.role }}</span>
+          {{ p.current.name }}
+          <span style="color:var(--muted);font-size:0.8rem"> ({{ p.current.team }})</span>
+        </div>
+        <div class="arrow">→</div>
+        <div class="historic-name">
+          {{ p.historic.name }}
+          <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ p.historic.team }}</span>
+          {% if p.is_duplicate %}<span class="badge">dup</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty">Nessun mapping disponibile.</div>
+  {% endif %}
+{% endif %}
+{% endblock %}

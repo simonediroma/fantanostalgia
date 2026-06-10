@@ -1,9 +1,11 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.db import init_db
-from backend.api.routers import auth, league, lineups, mapping, matchday, players, standings
+from backend.api.routers import auth, league, lineups, mapping, matchday, players, standings, views
 
 
 @asynccontextmanager
@@ -14,6 +16,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FantaNostalgia API", lifespan=lifespan)
 
+_static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+app.include_router(views.router)
 app.include_router(auth.router)
 app.include_router(league.router)
 app.include_router(players.router)
