@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS matchday_draw (
     league_id INTEGER REFERENCES league(id),
     matchday_current INTEGER NOT NULL,
     matchday_historic INTEGER NOT NULL,
+    cycle INTEGER NOT NULL DEFAULT 1,
     drawn_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -112,3 +113,4 @@ CREATE INDEX IF NOT EXISTS idx_player_historic_season ON player_historic(season)
 CREATE INDEX IF NOT EXISTS idx_historic_rating_player ON historic_rating(player_historic_id);
 CREATE INDEX IF NOT EXISTS idx_alter_ego_league ON alter_ego(league_id);
 CREATE INDEX IF NOT EXISTS idx_standings_league ON standings(league_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_matchday_draw_league_current ON matchday_draw(league_id, matchday_current);
