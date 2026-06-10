@@ -50,7 +50,7 @@ def init_db() -> None:
         except Exception:
             pass  # primo avvio: db non ancora su GCS
 
-    schema_path = os.path.join(os.path.dirname(__file__), "..", "..", "database", "schema.sql")
+    schema_path = os.path.join(os.path.dirname(__file__), "..", "database", "schema.sql")
     with open(schema_path) as f:
         schema = f.read()
 

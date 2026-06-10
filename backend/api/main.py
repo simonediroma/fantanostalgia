@@ -2,8 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.api.db import init_db
-from backend.api.routers import auth, league
+from api.db import init_db
+from api.routers import auth, league
 
 
 @asynccontextmanager

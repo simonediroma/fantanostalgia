@@ -4,8 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator, model_validator
 
-from backend.api.db import get_db
-from backend.api.routers.auth import get_current_admin
+from api.db import get_db
+from api.routers.auth import get_current_admin
 
 router = APIRouter(tags=["league"])
 
