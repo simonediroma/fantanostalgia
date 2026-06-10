@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
 from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
 from pydantic import BaseModel
 
@@ -35,6 +35,25 @@ def get_current_admin(session: str | None = Cookie(default=None, alias=COOKIE_NA
         raise HTTPException(status_code=401, detail="Sessione scaduta")
     except BadSignature:
         raise HTTPException(status_code=401, detail="Sessione non valida")
+
+
+def get_current_admin_or_bearer(
+    session: str | None = Cookie(default=None, alias=COOKIE_NAME),
+    authorization: str | None = Header(default=None),
+) -> str:
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        if token == SECRET_KEY:
+            return "github-actions"
+        raise HTTPException(status_code=401, detail="Bearer token non valido")
+    if session:
+        try:
+            return _verify_session_cookie(session)
+        except SignatureExpired:
+            raise HTTPException(status_code=401, detail="Sessione scaduta")
+        except BadSignature:
+            raise HTTPException(status_code=401, detail="Sessione non valida")
+    raise HTTPException(status_code=401, detail="Non autenticato")
 
 
 class LoginBody(BaseModel):

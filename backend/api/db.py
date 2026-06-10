@@ -56,6 +56,10 @@ def init_db() -> None:
 
     with sqlite3.connect(_get_db_path()) as conn:
         conn.executescript(schema)
+        try:
+            conn.execute("ALTER TABLE matchday_draw ADD COLUMN cycle INTEGER NOT NULL DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass  # colonna già presente
         conn.commit()
 
 

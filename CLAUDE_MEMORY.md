@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/tender-allen-uyaspn`
-**PR in corso:** da aprire — task/05-import-formazioni
+**Branch attivo:** `claude/prossimo-task-gztmd8`
+**PR in corso:** da aprire — task/06-sorteggio-giornata
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,8 +11,8 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `claude/tender-allen-uyaspn` → `main` per il task 05 (import formazioni, formato POC)
-2. Implementa task 06 seguendo `prompts/backend/06-sorteggio-giornata.md`
+1. Apri PR `claude/prossimo-task-gztmd8` → `main` per il task 06 (sorteggio giornata storica)
+2. Implementa task 07 seguendo `prompts/backend/07-calcolo-punteggi.md`
 3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -31,7 +31,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **03** — Algoritmo mapping alter ego → `prompts/backend/03-mapping-alter-ego.md` (branch: `claude/gallant-archimedes-lwbn3i`)
 - [x] **04** — Apertura buste → `prompts/backend/04-apertura-buste.md` (branch: `claude/kind-volta-oqq3rf`)
 - [x] **05** — Import formazioni Excel → `prompts/backend/05-import-formazioni.md` (branch: `claude/tender-allen-uyaspn`, formato POC)
-- [ ] **06** — Sorteggio giornata storica → `prompts/backend/06-sorteggio-giornata.md`
+- [x] **06** — Sorteggio giornata storica → `prompts/backend/06-sorteggio-giornata.md` (branch: `claude/prossimo-task-gztmd8`)
 - [ ] **07** — Calcolo punteggi → `prompts/backend/07-calcolo-punteggi.md`
 - [ ] **08** — API classifica pubblica → `prompts/backend/08-api-classifica.md`
 
@@ -66,3 +66,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - PR #4 da aprire — task/03-mapping-alter-ego (`claude/gallant-archimedes-lwbn3i`)
 - [#8](https://github.com/simonediroma/fantanostalgia/pull/8) — task/04-apertura-buste (`claude/kind-volta-oqq3rf`)
 - PR da aprire — task/05-import-formazioni (`claude/tender-allen-uyaspn`)
+- PR da aprire — task/06-sorteggio-giornata (`claude/prossimo-task-gztmd8`)
