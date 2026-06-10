@@ -2,8 +2,8 @@
 > Gitignored. Aggiornato da Claude a fine sessione.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `task/00-seed-poc`
-**PR in corso:** [#1 — task/00-seed-poc → main](https://github.com/simonediroma/fantanostalgia/pull/1)
+**Branch attivo:** `task/01-bootstrap`
+**PR in corso:** task/01-bootstrap → main (da aprire)
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,10 +11,10 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `task/00-seed-poc` → `main` (se non già fatto)
-2. Crea branch `task/01-bootstrap` da `main`
-3. Implementa task 01 seguendo `prompts/backend/01-bootstrap.md`
-4. Apri PR `task/01-bootstrap` → `main`
+1. Apri PR `task/01-bootstrap` → `main` (branch già pushato)
+2. Crea branch `task/02-import-listone` da `main`
+3. Implementa task 02 seguendo `prompts/backend/02-import-listone.md`
+4. Apri PR `task/02-import-listone` → `main`
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -27,7 +27,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **00** — Seed dati POC → `prompts/00-seed-poc.md` (branch: `task/00-seed-poc`)
 
 ### Epica 1 — Backend
-- [ ] **01** — Bootstrap (DB + Auth + Gestione Lega) → `prompts/backend/01-bootstrap.md`
+- [x] **01** — Bootstrap (DB + Auth + Gestione Lega) → `prompts/backend/01-bootstrap.md` (branch: `task/01-bootstrap`)
 - [ ] **02** — Import listone Excel → `prompts/backend/02-import-listone.md`
 - [ ] **03** — Algoritmo mapping alter ego → `prompts/backend/03-mapping-alter-ego.md`
 - [ ] **04** — Apertura buste → `prompts/backend/04-apertura-buste.md`
@@ -56,3 +56,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 ## PR completate
 
 - [#1](https://github.com/simonediroma/fantanostalgia/pull/1) — task/00-seed-poc (aperta, da mergiare)
+- [#2](https://github.com/simonediroma/fantanostalgia/pull/2) — task/01-bootstrap (aperta, da mergiare)
