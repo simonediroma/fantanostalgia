@@ -12,6 +12,11 @@ router = APIRouter(tags=["league"])
 SEASON_RE = re.compile(r"^\d{4}/\d{2}$")
 
 
+class ManagerCreate(BaseModel):
+    name: str
+    team_name: str
+
+
 def _validate_season(v: str) -> str:
     if not SEASON_RE.match(v):
         raise ValueError("Il formato stagione deve essere YYYY/YY (es. 2024/25)")
@@ -141,3 +146,37 @@ def delete_league(league_id: int, _: str = Depends(get_current_admin)):
         if row is None:
             raise HTTPException(status_code=404, detail="Lega non trovata")
         conn.execute("DELETE FROM league WHERE id = ?", (league_id,))
+
+
+# ── Manager endpoints ───────────────────────────────────────────────────────
+
+@router.get("/league/{league_id}/managers")
+def list_managers(league_id: int):
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM league WHERE id = ?", (league_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Lega non trovata")
+        rows = conn.execute(
+            "SELECT id, name, team_name FROM manager WHERE league_id = ? ORDER BY name",
+            (league_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@router.post("/admin/league/{league_id}/managers", status_code=201)
+def create_manager(
+    league_id: int,
+    body: ManagerCreate,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM league WHERE id = ?", (league_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Lega non trovata")
+        cur = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+            (league_id, body.name, body.team_name),
+        )
+        mid = cur.lastrowid
+        manager_row = conn.execute("SELECT * FROM manager WHERE id = ?", (mid,)).fetchone()
+    return dict(manager_row)

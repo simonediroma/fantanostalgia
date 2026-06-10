@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/memory-cr-labels-check-3fbvsq`
-**PR in corso:** nessuna — tutte le PR fino al task 09 sono state mergiate
+**Branch attivo:** `claude/next-steps-ocl3qu`
+**PR in corso:** task 10 in attesa di review — branch `claude/next-steps-ocl3qu`
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,7 +11,8 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Implementa task 10 seguendo `prompts/frontend/10-admin-pages.md`
+1. Mergia PR task 10 (`claude/next-steps-ocl3qu`) se approvata
+2. Implementa task 11 seguendo `prompts/frontend/11-pagine-pubbliche.md`
 3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -36,7 +37,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 
 ### Epica 2 — Frontend
 - [x] **09** — Layout base + navigazione → `prompts/frontend/09-layout-base.md` (branch: `claude/task-09-nsvx6j`)
-- [ ] **10** — Admin pages (setup + listone + mapping + formazioni) → `prompts/frontend/10-admin-pages.md`
+- [x] **10** — Admin pages (setup + listone + mapping + formazioni) → `prompts/frontend/10-admin-pages.md` (branch: `claude/next-steps-ocl3qu`)
 - [ ] **11** — Pagine pubbliche SSR Jinja2 → `prompts/frontend/11-pagine-pubbliche.md`
 
 ### Epica 3 — Utilities & DevOps

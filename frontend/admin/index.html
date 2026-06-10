@@ -4,530 +4,778 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FantaNostalgia — Admin</title>
-  <style>
-    :root {
-      --bg: #0f0f0f;
-      --surface: #1a1a1a;
-      --accent: #c8a96e;
-      --text: #f0ece0;
-      --muted: #888;
-      --green: #4caf50;
-      --red: #e53935;
-      --border: #2a2a2a;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 15px;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ── Top bar ─────────────────────────────────────────── */
-    .topbar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0.65rem 1.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-    .topbar .logo {
-      font-family: Georgia, serif;
-      font-size: 1.1rem;
-      color: var(--accent);
-    }
-    .topbar .badge {
-      background: var(--border);
-      color: var(--muted);
-      border-radius: 3px;
-      font-size: 0.72rem;
-      padding: 0.15rem 0.5rem;
-      font-family: monospace;
-    }
-    .login-box { display: flex; gap: 0.5rem; align-items: center; }
-    .login-box input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      color: var(--text);
-      font-size: 0.85rem;
-      padding: 0.3rem 0.6rem;
-      width: 160px;
-    }
-    .login-box input:focus { outline: 1px solid var(--accent); }
-    button {
-      background: var(--accent);
-      border: none;
-      border-radius: 3px;
-      color: var(--bg);
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-      padding: 0.35rem 0.9rem;
-      transition: opacity 0.15s;
-    }
-    button:hover { opacity: 0.85; }
-    button.secondary {
-      background: var(--border);
-      color: var(--text);
-      font-weight: 400;
-    }
-    button.danger { background: var(--red); color: #fff; }
-
-    /* ── Layout ──────────────────────────────────────────── */
-    .app { display: flex; flex: 1; }
-
-    aside {
-      width: 200px;
-      flex-shrink: 0;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 1rem 0;
-    }
-
-    aside nav a {
-      display: block;
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 0.875rem;
-      padding: 0.5rem 1.25rem;
-      transition: color 0.12s, background 0.12s;
-    }
-    aside nav a:hover { color: var(--text); }
-    aside nav a.active {
-      color: var(--accent);
-      background: rgba(200, 169, 110, 0.07);
-      border-left: 2px solid var(--accent);
-      padding-left: calc(1.25rem - 2px);
-    }
-
-    .section-label {
-      color: var(--muted);
-      font-size: 0.68rem;
-      font-family: Georgia, serif;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      padding: 0.9rem 1.25rem 0.3rem;
-    }
-
-    /* ── Content ─────────────────────────────────────────── */
-    .content { flex: 1; padding: 1.75rem 2rem; overflow-y: auto; }
-
-    .page { display: none; }
-    .page.active { display: block; }
-
-    h2 {
-      font-family: Georgia, serif;
-      color: var(--accent);
-      font-size: 1.3rem;
-      margin-bottom: 1rem;
-    }
-
-    /* ── Cards / panels ──────────────────────────────────── */
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-    }
-    .panel h3 {
-      font-family: Georgia, serif;
-      color: var(--accent);
-      font-size: 1rem;
-      margin-bottom: 0.75rem;
-    }
-
-    form { display: flex; flex-direction: column; gap: 0.6rem; max-width: 400px; }
-    label { font-size: 0.82rem; color: var(--muted); }
-    input[type="text"], input[type="number"], select {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      color: var(--text);
-      font-size: 0.875rem;
-      padding: 0.4rem 0.65rem;
-      width: 100%;
-    }
-    input:focus, select:focus { outline: 1px solid var(--accent); }
-
-    /* ── Table ───────────────────────────────────────────── */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    thead th {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      color: var(--accent);
-      font-family: Georgia, serif;
-      font-size: 0.72rem;
-      letter-spacing: 0.06em;
-      padding: 0.5rem 0.75rem;
-      text-align: left;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    tbody tr { border-bottom: 1px solid var(--border); }
-    tbody tr:hover { background: var(--surface); }
-    tbody td { padding: 0.5rem 0.75rem; }
-
-    /* ── Status messages ─────────────────────────────────── */
-    .msg {
-      border-radius: 3px;
-      font-size: 0.85rem;
-      margin-bottom: 0.75rem;
-      padding: 0.5rem 0.85rem;
-    }
-    .msg.ok { background: rgba(76,175,80,0.15); color: var(--green); border: 1px solid var(--green); }
-    .msg.err { background: rgba(229,57,53,0.15); color: var(--red); border: 1px solid var(--red); }
-
-    .empty { color: var(--muted); font-style: italic; font-size: 0.875rem; padding: 0.5rem 0; }
-
-    /* ── Responsive ──────────────────────────────────────── */
-    @media (max-width: 640px) {
-      aside { display: none; }
-      .content { padding: 1.25rem; }
-    }
-  </style>
+  <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
 
-<div class="topbar">
-  <span class="logo">⚽ FantaNostalgia <span class="badge">admin</span></span>
-  <div class="login-box" id="loginBox">
-    <input type="password" id="tokenInput" placeholder="Token admin">
-    <button onclick="setToken()">Accedi</button>
-  </div>
-  <div id="loggedBox" style="display:none;gap:0.5rem;align-items:center;display:none">
-    <span id="loggedLabel" style="font-size:0.8rem;color:var(--muted)"></span>
-    <button class="secondary" onclick="logout()">Esci</button>
+<!-- ── Login ─────────────────────────────────────────────────────────────── -->
+<div id="pg-login" class="login-wrap" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">⚽ FantaNostalgia</div>
+    <p class="login-sub">Pannello Amministratore</p>
+    <div id="loginMsg"></div>
+    <form id="loginForm">
+      <label>Username</label>
+      <input type="text" id="loginUser" autocomplete="username" required>
+      <label>Password</label>
+      <input type="password" id="loginPass" autocomplete="current-password" required>
+      <button type="submit" style="width:100%;margin-top:0.5rem">Accedi</button>
+    </form>
   </div>
 </div>
 
-<div class="app">
-  <aside>
-    <div class="section-label">Lega</div>
-    <nav>
-      <a href="#leghe" class="nav-link active" onclick="navigate('leghe',this)">Leghe</a>
-    </nav>
-    <div class="section-label">Roster</div>
-    <nav>
-      <a href="#listone" class="nav-link" onclick="navigate('listone',this)">Listone Excel</a>
-      <a href="#mapping" class="nav-link" onclick="navigate('mapping',this)">Mapping Alter Ego</a>
-    </nav>
-    <div class="section-label">Giornata</div>
-    <nav>
-      <a href="#formazioni" class="nav-link" onclick="navigate('formazioni',this)">Formazioni</a>
-      <a href="#sorteggio" class="nav-link" onclick="navigate('sorteggio',this)">Sorteggio</a>
-    </nav>
-    <div class="section-label">Pubblico</div>
-    <nav>
-      <a href="/" target="_blank">← Vai al sito</a>
-    </nav>
-  </aside>
-
-  <div class="content">
-
-    <!-- Leghe -->
-    <div class="page active" id="page-leghe">
-      <h2>Leghe</h2>
-      <div id="leagueMsg"></div>
-      <div id="leagueList" class="table-wrap"><div class="empty">Caricamento…</div></div>
-
-      <div class="panel" style="margin-top:1.5rem">
-        <h3>Nuova lega</h3>
-        <form id="createLeagueForm" onsubmit="createLeague(event)">
-          <label>Nome</label>
-          <input type="text" id="lName" required>
-          <label>Stagione corrente (es. 2024/25)</label>
-          <input type="text" id="lCurrent" required>
-          <label>Stagione storica (es. 2003/04)</label>
-          <input type="text" id="lHistoric" required>
-          <label>Budget</label>
-          <input type="number" id="lBudget" value="500" min="100" required>
-          <div style="margin-top:0.25rem">
-            <button type="submit">Crea lega</button>
-          </div>
-        </form>
-      </div>
+<!-- ── App Shell ─────────────────────────────────────────────────────────── -->
+<div id="pg-app" style="display:none;flex-direction:column;min-height:100vh">
+  <div class="topbar">
+    <span class="logo">⚽ FantaNostalgia <span class="badge">admin</span></span>
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <span id="userLabel" style="font-size:0.8rem;color:var(--muted)"></span>
+      <button class="secondary" id="logoutBtn">Esci</button>
     </div>
+  </div>
 
-    <!-- Listone -->
-    <div class="page" id="page-listone">
-      <h2>Listone Excel</h2>
-      <div id="listonMsg"></div>
-      <div class="panel">
-        <h3>Carica listone</h3>
-        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
-          <label>Lega</label>
-          <select id="listonLeague"></select>
-          <label>File Excel (.xlsx)</label>
-          <input type="file" id="listonFile" accept=".xlsx"
-                 style="color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0.4rem 0.65rem">
-          <div style="margin-top:0.25rem">
-            <button onclick="uploadListone()">Carica</button>
-          </div>
+  <div class="app-body">
+    <aside>
+      <div class="section-label">Leghe</div>
+      <nav id="leagueNav"></nav>
+      <nav>
+        <a href="#" id="newLeagueLink" class="nav-link">+ Nuova lega</a>
+      </nav>
+      <div class="section-label" style="margin-top:0.5rem">Pubblico</div>
+      <nav>
+        <a href="/" target="_blank" class="nav-link">← Vai al sito</a>
+      </nav>
+    </aside>
+
+    <div class="content">
+
+      <!-- Dashboard -->
+      <div id="pg-dashboard" class="page">
+        <h2>Leghe</h2>
+        <div id="dashMsg"></div>
+        <div id="leagueList" class="table-wrap">
+          <div class="empty">Caricamento…</div>
         </div>
       </div>
-    </div>
 
-    <!-- Mapping -->
-    <div class="page" id="page-mapping">
-      <h2>Mapping Alter Ego</h2>
-      <div id="mappingMsg"></div>
-      <div class="panel">
-        <h3>Genera mapping</h3>
-        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
-          <label>Lega</label>
-          <select id="mappingLeague"></select>
-          <div style="display:flex;gap:0.5rem;margin-top:0.25rem;flex-wrap:wrap">
-            <button onclick="generateMapping()">Genera mapping</button>
-            <button class="secondary" onclick="revealMapping()">Apri buste</button>
-          </div>
+      <!-- Crea / Modifica lega -->
+      <div id="pg-league-form" class="page">
+        <h2 id="leagueFormTitle">Nuova Lega</h2>
+        <div id="leagueFormMsg"></div>
+        <div class="panel">
+          <form id="leagueForm">
+            <input type="hidden" id="leagueFormId">
+            <label>Nome</label>
+            <input type="text" id="lfName" required>
+            <label>Stagione corrente (es. 2024/25)</label>
+            <input type="text" id="lfCurrent" required>
+            <label>Stagione storica (es. 2003/04)</label>
+            <input type="text" id="lfHistoric" required>
+            <label>Budget (crediti)</label>
+            <input type="number" id="lfBudget" value="500" min="100" required>
+            <div class="row-gap mt-sm">
+              <button type="submit" id="leagueSubmitBtn">Crea lega</button>
+              <button type="button" class="secondary" id="leagueFormCancel">Annulla</button>
+            </div>
+          </form>
         </div>
       </div>
-    </div>
 
-    <!-- Formazioni -->
-    <div class="page" id="page-formazioni">
-      <h2>Formazioni</h2>
-      <div id="formazioniMsg"></div>
-      <div class="panel">
-        <h3>Carica formazioni</h3>
-        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
-          <label>Lega</label>
-          <select id="formazioniLeague"></select>
-          <label>Giornata</label>
-          <input type="number" id="formazioniGiornata" min="1" placeholder="es. 1">
-          <label>File Excel (.xlsx)</label>
-          <input type="file" id="formazioniFile" accept=".xlsx"
-                 style="color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0.4rem 0.65rem">
-          <div style="margin-top:0.25rem">
-            <button onclick="uploadFormazioni()">Carica</button>
+      <!-- Gestione lega — wizard -->
+      <div id="pg-manage" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2 id="manageLegaNome">Gestione Lega</h2>
+          <button class="secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="steps" id="wizardSteps">
+          <div class="step" id="step-ind-1" data-step="1">1 — Listone</div>
+          <div class="step" id="step-ind-2" data-step="2">2 — Mapping</div>
+          <div class="step" id="step-ind-3" data-step="3">3 — Buste</div>
+          <div class="step" id="step-ind-4" data-step="4">4 — Giornate</div>
+        </div>
+
+        <!-- ── Step 1: Listone ───────────────────────────────────────────── -->
+        <div id="ws-1" class="wizard-step">
+          <div id="listonMsg"></div>
+
+          <!-- Manager della lega -->
+          <div class="panel">
+            <h4>Manager della lega</h4>
+            <div id="managerList" class="table-wrap mt-sm">
+              <div class="empty">Caricamento…</div>
+            </div>
+            <details style="margin-top:0.75rem">
+              <summary>+ Aggiungi manager</summary>
+              <div class="row-gap" style="margin-top:0.25rem">
+                <div>
+                  <label>Nome manager</label>
+                  <input type="text" id="mgrName" style="width:160px">
+                </div>
+                <div>
+                  <label>Nome squadra</label>
+                  <input type="text" id="mgrTeam" style="width:160px">
+                </div>
+                <button id="addMgrBtn" style="align-self:flex-end">Aggiungi</button>
+              </div>
+            </details>
+          </div>
+
+          <!-- Upload listone -->
+          <div class="panel">
+            <h4>Carica listone Excel</h4>
+            <div class="col-gap mt-sm">
+              <div id="dropZoneListone" class="drop-zone">
+                <span id="dzListoneText">Trascina .xlsx qui o clicca per selezionare</span>
+                <input type="file" id="listonFile" accept=".xlsx" style="display:none">
+              </div>
+              <button id="uploadListoneBtn">Carica listone</button>
+            </div>
+          </div>
+
+          <!-- Preview importazione -->
+          <div id="listonPreview"></div>
+
+          <!-- Assegnazione giocatori -->
+          <div id="assignPanel" style="display:none">
+            <div class="panel">
+              <h4>Assegna giocatori ai manager</h4>
+              <div id="assignTable" class="table-wrap mt-sm"></div>
+              <div class="mt-md">
+                <button id="saveAssignBtn">Salva assegnazioni</button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Sorteggio -->
-    <div class="page" id="page-sorteggio">
-      <h2>Sorteggio Giornata Storica</h2>
-      <div id="sorteggioMsg"></div>
-      <div class="panel">
-        <h3>Esegui sorteggio</h3>
-        <div style="display:flex;flex-direction:column;gap:0.6rem;max-width:400px">
-          <label>Lega</label>
-          <select id="sorteggioLeague"></select>
-          <div style="margin-top:0.25rem">
-            <button onclick="drawMatchday()">Sorteggia giornata</button>
+        <!-- ── Step 2: Mapping ───────────────────────────────────────────── -->
+        <div id="ws-2" class="wizard-step">
+          <div id="mappingMsg"></div>
+          <div class="panel">
+            <h4>Genera mapping alter ego</h4>
+            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 1rem">
+              Assegna casualmente un giocatore storico (alter ego) a ogni giocatore attuale, per ruolo.
+            </p>
+            <button id="generateMappingBtn">Genera mapping</button>
+          </div>
+          <div id="mappingPreview"></div>
+        </div>
+
+        <!-- ── Step 3: Buste ─────────────────────────────────────────────── -->
+        <div id="ws-3" class="wizard-step">
+          <div id="busteMsg"></div>
+          <div class="panel">
+            <h4>Apertura buste</h4>
+            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.35rem">
+              Rivela gli alter ego a tutti i partecipanti. Il mapping sarà visibile nella pagina pubblica.
+            </p>
+            <p style="color:var(--red);font-size:0.82rem;margin-bottom:1rem">
+              Operazione irreversibile.
+            </p>
+            <button class="danger" id="revealBtn">Apri buste</button>
+          </div>
+          <div id="mappingFull"></div>
+        </div>
+
+        <!-- ── Step 4: Giornate ──────────────────────────────────────────── -->
+        <div id="ws-4" class="wizard-step">
+          <div id="giornataMsg"></div>
+
+          <!-- Upload formazioni -->
+          <div class="panel">
+            <h4>Carica formazioni</h4>
+            <div class="col-gap mt-sm">
+              <label>Giornata corrente</label>
+              <input type="number" id="formazioniGiornata" min="1" placeholder="es. 1" style="width:120px">
+              <div id="dropZoneFormazioni" class="drop-zone">
+                <span id="dzFormText">Trascina .xlsx qui o clicca per selezionare</span>
+                <input type="file" id="formazioniFile" accept=".xlsx" style="display:none">
+              </div>
+              <button id="uploadFormazioniBtn">Carica formazioni</button>
+            </div>
+          </div>
+
+          <!-- Sorteggio e calcolo -->
+          <div class="panel">
+            <h4>Sorteggio e calcolo punteggi</h4>
+            <div class="col-gap mt-sm" style="max-width:280px">
+              <label>Giornata da elaborare</label>
+              <input type="number" id="sorteggioGiornata" min="1" placeholder="es. 1" style="width:120px">
+              <div class="row-gap">
+                <button id="drawBtn">Sorteggia giornata storica</button>
+                <button class="secondary" id="scoresBtn">Calcola punteggi</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="giornataResult"></div>
+
+          <div class="mt-md">
+            <a id="standingsLink" href="#" target="_blank"
+               style="color:var(--accent);font-size:0.875rem;text-decoration:none">
+              → Vedi classifica pubblica
+            </a>
           </div>
         </div>
+
+        <!-- Navigazione step -->
+        <div class="wizard-nav" id="wizardNav">
+          <button class="secondary" id="prevStepBtn">← Precedente</button>
+          <button id="nextStepBtn">Avanti →</button>
+        </div>
       </div>
-      <div id="sorteggioResult"></div>
-    </div>
 
-  </div><!-- .content -->
-</div><!-- .app -->
+    </div><!-- .content -->
+  </div><!-- .app-body -->
+</div><!-- #pg-app -->
 
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/league.js"></script>
+<script src="js/listone.js"></script>
+<script src="js/mapping.js"></script>
+<script src="js/matchday.js"></script>
 <script>
-const API = '';  // same origin
+'use strict';
 
-let token = localStorage.getItem('fn_token') || '';
-if (token) showLoggedIn();
+// ── State ───────────────────────────────────────────────────────────────────
+let currentLeagueId = null;
+let currentStep = 1;
+let allLeagues = [];
+let leagueManagers = [];
 
-// ── Auth ────────────────────────────────────────────────────────────────────
-function setToken() {
-  token = document.getElementById('tokenInput').value.trim();
-  if (!token) return;
-  localStorage.setItem('fn_token', token);
-  showLoggedIn();
-  loadAll();
+// ── Utils ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-function logout() {
-  token = '';
-  localStorage.removeItem('fn_token');
-  document.getElementById('loggedBox').style.display = 'none';
-  document.getElementById('loginBox').style.display = 'flex';
-}
-
-function showLoggedIn() {
-  document.getElementById('loginBox').style.display = 'none';
-  const box = document.getElementById('loggedBox');
-  box.style.display = 'flex';
-  document.getElementById('loggedLabel').textContent = 'Admin';
-  loadAll();
-}
-
-function authHeaders() {
-  return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
-}
-
-// ── Navigation ───────────────────────────────────────────────────────────────
-function navigate(page, el) {
-  event.preventDefault();
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
-  el.classList.add('active');
-}
-
-// ── Generic helpers ──────────────────────────────────────────────────────────
-function showMsg(id, text, isError) {
+function showMsg(id, text, isError = false) {
   const el = document.getElementById(id);
-  el.innerHTML = `<div class="msg ${isError ? 'err' : 'ok'}">${text}</div>`;
-  setTimeout(() => { el.innerHTML = ''; }, 4000);
+  if (!el) return;
+  el.innerHTML = `<div class="msg ${isError ? 'err' : 'ok'}">${esc(text)}</div>`;
+  setTimeout(() => { if (el) el.innerHTML = ''; }, 5000);
 }
 
-async function apiFetch(path, opts = {}) {
-  const res = await fetch(API + path, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || res.statusText);
-  return data;
+// ── Page routing ─────────────────────────────────────────────────────────────
+function showLoginPage() {
+  document.getElementById('pg-login').style.display = 'flex';
+  document.getElementById('pg-app').style.display = 'none';
 }
 
-// ── Leagues ──────────────────────────────────────────────────────────────────
-async function loadLeagues() {
-  const leagues = await apiFetch('/league').catch(() => []);
+function showApp(username) {
+  document.getElementById('pg-login').style.display = 'none';
+  document.getElementById('pg-app').style.display = 'flex';
+  document.getElementById('userLabel').textContent = username;
+  showPage('pg-dashboard');
+  loadDashboard();
+}
 
-  // table
+function showPage(id) {
+  ['pg-dashboard', 'pg-league-form', 'pg-manage'].forEach(pid => {
+    const el = document.getElementById(pid);
+    if (el) el.classList.toggle('active', pid === id);
+  });
+}
+
+// ── Login ───────────────────────────────────────────────────────────────────
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  try {
+    await doLogin(username, password);
+    sessionStorage.setItem('fn_user', username);
+    showApp(username);
+  } catch (err) {
+    showMsg('loginMsg', err.message, true);
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await doLogout();
+  showLoginPage();
+});
+
+// ── Dashboard ───────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    allLeagues = await apiListLeagues() || [];
+  } catch { allLeagues = []; }
+
   const wrap = document.getElementById('leagueList');
-  if (!leagues.length) { wrap.innerHTML = '<div class="empty">Nessuna lega.</div>'; }
-  else {
+  if (!allLeagues.length) {
+    wrap.innerHTML = '<div class="empty">Nessuna lega. Usa "+ Nuova lega" per crearne una.</div>';
+  } else {
     wrap.innerHTML = `<table>
-      <thead><tr><th>#</th><th>Nome</th><th>Corrente</th><th>Storica</th><th>Budget</th></tr></thead>
-      <tbody>${leagues.map(l => `
-        <tr>
-          <td>${l.id}</td>
-          <td>${l.name}</td>
-          <td>${l.season_current}</td>
-          <td>${l.season_historic}</td>
-          <td>${l.budget ?? '—'}</td>
-        </tr>`).join('')}
+      <thead><tr>
+        <th>#</th><th>Nome</th><th>Corrente</th><th>Storica</th><th>Budget</th><th></th>
+      </tr></thead>
+      <tbody>${allLeagues.map(l => `<tr>
+        <td style="font-family:monospace">${l.id}</td>
+        <td>${esc(l.name)}</td>
+        <td>${esc(l.season_current)}</td>
+        <td>${esc(l.season_historic)}</td>
+        <td>${l.budget ?? '—'}</td>
+        <td style="display:flex;gap:0.4rem;justify-content:flex-end">
+          <button class="secondary"
+            style="font-size:0.78rem;padding:0.25rem 0.6rem"
+            data-manage="${l.id}">Gestisci</button>
+          <button class="secondary"
+            style="font-size:0.78rem;padding:0.25rem 0.6rem"
+            data-edit="${l.id}">Modifica</button>
+        </td>
+      </tr>`).join('')}
       </tbody></table>`;
   }
 
-  // populate selects
-  ['listonLeague','mappingLeague','formazioniLeague','sorteggioLeague'].forEach(id => {
-    const sel = document.getElementById(id);
-    sel.innerHTML = leagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-  });
-
-  return leagues;
+  // Sidebar league links
+  const nav = document.getElementById('leagueNav');
+  nav.innerHTML = allLeagues.map(l =>
+    `<a href="#" class="nav-link" data-navmanage="${l.id}">${esc(l.name)}</a>`
+  ).join('');
 }
 
-async function createLeague(e) {
+// Delegated click handlers for dashboard table
+document.getElementById('leagueList').addEventListener('click', (e) => {
+  const manageBtn = e.target.closest('[data-manage]');
+  const editBtn = e.target.closest('[data-edit]');
+  if (manageBtn) openManage(parseInt(manageBtn.dataset.manage));
+  if (editBtn) openEditForm(parseInt(editBtn.dataset.edit));
+});
+
+// Sidebar manage links
+document.getElementById('leagueNav').addEventListener('click', (e) => {
+  const link = e.target.closest('[data-navmanage]');
+  if (link) { e.preventDefault(); openManage(parseInt(link.dataset.navmanage)); }
+});
+
+// ── League Form ──────────────────────────────────────────────────────────────
+document.getElementById('newLeagueLink').addEventListener('click', (e) => {
   e.preventDefault();
+  document.getElementById('leagueFormTitle').textContent = 'Nuova Lega';
+  document.getElementById('leagueFormId').value = '';
+  document.getElementById('leagueSubmitBtn').textContent = 'Crea lega';
+  document.getElementById('leagueForm').reset();
+  document.getElementById('leagueFormMsg').innerHTML = '';
+  showPage('pg-league-form');
+});
+
+document.getElementById('leagueFormCancel').addEventListener('click', () => {
+  showPage('pg-dashboard');
+});
+
+function openEditForm(id) {
+  const league = allLeagues.find(l => l.id === id);
+  if (!league) return;
+  document.getElementById('leagueFormTitle').textContent = 'Modifica Lega';
+  document.getElementById('leagueFormId').value = league.id;
+  document.getElementById('lfName').value = league.name;
+  document.getElementById('lfCurrent').value = league.season_current;
+  document.getElementById('lfHistoric').value = league.season_historic;
+  document.getElementById('lfBudget').value = league.budget || 500;
+  document.getElementById('leagueSubmitBtn').textContent = 'Salva';
+  document.getElementById('leagueFormMsg').innerHTML = '';
+  showPage('pg-league-form');
+}
+
+document.getElementById('leagueForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('leagueFormId').value;
   const body = {
-    name: document.getElementById('lName').value,
-    season_current: document.getElementById('lCurrent').value,
-    season_historic: document.getElementById('lHistoric').value,
-    budget: parseInt(document.getElementById('lBudget').value),
+    name: document.getElementById('lfName').value.trim(),
+    season_current: document.getElementById('lfCurrent').value.trim(),
+    season_historic: document.getElementById('lfHistoric').value.trim(),
+    budget: parseInt(document.getElementById('lfBudget').value),
   };
   try {
-    await apiFetch('/admin/league', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
-    showMsg('leagueMsg', 'Lega creata.');
-    e.target.reset();
-    loadLeagues();
+    if (id) {
+      await apiUpdateLeague(parseInt(id), body);
+    } else {
+      await apiCreateLeague(body);
+    }
+    await loadDashboard();
+    showPage('pg-dashboard');
   } catch (err) {
-    showMsg('leagueMsg', err.message, true);
+    showMsg('leagueFormMsg', err.message, true);
+  }
+});
+
+// ── Manage (Wizard) ──────────────────────────────────────────────────────────
+async function openManage(leagueId) {
+  currentLeagueId = leagueId;
+  currentStep = 1;
+  document.getElementById('assignPanel').style.display = 'none';
+  document.getElementById('listonPreview').innerHTML = '';
+  document.getElementById('mappingPreview').innerHTML = '';
+  document.getElementById('mappingFull').innerHTML = '';
+  document.getElementById('giornataResult').innerHTML = '';
+  showPage('pg-manage');
+  await loadManagePage();
+}
+
+document.getElementById('backToDashBtn').addEventListener('click', () => {
+  showPage('pg-dashboard');
+});
+
+async function loadManagePage() {
+  try {
+    const [league, players] = await Promise.all([
+      apiGetLeague(currentLeagueId),
+      apiListPlayers(currentLeagueId).catch(() => []),
+    ]);
+
+    document.getElementById('manageLegaNome').textContent = league.name;
+    document.getElementById('standingsLink').href = `/lega/${currentLeagueId}/classifica`;
+
+    // Determine wizard state
+    const hasListone = Array.isArray(players) && players.length > 0;
+    let hasMapping = false;
+    try {
+      const m = await apiGetAdminMapping(currentLeagueId);
+      hasMapping = Array.isArray(m) && m.length > 0;
+    } catch {}
+    const bustAperte = league.buste_aperte === 1;
+
+    // Cache state
+    sessionStorage.setItem(`fn_${currentLeagueId}_state`,
+      JSON.stringify({ hasListone, hasMapping, bustAperte }));
+
+    updateStepIndicators(hasListone, hasMapping, bustAperte);
+    setWizardStep(currentStep);
+
+    // Load managers
+    leagueManagers = await apiListManagers(currentLeagueId).catch(() => []);
+    renderManagerList();
+
+    // Preload player table if listone exists
+    if (hasListone && players.length) {
+      renderAssignTable(players);
+      document.getElementById('assignPanel').style.display = 'block';
+    }
+
+    // Show mapping if buste open
+    if (bustAperte) {
+      loadAndRenderPublicMapping();
+    }
+  } catch (err) {
+    showMsg('dashMsg', 'Errore caricamento lega: ' + err.message, true);
+    showPage('pg-dashboard');
   }
 }
 
-// ── Listone ──────────────────────────────────────────────────────────────────
-async function uploadListone() {
-  const leagueId = document.getElementById('listonLeague').value;
-  const file = document.getElementById('listonFile').files[0];
-  if (!file) { showMsg('listonMsg', 'Seleziona un file Excel.', true); return; }
-  const fd = new FormData();
-  fd.append('file', file);
+function updateStepIndicators(hasListone, hasMapping, bustAperte) {
+  const states = [hasListone, hasMapping, bustAperte, false];
+  states.forEach((done, i) => {
+    const el = document.getElementById(`step-ind-${i + 1}`);
+    el.className = 'step';
+    if (done) {
+      el.classList.add('done');
+      el.textContent = el.textContent.replace(/^\d+ — /, (m) => m.replace('—', '✓'));
+    }
+    if (i + 1 === currentStep) el.classList.add('active');
+  });
+}
+
+function setWizardStep(step) {
+  currentStep = step;
+
+  // Update step indicators active state
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`step-ind-${i}`);
+    el.classList.toggle('active', i === step);
+  }
+
+  // Show/hide wizard steps
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`ws-${i}`);
+    el.classList.toggle('active', i === step);
+  }
+
+  document.getElementById('prevStepBtn').style.display = step > 1 ? '' : 'none';
+  document.getElementById('nextStepBtn').style.display = step < 4 ? '' : 'none';
+  window.scrollTo(0, 0);
+}
+
+// Step click
+document.getElementById('wizardSteps').addEventListener('click', (e) => {
+  const stepEl = e.target.closest('.step');
+  if (stepEl && stepEl.dataset.step) {
+    setWizardStep(parseInt(stepEl.dataset.step));
+  }
+});
+
+document.getElementById('prevStepBtn').addEventListener('click', () => setWizardStep(currentStep - 1));
+document.getElementById('nextStepBtn').addEventListener('click', () => setWizardStep(currentStep + 1));
+
+// ── Managers ─────────────────────────────────────────────────────────────────
+function renderManagerList() {
+  const el = document.getElementById('managerList');
+  if (!leagueManagers.length) {
+    el.innerHTML = '<div class="empty">Nessun manager. Aggiungine uno.</div>';
+    return;
+  }
+  el.innerHTML = `<table>
+    <thead><tr><th>Nome</th><th>Squadra</th></tr></thead>
+    <tbody>${leagueManagers.map(m =>
+      `<tr><td>${esc(m.name)}</td><td>${esc(m.team_name)}</td></tr>`
+    ).join('')}</tbody></table>`;
+}
+
+document.getElementById('addMgrBtn').addEventListener('click', async () => {
+  const name = document.getElementById('mgrName').value.trim();
+  const team = document.getElementById('mgrTeam').value.trim();
+  if (!name || !team) { showMsg('listonMsg', 'Nome e squadra obbligatori.', true); return; }
   try {
-    await fetch(`/admin/league/${leagueId}/players/upload`, {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-      body: fd,
-    }).then(async r => { if (!r.ok) throw new Error((await r.json()).detail); return r.json(); });
-    showMsg('listonMsg', 'Listone caricato.');
+    const m = await apiCreateManager(currentLeagueId, { name, team_name: team });
+    leagueManagers.push(m);
+    renderManagerList();
+    document.getElementById('mgrName').value = '';
+    document.getElementById('mgrTeam').value = '';
+    showMsg('listonMsg', `Manager "${m.name}" aggiunto.`);
   } catch (err) {
     showMsg('listonMsg', err.message, true);
   }
-}
+});
 
-// ── Mapping ──────────────────────────────────────────────────────────────────
-async function generateMapping() {
-  const id = document.getElementById('mappingLeague').value;
-  try {
-    const res = await apiFetch(`/admin/league/${id}/mapping/generate`, {
-      method: 'POST', headers: authHeaders(),
-    });
-    showMsg('mappingMsg', `Mapping generato: ${res.mapped} giocatori mappati.`);
-  } catch (err) {
-    showMsg('mappingMsg', err.message, true);
-  }
-}
+// ── Listone ──────────────────────────────────────────────────────────────────
+setupDropZone('dropZoneListone', 'listonFile', 'dzListoneText');
 
-async function revealMapping() {
-  if (!confirm('Aprire le buste? L\'operazione è irreversibile.')) return;
-  const id = document.getElementById('mappingLeague').value;
-  try {
-    await apiFetch(`/admin/league/${id}/mapping/reveal`, { method: 'POST', headers: authHeaders() });
-    showMsg('mappingMsg', 'Buste aperte. Il mapping è ora pubblico.');
-  } catch (err) {
-    showMsg('mappingMsg', err.message, true);
-  }
-}
+document.getElementById('listonFile').addEventListener('change', function () {
+  document.getElementById('dzListoneText').textContent =
+    this.files[0] ? this.files[0].name : 'Trascina .xlsx qui o clicca per selezionare';
+});
 
-// ── Formazioni ───────────────────────────────────────────────────────────────
-async function uploadFormazioni() {
-  const leagueId = document.getElementById('formazioniLeague').value;
-  const matchday = document.getElementById('formazioniGiornata').value;
-  const file = document.getElementById('formazioniFile').files[0];
-  if (!file || !matchday) { showMsg('formazioniMsg', 'Compila tutti i campi.', true); return; }
-  const fd = new FormData();
-  fd.append('file', file);
+document.getElementById('uploadListoneBtn').addEventListener('click', async () => {
+  const file = document.getElementById('listonFile').files[0];
+  if (!file) { showMsg('listonMsg', 'Seleziona un file Excel.', true); return; }
   try {
-    await fetch(`/admin/league/${leagueId}/lineups/upload?matchday=${matchday}`, {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-      body: fd,
-    }).then(async r => { if (!r.ok) throw new Error((await r.json()).detail); return r.json(); });
-    showMsg('formazioniMsg', 'Formazioni caricate.');
-  } catch (err) {
-    showMsg('formazioniMsg', err.message, true);
-  }
-}
-
-// ── Sorteggio ─────────────────────────────────────────────────────────────────
-async function drawMatchday() {
-  const id = document.getElementById('sorteggioLeague').value;
-  try {
-    const res = await apiFetch(`/admin/league/${id}/matchday/draw`, {
-      method: 'POST', headers: authHeaders(),
-    });
-    document.getElementById('sorteggioResult').innerHTML = `
-      <div class="panel" style="margin-top:1rem">
-        <h3>Risultato sorteggio</h3>
-        <p>Giornata corrente: <strong>${res.matchday_current}</strong></p>
-        <p>Giornata storica: <strong>${res.matchday_historic}</strong></p>
+    const res = await apiUploadListone(currentLeagueId, file);
+    const br = res.by_role || {};
+    document.getElementById('listonPreview').innerHTML = `
+      <div class="panel mt-md">
+        <h4>Riepilogo importazione</h4>
+        <p style="margin-top:0.5rem">
+          Importati: <strong>${res.imported}</strong> giocatori &nbsp;—&nbsp;
+          P: ${br.P || 0} &nbsp; D: ${br.D || 0} &nbsp; C: ${br.C || 0} &nbsp; A: ${br.A || 0}
+        </p>
+        ${res.warnings?.length ? `<p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">${res.warnings.map(esc).join('<br>')}</p>` : ''}
       </div>`;
-    showMsg('sorteggioMsg', 'Sorteggio completato.');
+    const players = await apiListPlayers(currentLeagueId);
+    renderAssignTable(players);
+    document.getElementById('assignPanel').style.display = 'block';
+    showMsg('listonMsg', `Listone caricato: ${res.imported} giocatori.`);
   } catch (err) {
-    showMsg('sorteggioMsg', err.message, true);
+    showMsg('listonMsg', err.message, true);
   }
+});
+
+function renderAssignTable(players) {
+  const el = document.getElementById('assignTable');
+  if (!leagueManagers.length) {
+    el.innerHTML = '<div class="empty">Aggiungi manager prima di assegnare i giocatori.</div>';
+    return;
+  }
+  const opts = `<option value="">—</option>` +
+    leagueManagers.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+
+  el.innerHTML = `<table>
+    <thead><tr><th>Giocatore</th><th>Ruolo</th><th>Squadra</th><th>Manager</th></tr></thead>
+    <tbody>${players.map(p => `<tr>
+      <td>${esc(p.name)}</td>
+      <td>${p.role}</td>
+      <td>${esc(p.team)}</td>
+      <td><select data-pid="${p.id}" class="assign-sel"
+            style="background:var(--bg);border:1px solid var(--border);border-radius:3px;
+                   color:var(--text);padding:0.25rem 0.4rem;font-size:0.82rem;width:auto">
+          ${opts.replace(`value="${p.manager_id}"`, `value="${p.manager_id}" selected`)}
+        </select></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+document.getElementById('saveAssignBtn').addEventListener('click', async () => {
+  const sels = document.querySelectorAll('.assign-sel');
+  const assignments = [];
+  sels.forEach(s => {
+    if (s.value) assignments.push({ player_id: parseInt(s.dataset.pid), manager_id: parseInt(s.value) });
+  });
+  if (!assignments.length) { showMsg('listonMsg', 'Nessuna assegnazione.', true); return; }
+  try {
+    const res = await apiAssignPlayers(currentLeagueId, assignments);
+    showMsg('listonMsg', `${res.assigned} giocatori assegnati.`);
+  } catch (err) {
+    showMsg('listonMsg', err.message, true);
+  }
+});
+
+// ── Mapping ───────────────────────────────────────────────────────────────────
+document.getElementById('generateMappingBtn').addEventListener('click', async () => {
+  try {
+    const res = await apiGenerateMapping(currentLeagueId);
+    const cov = Object.entries(res.coverage_by_manager || {})
+      .map(([name, c]) => `${esc(name)}: ${c.covered}/${c.total}`)
+      .join(' &nbsp; ');
+    document.getElementById('mappingPreview').innerHTML = `
+      <div class="panel mt-md">
+        <h4>Riepilogo mapping</h4>
+        <p style="margin-top:0.5rem">Mappati: <strong>${res.mapped}</strong> &nbsp; Duplicati: ${res.duplicates}</p>
+        ${cov ? `<p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">Copertura: ${cov}</p>` : ''}
+      </div>`;
+    showMsg('mappingMsg', `Mapping generato: ${res.mapped} giocatori.`);
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
+  }
+});
+
+// ── Buste ─────────────────────────────────────────────────────────────────────
+document.getElementById('revealBtn').addEventListener('click', async () => {
+  if (!confirm('Aprire le buste? Il mapping diventerà pubblico. Operazione irreversibile.')) return;
+  try {
+    const res = await apiRevealMapping(currentLeagueId);
+    showMsg('busteMsg', 'Buste aperte. Mapping ora pubblico.');
+    renderFullMapping(res);
+  } catch (err) {
+    showMsg('busteMsg', err.message, true);
+  }
+});
+
+async function loadAndRenderPublicMapping() {
+  try {
+    const res = await apiGetPublicMapping(currentLeagueId);
+    renderFullMapping(res);
+  } catch {}
+}
+
+function renderFullMapping(data) {
+  const managers = data.managers || [];
+  if (!managers.length) return;
+  document.getElementById('mappingFull').innerHTML = managers.map(mgr => `
+    <div class="panel" style="margin-bottom:0.75rem">
+      <h4>${esc(mgr.name || 'N/A')}</h4>
+      <div class="table-wrap mt-sm"><table>
+        <thead><tr>
+          <th>Attuale</th><th>R</th><th>Squadra</th>
+          <th>Alter Ego</th><th>Squadra storica</th>
+        </tr></thead>
+        <tbody>${mgr.players.map(p => `<tr>
+          <td>${esc(p.current.name)}</td>
+          <td>${p.current.role}</td>
+          <td>${esc(p.current.team)}</td>
+          <td style="font-family:Georgia;color:var(--accent)">
+            ${esc(p.historic.name)}${p.is_duplicate ? ' <span style="color:var(--muted);font-size:0.72rem">(dup)</span>' : ''}
+          </td>
+          <td>${esc(p.historic.team)}</td>
+        </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`).join('');
+}
+
+// ── Giornate ──────────────────────────────────────────────────────────────────
+setupDropZone('dropZoneFormazioni', 'formazioniFile', 'dzFormText');
+
+document.getElementById('formazioniFile').addEventListener('change', function () {
+  document.getElementById('dzFormText').textContent =
+    this.files[0] ? this.files[0].name : 'Trascina .xlsx qui o clicca per selezionare';
+});
+
+document.getElementById('uploadFormazioniBtn').addEventListener('click', async () => {
+  const matchday = parseInt(document.getElementById('formazioniGiornata').value);
+  const file = document.getElementById('formazioniFile').files[0];
+  if (!matchday || !file) { showMsg('giornataMsg', 'Giornata e file obbligatori.', true); return; }
+  try {
+    const res = await apiUploadFormazioni(currentLeagueId, matchday, file);
+    let msg = `Formazioni G${matchday} caricate — manager: ${res.managers_imported}.`;
+    if (res.warnings?.length) msg += ` Avvisi: ${res.warnings.length}.`;
+    showMsg('giornataMsg', msg);
+    document.getElementById('sorteggioGiornata').value = matchday;
+  } catch (err) {
+    showMsg('giornataMsg', err.message, true);
+  }
+});
+
+document.getElementById('drawBtn').addEventListener('click', async () => {
+  const matchday = parseInt(document.getElementById('sorteggioGiornata').value);
+  if (!matchday) { showMsg('giornataMsg', 'Inserisci la giornata.', true); return; }
+  try {
+    const res = await apiDrawMatchday(currentLeagueId, matchday);
+    document.getElementById('giornataResult').innerHTML = `
+      <div class="panel mt-md">
+        <h4>Sorteggio completato</h4>
+        <p style="margin-top:0.5rem">
+          Giornata corrente: <strong>${res.matchday_current}</strong> &nbsp;→&nbsp;
+          Giornata storica: <strong style="color:var(--accent)">${res.matchday_historic}</strong>
+          (ciclo ${res.cycle})
+        </p>
+      </div>`;
+    showMsg('giornataMsg', `Giornata storica ${res.matchday_historic} sorteggiata.`);
+  } catch (err) {
+    showMsg('giornataMsg', err.message, true);
+  }
+});
+
+document.getElementById('scoresBtn').addEventListener('click', async () => {
+  const matchday = parseInt(document.getElementById('sorteggioGiornata').value);
+  if (!matchday) { showMsg('giornataMsg', 'Inserisci la giornata.', true); return; }
+  try {
+    const res = await apiCalculateScores(currentLeagueId, matchday);
+    const rows = (res.scores || []).map(s => `<tr>
+      <td>${esc(s.manager)}</td>
+      <td style="font-family:monospace;text-align:right">${(s.score_normal || 0).toFixed(2)}</td>
+      <td style="font-family:monospace;color:var(--accent);text-align:right">${(s.score_nostalgia || 0).toFixed(2)}</td>
+    </tr>`).join('');
+    document.getElementById('giornataResult').innerHTML = `
+      <div class="panel mt-md">
+        <h4>Punteggi giornata ${res.matchday}</h4>
+        <div class="table-wrap mt-sm"><table>
+          <thead><tr><th>Manager</th><th style="text-align:right">Normale</th><th style="text-align:right">Nostalgia</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+    showMsg('giornataMsg', 'Punteggi calcolati.');
+  } catch (err) {
+    showMsg('giornataMsg', err.message, true);
+  }
+});
+
+// ── Drop Zone helper ──────────────────────────────────────────────────────────
+function setupDropZone(zoneId, inputId, textId) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  if (!zone || !input) return;
+
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+    } catch {}
+    if (textId) document.getElementById(textId).textContent = file.name;
+    input.dispatchEvent(new Event('change'));
+  });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-async function loadAll() {
-  await loadLeagues();
-}
-
-if (token) loadAll();
+(async function init() {
+  const username = await checkSession();
+  if (username) {
+    showApp(username);
+  } else {
+    showLoginPage();
+  }
+})();
 </script>
 </body>
 </html>
