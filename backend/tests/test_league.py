@@ -108,3 +108,60 @@ def test_admin_endpoints_require_auth(client):
         "name": "X", "season_current": "2024/25", "season_historic": "2003/04", "budget": 500,
     })
     assert r.status_code == 401
+
+
+# ── Manager endpoints ────────────────────────────────────────────────────────
+
+def _make_league(client):
+    r = client.post("/admin/league", json={
+        "name": "Lega Manager Test",
+        "season_current": "2024/25",
+        "season_historic": "2003/04",
+        "budget": 500,
+    })
+    return r.json()["id"]
+
+
+def test_list_managers_empty(client):
+    lid = _make_league(client)
+    r = client.get(f"/league/{lid}/managers")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_create_manager(client):
+    lid = _make_league(client)
+    r = client.post(f"/admin/league/{lid}/managers", json={"name": "Mario", "team_name": "Rossoneri"})
+    assert r.status_code == 201
+    data = r.json()
+    assert data["name"] == "Mario"
+    assert data["team_name"] == "Rossoneri"
+    assert data["league_id"] == lid
+
+
+def test_list_managers_after_create(client):
+    lid = _make_league(client)
+    client.post(f"/admin/league/{lid}/managers", json={"name": "Alice", "team_name": "Bianchi"})
+    client.post(f"/admin/league/{lid}/managers", json={"name": "Bob", "team_name": "Neri"})
+    r = client.get(f"/league/{lid}/managers")
+    assert r.status_code == 200
+    names = [m["name"] for m in r.json()]
+    assert "Alice" in names
+    assert "Bob" in names
+
+
+def test_create_manager_league_not_found(client):
+    r = client.post("/admin/league/99999/managers", json={"name": "X", "team_name": "Y"})
+    assert r.status_code == 404
+
+
+def test_list_managers_league_not_found(client):
+    r = client.get("/league/99999/managers")
+    assert r.status_code == 404
+
+
+def test_create_manager_requires_auth(client):
+    lid = _make_league(client)
+    client.post("/auth/logout")
+    r = client.post(f"/admin/league/{lid}/managers", json={"name": "X", "team_name": "Y"})
+    assert r.status_code == 401
