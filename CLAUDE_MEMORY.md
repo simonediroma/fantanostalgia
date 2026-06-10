@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/prlssimo-task-fzkcwv`
-**PR in corso:** da aprire — task/07-calcolo-punteggi
+**Branch attivo:** `claude/memory-file-review-fecztn`
+**PR in corso:** da aprire — task/08-api-classifica
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,8 +11,8 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Apri PR `claude/prlssimo-task-fzkcwv` → `main` per il task 07 (calcolo punteggi)
-2. Implementa task 08 seguendo `prompts/backend/08-api-classifica.md`
+1. Apri PR `claude/memory-file-review-fecztn` → `main` per il task 08 (API classifica)
+2. Implementa task 09 seguendo `prompts/frontend/09-layout-base.md`
 3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -33,7 +33,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **05** — Import formazioni Excel → `prompts/backend/05-import-formazioni.md` (branch: `claude/tender-allen-uyaspn`, formato POC)
 - [x] **06** — Sorteggio giornata storica → `prompts/backend/06-sorteggio-giornata.md` (branch: `claude/prossimo-task-gztmd8`)
 - [x] **07** — Calcolo punteggi → `prompts/backend/07-calcolo-punteggi.md` (branch: `claude/prlssimo-task-fzkcwv`)
-- [ ] **08** — API classifica pubblica → `prompts/backend/08-api-classifica.md`
+- [x] **08** — API classifica pubblica → `prompts/backend/08-api-classifica.md` (branch: `claude/memory-file-review-fecztn`)
 
 ### Epica 2 — Frontend
 - [ ] **09** — Layout base + navigazione → `prompts/frontend/09-layout-base.md`
@@ -68,3 +68,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - PR da aprire — task/05-import-formazioni (`claude/tender-allen-uyaspn`)
 - PR da aprire — task/06-sorteggio-giornata (`claude/prossimo-task-gztmd8`)
 - PR da aprire — task/07-calcolo-punteggi (`claude/prlssimo-task-fzkcwv`)
+- PR da aprire — task/08-api-classifica (`claude/memory-file-review-fecztn`)
