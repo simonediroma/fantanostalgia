@@ -1,0 +1,28 @@
+name: Weekly Draw
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+    inputs:
+      league_id:
+        description: "League ID"
+        required: true
+        type: string
+      matchday_current:
+        description: "Current matchday number"
+        required: true
+        type: string
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger draw
+        env:
+          LEAGUE_ID: ${{ github.event.inputs.league_id || vars.LEAGUE_ID }}
+          MATCHDAY: ${{ github.event.inputs.matchday_current || vars.MATCHDAY_CURRENT }}
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.API_SECRET_KEY }}" \
+            "${{ secrets.API_BASE_URL }}/admin/league/${LEAGUE_ID}/draw/${MATCHDAY}"
