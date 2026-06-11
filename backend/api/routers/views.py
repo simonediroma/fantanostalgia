@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -37,11 +38,31 @@ def classifica(request: Request, league_id: int):
                 status_code=404,
             )
 
-        last_draw = conn.execute(
-            "SELECT MAX(matchday_current) AS last FROM matchday_draw WHERE league_id = ?",
+        draw_row = conn.execute(
+            """SELECT matchday_current, matchday_historic, drawn_at
+               FROM matchday_draw
+               WHERE league_id = ?
+               ORDER BY matchday_current DESC
+               LIMIT 1""",
             (league_id,),
         ).fetchone()
-        last_matchday = last_draw["last"] if last_draw["last"] is not None else 0
+        last_matchday = draw_row["matchday_current"] if draw_row else 0
+
+        last_draw = None
+        if draw_row:
+            drawn_at_fmt = ""
+            if draw_row["drawn_at"]:
+                try:
+                    drawn_at_fmt = datetime.strptime(
+                        draw_row["drawn_at"][:10], "%Y-%m-%d"
+                    ).strftime("%d/%m/%Y")
+                except ValueError:
+                    drawn_at_fmt = draw_row["drawn_at"][:10]
+            last_draw = {
+                "matchday_current": draw_row["matchday_current"],
+                "matchday_historic": draw_row["matchday_historic"],
+                "drawn_at_fmt": drawn_at_fmt,
+            }
 
         rows = conn.execute(
             """
@@ -77,7 +98,7 @@ def classifica(request: Request, league_id: int):
     return templates.TemplateResponse("classifica.html", {
         "request": request,
         "league": dict(league_row),
-        "last_matchday": last_matchday,
+        "last_draw": last_draw,
         "normal": normal,
         "nostalgia": nostalgia,
     })

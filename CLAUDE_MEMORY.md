@@ -1,9 +1,9 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-06-10
-**Branch attivo:** `claude/next-steps-ocl3qu`
-**PR in corso:** task 10 in attesa di review — branch `claude/next-steps-ocl3qu`
+**Ultima sessione:** 2026-06-11
+**Branch attivo:** `claude/prossimo-task-lo5jxx`
+**PR in corso:** task 11 pronto per review — branch `claude/prossimo-task-lo5jxx`
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,8 +11,8 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Mergia PR task 10 (`claude/next-steps-ocl3qu`) se approvata
-2. Implementa task 11 seguendo `prompts/frontend/11-pagine-pubbliche.md`
+1. Mergia PR task 11 (`claude/prossimo-task-lo5jxx`) se approvata
+2. Implementa task 12 seguendo `prompts/utilities/12-devops.md`
 3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -38,7 +38,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 ### Epica 2 — Frontend
 - [x] **09** — Layout base + navigazione → `prompts/frontend/09-layout-base.md` (branch: `claude/task-09-nsvx6j`)
 - [x] **10** — Admin pages (setup + listone + mapping + formazioni) → `prompts/frontend/10-admin-pages.md` (branch: `claude/next-steps-ocl3qu`)
-- [ ] **11** — Pagine pubbliche SSR Jinja2 → `prompts/frontend/11-pagine-pubbliche.md`
+- [x] **11** — Pagine pubbliche SSR Jinja2 → `prompts/frontend/11-pagine-pubbliche.md` (branch: `claude/prossimo-task-lo5jxx`)
 
 ### Epica 3 — Utilities & DevOps
 - [ ] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md`

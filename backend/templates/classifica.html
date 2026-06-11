@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block title %}Classifica — {{ league.name }}{% endblock %}
+{% block og_title %}{{ league.name }} — Classifica FantaNostalgia{% endblock %}
+{% block og_description %}Classifica della lega {{ league.name }}, stagione storica {{ league.season_historic }}{% endblock %}
 
 {% block nav %}
 <a href="/">Home</a>
@@ -12,7 +14,7 @@
 <p class="subtitle">
   Stagione {{ league.season_current }} &nbsp;·&nbsp;
   Storica: {{ league.season_historic }}
-  {% if last_matchday %}&nbsp;·&nbsp; Giornata {{ last_matchday }}{% endif %}
+  {% if last_draw %}&nbsp;·&nbsp; Giornata {{ last_draw.matchday_current }}{% endif %}
 </p>
 
 <div class="tabs">
@@ -85,6 +87,13 @@
   <div class="empty">Nessun dato disponibile.</div>
   {% endif %}
 </div>
+
+{% if last_draw %}
+<p class="matchday-footer">
+  Ultima giornata: G{{ last_draw.matchday_current }} corrente → G{{ last_draw.matchday_historic }} storica
+  (sorteggiata il {{ last_draw.drawn_at_fmt }})
+</p>
+{% endif %}
 
 <script>
 function switchTab(name, btn) {
