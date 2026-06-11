@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-11
-**Branch attivo:** `claude/prossimo-task-hyg0j4`
-**PR in corso:** task 16 pronto per review — branch `claude/prossimo-task-hyg0j4`
+**Branch attivo:** `claude/task-12-pl3qh8`
+**PR in corso:** task 12 pronto per review — branch `claude/task-12-pl3qh8`
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,9 +11,9 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Mergia PR task 16 (`claude/prossimo-task-hyg0j4`) se approvata
-2. Implementa task 12 — DevOps seguendo `prompts/utilities/12-devops.md` (Docker + GH Actions + Cloud Run)
-3. Oppure task 13 (scraper fantagiaveno) o task 15 (adattamento Excel reale) secondo priorità
+1. Mergia PR task 12 (`claude/task-12-pl3qh8`) se approvata
+2. Configura i GitHub Secrets (`GCP_SA_KEY`, `GCP_PROJECT`, `GCS_BUCKET`, `API_BASE_URL`, `API_SECRET_KEY`) e le Variables (`LEAGUE_ID`, `MATCHDAY_CURRENT`) nel repo
+3. Procedi con task 13 (scraper fantagiaveno) o task 15 (adattamento Excel reale) secondo priorità
 4. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -42,7 +42,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **11** — Pagine pubbliche SSR Jinja2 → `prompts/frontend/11-pagine-pubbliche.md` (branch: `claude/prossimo-task-lo5jxx`)
 
 ### Epica 3 — Utilities & DevOps
-- [ ] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md`
+- [x] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md` (branch: `claude/task-12-pl3qh8`)
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
 - [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
 - [ ] **15** — Adattamento formato Excel reale → `prompts/utilities/15-adattamento-excel-reale.md`

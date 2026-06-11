@@ -55,3 +55,4 @@ gcloud builds submit --config cloudbuild.yaml
 | `GCS_BUCKET` | Nome bucket GCS per il db |
 | `API_BASE_URL` | URL Cloud Run backend |
 | `API_SECRET_KEY` | Secret key per autenticazione cron |
+

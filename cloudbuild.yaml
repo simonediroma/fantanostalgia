@@ -39,7 +39,7 @@ steps:
       - deploy
       - fantanostalgia-api
       - --image=gcr.io/$PROJECT_ID/fantanostalgia-api:$COMMIT_SHA
-      - --region=europe-west1
+      - --region=$_REGION
       - --platform=managed
       - --allow-unauthenticated
       - --set-env-vars=ENV=production,GCS_BUCKET=$_GCS_BUCKET,GCP_PROJECT=$PROJECT_ID
@@ -52,12 +52,13 @@ steps:
       - deploy
       - fantanostalgia-web
       - --image=gcr.io/$PROJECT_ID/fantanostalgia-web:$COMMIT_SHA
-      - --region=europe-west1
+      - --region=$_REGION
       - --platform=managed
       - --allow-unauthenticated
 
 substitutions:
   _GCS_BUCKET: fantanostalgia-db
+  _REGION: europe-west1
 
 images:
   - "gcr.io/$PROJECT_ID/fantanostalgia-api:$COMMIT_SHA"

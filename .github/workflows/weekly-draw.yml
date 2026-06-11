@@ -1,0 +1,16 @@
+name: Weekly Draw
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+jobs:
+  process-pending:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process pending matchdays
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.API_SECRET_KEY }}" \
+            "${{ secrets.API_BASE_URL }}/admin/process-pending"

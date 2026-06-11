@@ -1,0 +1,55 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build backend
+        run: |
+          docker build \
+            -t gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-api:${{ github.sha }} \
+            -f Dockerfile.backend .
+
+      - name: Build frontend
+        run: |
+          docker build \
+            -t gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-web:${{ github.sha }} \
+            -f Dockerfile.frontend .
+
+      - name: Push backend
+        run: docker push gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-api:${{ github.sha }}
+
+      - name: Push frontend
+        run: docker push gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-web:${{ github.sha }}
+
+      - name: Deploy backend to Cloud Run
+        run: |
+          gcloud run deploy fantanostalgia-api \
+            --image=gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-api:${{ github.sha }} \
+            --region=europe-west1 \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars=ENV=production,GCS_BUCKET=${{ secrets.GCS_BUCKET }},GCP_PROJECT=${{ secrets.GCP_PROJECT }},SECRET_KEY=${{ secrets.API_SECRET_KEY }}
+
+      - name: Deploy frontend to Cloud Run
+        run: |
+          gcloud run deploy fantanostalgia-web \
+            --image=gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-web:${{ github.sha }} \
+            --region=europe-west1 \
+            --platform=managed \
+            --allow-unauthenticated
