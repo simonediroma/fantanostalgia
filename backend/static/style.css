@@ -1,32 +1,57 @@
-/* FantaNostalgia — dark retro theme */
+/* FantaNostalgia — 8-bit retro theme */
 :root {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --accent: #c8a96e;
-  --text: #f0ece0;
-  --muted: #888;
-  --green: #4caf50;
-  --red: #e53935;
-  --border: #2a2a2a;
+  --bg: #050510;
+  --surface: #0d0d2b;
+  --accent: #ffe600;
+  --accent2: #00d4ff;
+  --text: #ffffff;
+  --muted: #7777aa;
+  --green: #00ff55;
+  --red: #ff1144;
+  --border: #3333aa;
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-data: 'Courier New', monospace;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-data);
   font-size: 16px;
   line-height: 1.5;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Scanline overlay — effetto CRT */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
 }
 
 /* ── Header ─────────────────────────────────────────────── */
 header {
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent);
   padding: 0.75rem 1.25rem;
   display: flex;
   align-items: center;
@@ -36,11 +61,12 @@ header {
 }
 
 .logo {
-  font-family: Georgia, serif;
-  font-size: 1.2rem;
+  font-family: var(--font-pixel);
+  font-size: clamp(0.8rem, 2vw, 1.1rem);
   color: var(--accent);
   text-decoration: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
@@ -48,8 +74,9 @@ nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
 nav a {
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.875rem;
-  transition: color 0.15s;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  text-transform: uppercase;
 }
 nav a:hover, nav a.active { color: var(--accent); }
 
@@ -65,26 +92,29 @@ main {
 /* ── Footer ─────────────────────────────────────────────── */
 footer {
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  border-top: 2px solid var(--border);
   padding: 0.9rem 1.25rem;
   text-align: center;
   color: var(--muted);
-  font-size: 0.8rem;
-  font-family: Georgia, serif;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 /* ── Typography ─────────────────────────────────────────── */
 h1, h2, h3 {
-  font-family: Georgia, serif;
+  font-family: var(--font-pixel);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--accent);
   margin-bottom: 0.5rem;
 }
-h1 { font-size: 1.9rem; margin-bottom: 0.25rem; }
-h2 { font-size: 1.35rem; }
-h3 { font-size: 1.05rem; }
+h1, .logo { font-size: clamp(0.8rem, 2vw, 1.1rem); }
+h2 { font-size: clamp(0.65rem, 1.5vw, 0.85rem); }
+h3 { font-size: 0.65rem; }
 
-.subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+.subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
 p { margin-bottom: 0.75rem; color: var(--muted); }
 
 /* ── League cards ────────────────────────────────────────── */
@@ -92,65 +122,129 @@ p { margin-bottom: 0.75rem; color: var(--muted); }
 
 .league-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 1.1rem 1.25rem;
+  border: 2px solid var(--border);
+  box-shadow: 3px 3px 0 #000;
+  padding: 1rem;
 }
 .league-card h3 { color: var(--accent); margin-bottom: 0.2rem; }
+.league-card:hover {
+  border-color: var(--accent);
+  box-shadow: 3px 3px 0 var(--accent);
+}
 .league-card .seasons { font-size: 0.82rem; color: var(--muted); }
 
 .card-actions { display: flex; gap: 0.6rem; margin-top: 0.75rem; }
 .btn-link {
-  color: var(--accent);
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bg);
   text-decoration: none;
-  font-size: 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 3px;
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: 2px 2px 0 #000;
   padding: 0.2rem 0.75rem;
-  transition: border-color 0.15s;
 }
-.btn-link:hover { border-color: var(--accent); }
+.btn-link:hover {
+  background: var(--accent2);
+  border-color: var(--accent2);
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+button, .btn {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--accent);
+  color: var(--bg);
+  border: 2px solid var(--accent);
+  box-shadow: 2px 2px 0 #000;
+  cursor: pointer;
+  padding: 0.4rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+button:hover, .btn:hover {
+  background: var(--accent2);
+  border-color: var(--accent2);
+  color: var(--bg);
+}
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+button.secondary:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+button.danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+button:disabled { opacity: 0.45; cursor: default; }
 
 /* ── Tables ─────────────────────────────────────────────── */
 .table-wrap { overflow-x: auto; }
 
 table {
   width: 100%;
+  font-family: var(--font-data);
   border-collapse: collapse;
-  font-size: 0.875rem;
+  border: 2px solid var(--border);
 }
 
 thead th {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0.55rem 0.75rem;
-  text-align: left;
-  font-family: Georgia, serif;
-  color: var(--accent);
-  font-size: 0.75rem;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--bg);
+  text-align: left;
   white-space: nowrap;
+  letter-spacing: 0.06em;
 }
 
 tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
-tbody tr:hover { background: var(--surface); }
-tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
+tbody tr:hover td { background: rgba(255, 230, 0, 0.07); }
+tbody td {
+  padding: 0.4rem 0.75rem;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
 
-td.rank { font-family: monospace; color: var(--muted); width: 2rem; text-align: center; }
-td.score, td.total { font-family: monospace; font-weight: 600; }
+td.rank { font-family: var(--font-pixel); font-size: 0.6rem; color: var(--accent2); width: 2rem; text-align: center; }
+td.score, td.total { font-family: var(--font-data); color: var(--green); }
 td.pos { color: var(--green); }
 td.neg { color: var(--red); }
 
 /* ── Tabs ────────────────────────────────────────────────── */
-.tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 1.5rem; }
 .tab-btn {
-  background: none; border: none; border-bottom: 2px solid transparent;
-  color: var(--muted); cursor: pointer; font-family: Georgia, serif;
-  font-size: 0.9rem; padding: 0.4rem 1.1rem;
-  transition: color 0.15s, border-color 0.15s; margin-bottom: -1px;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  margin-bottom: -2px;
 }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-bottom-color: var(--accent);
+}
 .tab-btn:hover:not(.active) { color: var(--text); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
@@ -171,33 +265,55 @@ td.neg { color: var(--red); }
 .player-row:last-child { border-bottom: none; }
 
 .role-badge {
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  background: var(--accent2);
+  color: var(--bg);
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--accent2);
   display: inline-block;
-  background: var(--border);
-  color: var(--muted);
-  border-radius: 2px;
-  font-size: 0.7rem;
-  padding: 0 0.3rem;
   margin-right: 0.25rem;
-  font-family: monospace;
 }
-.historic-name { font-family: Georgia, serif; color: var(--accent); text-align: right; }
+
+.historic-name {
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  color: var(--accent);
+  text-align: right;
+  text-transform: uppercase;
+}
+
 .arrow { color: var(--muted); text-align: center; font-size: 0.8rem; }
 
 /* ── Misc ────────────────────────────────────────────────── */
-.empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); font-family: Georgia, serif; }
+.empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--muted);
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+}
 .matchday-footer { margin-top: 1.5rem; font-size: 0.82rem; color: var(--muted); }
 .badge {
   display: inline-block;
   background: var(--border);
   color: var(--muted);
-  border-radius: 3px;
-  font-size: 0.75rem;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
   padding: 0.1rem 0.5rem;
 }
+.pixel-shadow { box-shadow: 2px 2px 0 #000; }
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (min-width: 768px) {
   main { padding: 2.5rem 2rem; }
   header { padding: 0.75rem 2rem; }
   .player-row { font-size: 0.95rem; }
+}
+
+@media (max-width: 640px) {
+  h1 { font-size: 0.7rem; }
+  h2 { font-size: 0.6rem; }
 }
