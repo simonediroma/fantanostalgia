@@ -44,9 +44,11 @@ def _upload_db_to_gcs() -> None:
 
 
 def init_db() -> None:
+    db_existed_in_gcs = False
     if ENV != "development":
         try:
             _download_db_from_gcs()
+            db_existed_in_gcs = True
         except Exception:
             pass  # primo avvio: db non ancora su GCS
 
@@ -61,6 +63,9 @@ def init_db() -> None:
         except sqlite3.OperationalError:
             pass  # colonna già presente
         conn.commit()
+
+    if ENV != "development" and not db_existed_in_gcs:
+        _upload_db_to_gcs()
 
 
 @contextmanager
