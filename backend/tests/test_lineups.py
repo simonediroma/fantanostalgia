@@ -241,3 +241,169 @@ def test_get_lineups_empty_matchday(client, setup):
 def test_get_lineups_league_not_found(client):
     r = client.get("/league/99999/lineups/1")
     assert r.status_code == 404
+
+
+# ── Formazioni (real format) ─────────────────────────────────────────────────
+
+def _make_formazioni_excel(
+    matches: list[tuple[str, str, str, list[str], list[str], list[str], list[str]]]
+) -> bytes:
+    """
+    Build a Formazioni-format Excel with two matches side by side per block.
+    Each match is (team_left, score, team_right, starters_left, bench_left, starters_right, bench_right).
+    For simplicity each player name is also the role (P/D/C/A) to keep tests minimal.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    ws.append(["Formazioni Test", None, None, None, None, None, None, None, None, None, None])
+    ws.append([None] * 11)
+
+    for team_l, score, team_r, starters_l, bench_l, starters_r, bench_r in matches:
+        ws.append([team_l, None, None, None, None, score, team_r, None, None, None, None])
+        ws.append(["343", None, None, None, None, "", "343", None, None, None, None])
+
+        max_starters = max(len(starters_l), len(starters_r))
+        for i in range(max_starters):
+            pl = starters_l[i] if i < len(starters_l) else None
+            pr = starters_r[i] if i < len(starters_r) else None
+            ws.append(["A", pl, None, 6.0, 6.0, None, "A", pr, None, 6.0, 6.0])
+
+        ws.append(["Panchina", None, None, None, None, None, "Panchina", None, None, None, None])
+
+        max_bench = max(len(bench_l), len(bench_r))
+        for i in range(max_bench):
+            pl = bench_l[i] if i < len(bench_l) else None
+            pr = bench_r[i] if i < len(bench_r) else None
+            ws.append(["A", pl, None, "-", "-", None, "A", pr, None, "-", "-"])
+
+        ws.append(["TOTALE: 65,00", None, None, None, None, None, "TOTALE: 70,00", None, None, None, None])
+        ws.append([None] * 11)
+
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@pytest.fixture()
+def formazioni_setup(client):
+    """Lega con due manager e giocatori nelle rose, usando team_name per lookup."""
+    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
+    r = client.post("/admin/league", json={
+        "name": "Lega Formazioni Test",
+        "season_current": "2024/25",
+        "season_historic": "2003/04",
+        "budget": 500,
+    })
+    league_id = r.json()["id"]
+
+    from backend.api.db import get_db
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+            (league_id, "Simone", "ALPHA"),
+        )
+        m1 = cur.lastrowid
+        cur = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+            (league_id, "Marco", "BETA"),
+        )
+        m2 = cur.lastrowid
+
+        player_names = ["Ronaldo", "Maldini", "Pirlo", "Totti", "Del Piero",
+                        "Buffon", "Cannavaro", "Nesta", "Inzaghi", "Sheva", "Baggio"]
+        for i, name in enumerate(player_names):
+            conn.execute(
+                "INSERT INTO player_current (league_id, name, role, team, quotation, manager_id)"
+                " VALUES (?, ?, 'A', 'Juve', 10, ?)",
+                (league_id, name, m1),
+            )
+
+        player_names2 = ["Toldo", "Costacurta", "Albertini", "Vieri", "Weah",
+                         "Rossi", "Rivera", "Facchetti", "Mazzola", "Riva", "Altafini"]
+        for name in player_names2:
+            conn.execute(
+                "INSERT INTO player_current (league_id, name, role, team, quotation, manager_id)"
+                " VALUES (?, ?, 'A', 'Mil', 10, ?)",
+                (league_id, name, m2),
+            )
+
+    yield league_id, m1, m2
+    client.post("/auth/logout")
+
+
+def test_upload_formazioni_basic(client, formazioni_setup):
+    """Formazioni format: players imported and matched by team_name."""
+    league_id, m1, m2 = formazioni_setup
+
+    xlsx = _make_formazioni_excel([
+        (
+            "ALPHA", "2-1", "BETA",
+            ["Ronaldo", "Maldini", "Pirlo"],   # alpha starters
+            ["Totti", "Del Piero"],              # alpha bench
+            ["Toldo", "Costacurta", "Albertini"],  # beta starters
+            ["Vieri", "Weah"],                   # beta bench
+        ),
+    ])
+    r = client.post(
+        f"/admin/league/{league_id}/lineups/10",
+        files={"file": ("formazioni.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["matchday"] == 10
+    assert body["managers_imported"] == 2
+
+    lineups = client.get(f"/league/{league_id}/lineups/10").json()
+    starters = [p for p in lineups if p["is_starter"] == 1]
+    bench = [p for p in lineups if p["is_starter"] == 0]
+    assert len(starters) == 6   # 3 per team
+    assert len(bench) == 4      # 2 per team
+
+
+def test_upload_formazioni_team_name_case_insensitive(client, formazioni_setup):
+    """Formazioni format: team name lookup is case-insensitive."""
+    league_id, m1, m2 = formazioni_setup
+
+    # Use lowercase team name — should still match manager with team_name='ALPHA'
+    xlsx = _make_formazioni_excel([
+        (
+            "alpha", "1-0", "beta",
+            ["Ronaldo"],
+            [],
+            ["Toldo"],
+            [],
+        ),
+    ])
+    r = client.post(
+        f"/admin/league/{league_id}/lineups/11",
+        files={"file": ("formazioni.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+    assert r.json()["managers_imported"] == 2
+
+
+def test_upload_formazioni_panchina_flag(client, formazioni_setup):
+    """Formazioni format: is_starter=0 for bench players."""
+    league_id, *_ = formazioni_setup
+
+    xlsx = _make_formazioni_excel([
+        (
+            "ALPHA", "0-0", "BETA",
+            ["Ronaldo", "Maldini"],   # starters
+            ["Pirlo"],                 # bench
+            ["Toldo", "Costacurta"],  # starters
+            ["Albertini"],             # bench
+        ),
+    ])
+    client.post(
+        f"/admin/league/{league_id}/lineups/12",
+        files={"file": ("formazioni.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    lineups = client.get(f"/league/{league_id}/lineups/12").json()
+    by_name = {p["player_name"]: p["is_starter"] for p in lineups}
+    assert by_name["Ronaldo"] == 1
+    assert by_name["Maldini"] == 1
+    assert by_name["Pirlo"] == 0
+    assert by_name["Toldo"] == 1
+    assert by_name["Albertini"] == 0

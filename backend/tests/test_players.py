@@ -275,3 +275,127 @@ def test_assign_requires_auth(client, league_id):
     client.post("/auth/logout")
     r = client.post(f"/admin/league/{league_id}/assign", json=[])
     assert r.status_code == 401
+
+
+# ── Rose (dual-column) format ────────────────────────────────────────────────
+
+def _make_rose_excel(teams: list[tuple[str, list[tuple[str, str, str, int]]]]) -> bytes:
+    """
+    Build a Rose-format Excel with teams paired side by side.
+    teams: list of (team_name, [(role, player_name, squad, cost), ...])
+    Pairs teams in groups of 2.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    # Metadata rows
+    ws.append(["Rose lega Test", None, None, None, None, None, None, None, None])
+    ws.append([None] * 9)
+
+    for i in range(0, len(teams), 2):
+        left_name, left_players = teams[i]
+        right_name = right_players = None
+        if i + 1 < len(teams):
+            right_name, right_players = teams[i + 1]
+
+        # Team name row
+        ws.append([left_name, None, None, None, None, right_name, None, None, None])
+        # Header row
+        ws.append(["Ruolo", "Calciatore", "Squadra", "Costo", None, "Ruolo", "Calciatore", "Squadra", "Costo"])
+
+        max_players = max(len(left_players), len(right_players or []))
+        for j in range(max_players):
+            l_row = list(left_players[j]) if j < len(left_players) else [None] * 4
+            r_row = list(right_players[j]) if right_players and j < len(right_players) else [None] * 4
+            ws.append(l_row[:4] + [None] + r_row[:4])
+
+        # Crediti residui
+        ws.append(["Crediti Residui: 0", None, None, None, None, "Crediti Residui: 0", None, None, None])
+        ws.append([None] * 9)
+
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_upload_listone_rose_format_basic(client, league_id):
+    """Rose format: both left and right column players are imported."""
+    xlsx = _make_rose_excel([
+        ("Team A", [("P", "Buffon", "Juv", 15), ("D", "Maldini", "Mil", 20)]),
+        ("Team B", [("P", "Toldo", "Int", 10), ("A", "Totti", "Rom", 30)]),
+    ])
+    r = client.post(
+        f"/admin/league/{league_id}/listone",
+        files={"file": ("rose.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["imported"] == 4
+    assert data["by_role"] == {"P": 2, "D": 1, "C": 0, "A": 1}
+
+    players = client.get(f"/league/{league_id}/players").json()
+    names = {p["name"] for p in players}
+    assert names == {"Buffon", "Maldini", "Toldo", "Totti"}
+
+
+def test_upload_listone_rose_format_auto_assigns(client):
+    """Rose format: players are auto-assigned to managers matching team_name."""
+    from backend.api.db import get_db
+
+    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
+    r = client.post("/admin/league", json={
+        "name": "Lega Rose Auto-Assign",
+        "season_current": "2024/25",
+        "season_historic": "2003/04",
+        "budget": 500,
+    })
+    lid = r.json()["id"]
+
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+            (lid, "Simone", "Team A"),
+        )
+        conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+            (lid, "Marco", "Team B"),
+        )
+
+    xlsx = _make_rose_excel([
+        ("Team A", [("P", "Buffon", "Juv", 15), ("D", "Maldini", "Mil", 20)]),
+        ("Team B", [("A", "Totti", "Rom", 30)]),
+    ])
+    r = client.post(
+        f"/admin/league/{lid}/listone",
+        files={"file": ("rose.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+    assert r.json()["imported"] == 3
+    assert r.json()["warnings"] == []
+
+    players = client.get(f"/league/{lid}/players").json()
+    team_a_players = [p for p in players if p["name"] in ("Buffon", "Maldini")]
+    team_b_players = [p for p in players if p["name"] == "Totti"]
+    assert all(p["manager_id"] is not None for p in team_a_players)
+    assert all(p["manager_id"] is not None for p in team_b_players)
+    # Different managers
+    assert team_a_players[0]["manager_id"] != team_b_players[0]["manager_id"]
+
+    client.post("/auth/logout")
+
+
+def test_upload_listone_rose_format_costo_as_quota(client, league_id):
+    """Rose format: 'Costo' column is imported as quotation."""
+    xlsx = _make_rose_excel([
+        ("Team A", [("P", "Portiere X", "Juv", 42)]),
+        ("Team B", [("A", "Attaccante Y", "Rom", 99)]),
+    ])
+    r = client.post(
+        f"/admin/league/{league_id}/listone",
+        files={"file": ("rose.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+    players = client.get(f"/league/{league_id}/players").json()
+    by_name = {p["name"]: p for p in players}
+    assert by_name["Portiere X"]["quotation"] == 42
+    assert by_name["Attaccante Y"]["quotation"] == 99
