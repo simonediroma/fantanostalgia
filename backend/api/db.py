@@ -66,7 +66,10 @@ def init_db() -> None:
 @contextmanager
 def get_db():
     if ENV != "development":
-        _download_db_from_gcs()
+        try:
+            _download_db_from_gcs()
+        except Exception:
+            pass  # blob non ancora su GCS o errore di rete: usa file locale
 
     conn = sqlite3.connect(_get_db_path())
     conn.row_factory = sqlite3.Row
