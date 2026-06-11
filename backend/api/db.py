@@ -25,30 +25,33 @@ def _get_db_path() -> str:
     return _tmp_db_path
 
 
-def _download_db_from_gcs() -> None:
+def _gcs_blob():
     from google.cloud import storage
 
     client = storage.Client()
-    bucket = client.bucket(GCS_BUCKET)
-    blob = bucket.blob(GCS_BLOB)
+    return client.bucket(GCS_BUCKET).blob(GCS_BLOB)
+
+
+def _download_db_from_gcs() -> bool:
+    """Returns True if the blob existed and was downloaded, False otherwise."""
+    blob = _gcs_blob()
+    if not blob.exists():
+        return False
     blob.download_to_filename(_get_db_path())
+    return True
 
 
 def _upload_db_to_gcs() -> None:
-    from google.cloud import storage
-
-    client = storage.Client()
-    bucket = client.bucket(GCS_BUCKET)
-    blob = bucket.blob(GCS_BLOB)
-    blob.upload_from_filename(_get_db_path())
+    _gcs_blob().upload_from_filename(_get_db_path())
 
 
 def init_db() -> None:
+    fresh = True
     if ENV != "development":
         try:
-            _download_db_from_gcs()
+            fresh = not _download_db_from_gcs()
         except Exception:
-            pass  # primo avvio: db non ancora su GCS
+            pass  # errore di rete: procedi con db locale
 
     schema_path = os.path.join(os.path.dirname(__file__), "..", "..", "database", "schema.sql")
     with open(schema_path) as f:
@@ -62,6 +65,12 @@ def init_db() -> None:
             pass  # colonna già presente
         conn.commit()
 
+    if ENV != "development" and fresh:
+        try:
+            _upload_db_to_gcs()
+        except Exception:
+            pass  # non critico: il primo get_db con write lo farà
+
 
 @contextmanager
 def get_db():
@@ -69,7 +78,7 @@ def get_db():
         try:
             _download_db_from_gcs()
         except Exception:
-            pass  # blob non ancora su GCS o errore di rete: usa file locale
+            pass  # errore di rete: usa file locale
 
     conn = sqlite3.connect(_get_db_path())
     conn.row_factory = sqlite3.Row
