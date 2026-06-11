@@ -101,6 +101,42 @@ def calculate_matchday_scores(
     }
 
 
+@router.post("/admin/process-pending")
+def process_pending_matchdays(_: str = Depends(get_current_admin_or_bearer)):
+    """Elabora tutte le giornate caricate ma non ancora sortegiate/calcolate, su tutte le leghe."""
+    processed = []
+    errors = []
+
+    with get_db() as conn:
+        pending = conn.execute(
+            """
+            SELECT DISTINCT l.league_id, l.matchday
+            FROM lineup l
+            LEFT JOIN matchday_draw md
+                ON md.league_id = l.league_id AND md.matchday_current = l.matchday
+            WHERE md.matchday_current IS NULL
+            ORDER BY l.league_id, l.matchday
+            """
+        ).fetchall()
+
+    for row in pending:
+        league_id, matchday = row["league_id"], row["matchday"]
+        try:
+            with get_db() as conn:
+                draw = perform_draw(conn, league_id, matchday)
+                scores = calculate_scores(conn, league_id, matchday)
+            processed.append({
+                "league_id": league_id,
+                "matchday_current": draw.matchday_current,
+                "matchday_historic": draw.matchday_historic,
+                "scores_count": len(scores.scores),
+            })
+        except Exception as e:
+            errors.append({"league_id": league_id, "matchday": matchday, "error": str(e)})
+
+    return {"processed": processed, "errors": errors}
+
+
 @router.get("/league/{league_id}/scores/{matchday}")
 def get_matchday_scores(league_id: int, matchday: int):
     with get_db() as conn:

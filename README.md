@@ -56,12 +56,3 @@ gcloud builds submit --config cloudbuild.yaml
 | `API_BASE_URL` | URL Cloud Run backend |
 | `API_SECRET_KEY` | Secret key per autenticazione cron |
 
-## Variables GitHub (per il cron settimanale)
-
-| Variable | Valore |
-|----------|--------|
-| `LEAGUE_ID` | ID della lega attiva |
-| `MATCHDAY_CURRENT` | Numero giornata corrente (aggiornare ogni settimana) |
-
-Il workflow `weekly-draw.yml` usa queste variabili per il trigger automatico del lunedì.
-Per il trigger manuale (`workflow_dispatch`) i valori vengono inseriti al momento dell'esecuzione.
