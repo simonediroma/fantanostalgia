@@ -16,3 +16,4 @@ schedule==1.2.2              # cron locale dev
 python-dotenv==1.0.1
 pytest==8.2.0
 httpx==0.27.0                # test FastAPI
+httpcore==1.0.5              # httpx dependency (explicit pin to avoid resolver timeout)
