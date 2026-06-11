@@ -76,8 +76,9 @@ def get_db():
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
+        changed = conn.total_changes > 0
         conn.commit()
-        if ENV != "development":
+        if ENV != "development" and changed:
             _upload_db_to_gcs()
     except Exception:
         conn.rollback()
