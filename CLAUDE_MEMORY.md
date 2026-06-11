@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-11
-**Branch attivo:** `claude/8bit-aesthetic-redesign-459mxp`
-**PR in corso:** task 11 pronto per review — branch `claude/prossimo-task-lo5jxx`
+**Branch attivo:** `claude/prossimo-task-hyg0j4`
+**PR in corso:** task 16 pronto per review — branch `claude/prossimo-task-hyg0j4`
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,9 +11,9 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Mergia PR task 11 (`claude/prossimo-task-lo5jxx`) se approvata
-2. Implementa task 16 — redesign 8-bit seguendo `prompts/utilities/16-redesign-8bit.md` (modifica CSS + template HTML)
-3. Oppure implementa task 12 seguendo `prompts/utilities/12-devops.md` se il redesign grafico non è prioritario
+1. Mergia PR task 16 (`claude/prossimo-task-hyg0j4`) se approvata
+2. Implementa task 12 — DevOps seguendo `prompts/utilities/12-devops.md` (Docker + GH Actions + Cloud Run)
+3. Oppure task 13 (scraper fantagiaveno) o task 15 (adattamento Excel reale) secondo priorità
 4. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
@@ -46,7 +46,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
 - [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
 - [ ] **15** — Adattamento formato Excel reale → `prompts/utilities/15-adattamento-excel-reale.md`
-- [ ] **16** — Redesign estetica 8-bit Sensible Soccer → `prompts/utilities/16-redesign-8bit.md`
+- [x] **16** — Redesign estetica 8-bit Sensible Soccer → `prompts/utilities/16-redesign-8bit.md` (branch: `claude/prossimo-task-hyg0j4`)
   - Quando disponibili gli Excel definitivi (formazioni + listone), verificare:
     1. Formato colonne listone reale → aggiornare alias in `backend/api/routers/players.py` (`_find_columns`)
     2. Formato colonne formazioni reale → aggiornare parser in `backend/api/routers/lineups.py` (`_parse_excel`)
@@ -72,3 +72,5 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#11](https://github.com/simonediroma/fantanostalgia/pull/11) — task/07-calcolo-punteggi (`claude/prlssimo-task-fzkcwv`) ✓ mergiata
 - [#12](https://github.com/simonediroma/fantanostalgia/pull/12) — task/08-api-classifica (`claude/memory-file-review-fecztn`) ✓ mergiata
 - [#13](https://github.com/simonediroma/fantanostalgia/pull/13) — task/09-layout-base (`claude/task-09-nsvx6j`) ✓ mergiata
+- [#16](https://github.com/simonediroma/fantanostalgia/pull/16) — task/11-pagine-pubbliche (`claude/prossimo-task-lo5jxx`) ✓ mergiata
+- [#17](https://github.com/simonediroma/fantanostalgia/pull/17) — prompt task 16 aggiunto (`claude/8bit-aesthetic-redesign-459mxp`) ✓ mergiata
