@@ -2,6 +2,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.db import init_db
@@ -27,6 +28,11 @@ app.include_router(mapping.router)
 app.include_router(matchday.router)
 app.include_router(lineups.router)
 app.include_router(standings.router)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 
 @app.get("/health")
