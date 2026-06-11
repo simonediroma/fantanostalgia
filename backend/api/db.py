@@ -65,7 +65,7 @@ def init_db() -> None:
             pass  # colonna già presente
         conn.commit()
 
-    if ENV != "development" and fresh:
+    if ENV != "development":
         try:
             _upload_db_to_gcs()
         except Exception:
