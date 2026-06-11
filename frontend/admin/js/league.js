@@ -23,3 +23,7 @@ async function apiListManagers(leagueId) {
 async function apiCreateManager(leagueId, body) {
   return jsonPost(`/admin/league/${leagueId}/managers`, body);
 }
+
+async function apiUpdateManager(leagueId, managerId, body) {
+  return jsonPut(`/admin/league/${leagueId}/managers/${managerId}`, body);
+}
