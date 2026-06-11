@@ -2,7 +2,7 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-11
-**Branch attivo:** `claude/prossimo-task-lo5jxx`
+**Branch attivo:** `claude/8bit-aesthetic-redesign-459mxp`
 **PR in corso:** task 11 pronto per review — branch `claude/prossimo-task-lo5jxx`
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
@@ -12,8 +12,9 @@
 ## Prossima sessione — inizia da qui
 
 1. Mergia PR task 11 (`claude/prossimo-task-lo5jxx`) se approvata
-2. Implementa task 12 seguendo `prompts/utilities/12-devops.md`
-3. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
+2. Implementa task 16 — redesign 8-bit seguendo `prompts/utilities/16-redesign-8bit.md` (modifica CSS + template HTML)
+3. Oppure implementa task 12 seguendo `prompts/utilities/12-devops.md` se il redesign grafico non è prioritario
+4. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -45,6 +46,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
 - [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
 - [ ] **15** — Adattamento formato Excel reale → `prompts/utilities/15-adattamento-excel-reale.md`
+- [ ] **16** — Redesign estetica 8-bit Sensible Soccer → `prompts/utilities/16-redesign-8bit.md`
   - Quando disponibili gli Excel definitivi (formazioni + listone), verificare:
     1. Formato colonne listone reale → aggiornare alias in `backend/api/routers/players.py` (`_find_columns`)
     2. Formato colonne formazioni reale → aggiornare parser in `backend/api/routers/lineups.py` (`_parse_excel`)
