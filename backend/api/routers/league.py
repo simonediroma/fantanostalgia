@@ -17,6 +17,11 @@ class ManagerCreate(BaseModel):
     team_name: str
 
 
+class ManagerUpdate(BaseModel):
+    name: Optional[str] = None
+    team_name: Optional[str] = None
+
+
 def _validate_season(v: str) -> str:
     if not SEASON_RE.match(v):
         raise ValueError("Il formato stagione deve essere YYYY/YY (es. 2024/25)")
@@ -161,6 +166,32 @@ def list_managers(league_id: int):
             (league_id,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.put("/admin/league/{league_id}/managers/{manager_id}")
+def update_manager(
+    league_id: int,
+    manager_id: int,
+    body: ManagerUpdate,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM manager WHERE id = ? AND league_id = ?", (manager_id, league_id)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Manager non trovato")
+        current = dict(row)
+        conn.execute(
+            "UPDATE manager SET name = ?, team_name = ? WHERE id = ?",
+            (
+                body.name if body.name is not None else current["name"],
+                body.team_name if body.team_name is not None else current["team_name"],
+                manager_id,
+            ),
+        )
+        updated = conn.execute("SELECT id, name, team_name FROM manager WHERE id = ?", (manager_id,)).fetchone()
+    return dict(updated)
 
 
 @router.post("/admin/league/{league_id}/managers", status_code=201)

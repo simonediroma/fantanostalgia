@@ -522,10 +522,51 @@ function renderManagerList() {
     return;
   }
   el.innerHTML = `<table>
-    <thead><tr><th>Nome</th><th>Squadra</th></tr></thead>
+    <thead><tr><th>Nome</th><th>Squadra</th><th></th></tr></thead>
     <tbody>${leagueManagers.map(m =>
-      `<tr><td>${esc(m.name)}</td><td>${esc(m.team_name)}</td></tr>`
+      `<tr id="mgr-row-${m.id}">
+        <td id="mgr-name-${m.id}">${esc(m.name)}</td>
+        <td id="mgr-team-${m.id}">${esc(m.team_name)}</td>
+        <td><button class="btn-edit-mgr" data-id="${m.id}" style="font-size:0.75rem;padding:2px 8px">Modifica</button></td>
+      </tr>`
     ).join('')}</tbody></table>`;
+
+  el.querySelectorAll('.btn-edit-mgr').forEach(btn => {
+    btn.addEventListener('click', () => startEditManager(parseInt(btn.dataset.id)));
+  });
+}
+
+function startEditManager(id) {
+  const m = leagueManagers.find(x => x.id === id);
+  if (!m) return;
+  const nameCell = document.getElementById(`mgr-name-${id}`);
+  const teamCell = document.getElementById(`mgr-team-${id}`);
+  const row = document.getElementById(`mgr-row-${id}`);
+
+  nameCell.innerHTML = `<input type="text" id="edit-name-${id}" value="${esc(m.name)}" style="width:140px">`;
+  teamCell.innerHTML = `<input type="text" id="edit-team-${id}" value="${esc(m.team_name)}" style="width:140px">`;
+  row.querySelector('.btn-edit-mgr').replaceWith((() => {
+    const wrap = document.createElement('span');
+    wrap.innerHTML = `<button id="save-mgr-${id}" style="font-size:0.75rem;padding:2px 8px">Salva</button>
+                      <button id="cancel-mgr-${id}" style="font-size:0.75rem;padding:2px 8px;margin-left:4px">Annulla</button>`;
+    return wrap;
+  })());
+
+  document.getElementById(`cancel-mgr-${id}`).addEventListener('click', renderManagerList);
+  document.getElementById(`save-mgr-${id}`).addEventListener('click', async () => {
+    const newName = document.getElementById(`edit-name-${id}`).value.trim();
+    const newTeam = document.getElementById(`edit-team-${id}`).value.trim();
+    if (!newName || !newTeam) { showMsg('listonMsg', 'Nome e squadra obbligatori.', true); return; }
+    try {
+      const updated = await apiUpdateManager(currentLeagueId, id, { name: newName, team_name: newTeam });
+      const idx = leagueManagers.findIndex(x => x.id === id);
+      leagueManagers[idx] = updated;
+      renderManagerList();
+      showMsg('listonMsg', `Manager "${updated.name}" aggiornato.`);
+    } catch (err) {
+      showMsg('listonMsg', err.message, true);
+    }
+  });
 }
 
 document.getElementById('addMgrBtn').addEventListener('click', async () => {
