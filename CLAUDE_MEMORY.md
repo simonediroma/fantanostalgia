@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-11
-**Branch attivo:** `claude/task-12-pl3qh8`
-**PR in corso:** task 12 pronto per review — branch `claude/task-12-pl3qh8`
+**Branch attivo:** `claude/gifted-faraday-brf0xr`
+**PR in corso:** task 15 pronto per review — branch `claude/gifted-faraday-brf0xr`
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,10 +11,12 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Mergia PR task 12 (`claude/task-12-pl3qh8`) se approvata
-2. Configura i GitHub Secrets (`GCP_SA_KEY`, `GCP_PROJECT`, `GCS_BUCKET`, `API_BASE_URL`, `API_SECRET_KEY`) e le Variables (`LEAGUE_ID`, `MATCHDAY_CURRENT`) nel repo
-3. Procedi con task 13 (scraper fantagiaveno) o task 15 (adattamento Excel reale) secondo priorità
-4. Quando disponibile il formato Excel reale delle formazioni, aggiorna il parser in `backend/api/routers/lineups.py` (funzione `_parse_excel`)
+1. Mergia PR task 15 (`claude/gifted-faraday-brf0xr`) se approvata
+2. Procedi con task 13 (scraper fantagiaveno) — struttura HTML da verificare sul sito prima di iniziare
+3. Per usare i file reali nel flusso admin:
+   - Upload `Rose_erculotuo.xlsx` via endpoint `POST /admin/league/{id}/listone` → rileva automaticamente formato Rose, importa 250 giocatori e li assegna ai manager per `team_name`
+   - Upload `Formazioni_erculotuo_36_giornata.xlsx` via endpoint `POST /admin/league/{id}/lineups/{matchday}` → rileva formato Formazioni, importa 226 voci con titolari/panchina
+   - I nomi squadra in Formazioni sono UPPERCASE; i manager devono avere `team_name` corrispondente (case-insensitive)
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -45,19 +47,38 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md` (branch: `claude/task-12-pl3qh8`)
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
 - [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
-- [ ] **15** — Adattamento formato Excel reale → `prompts/utilities/15-adattamento-excel-reale.md`
+- [x] **15** — Adattamento formato Excel reale → (branch: `claude/gifted-faraday-brf0xr`)
 - [x] **16** — Redesign estetica 8-bit Sensible Soccer → `prompts/utilities/16-redesign-8bit.md` (branch: `claude/prossimo-task-hyg0j4`)
-  - Quando disponibili gli Excel definitivi (formazioni + listone), verificare:
-    1. Formato colonne listone reale → aggiornare alias in `backend/api/routers/players.py` (`_find_columns`)
-    2. Formato colonne formazioni reale → aggiornare parser in `backend/api/routers/lineups.py` (`_parse_excel`)
-    3. Aggiornare `prompts/backend/05-import-formazioni.md` con il formato reale
-    4. Aggiungere test con file Excel reale (o campione anonimizzato)
+
+---
+
+## Formato Excel reale (da Rose_erculotuo.xlsx e Formazioni_erculotuo_36_giornata.xlsx)
+
+### Rose (listone con rose):
+- Sheet unico "TutteLeRose", 9 colonne (A-I)
+- Due squadre affiancate: left (A-D), separator col E vuota, right (F-I)
+- Colonne: Ruolo | Calciatore | Squadra (reale, es. 'Juve') | Costo (prezzo asta)
+- Header squadra: col A = nome squadra fanta, col F = nome squadra fanta (right)
+- Fine blocco: 'Crediti Residui: X'
+- 10 squadre × ~25 giocatori = 250 giocatori totali
+- Parser: `_parse_rose_rows` in `backend/api/routers/players.py`
+- Auto-assegna giocatori ai manager per `team_name` (case-insensitive)
+
+### Formazioni (risultati giornata):
+- Sheet per giornata, es. "Formazioni 36 giornata", 11 colonne (A-K)
+- Due match affiancati: left (A-E), col F = risultato (es. '0-1'), right (G-K)
+- Header match: col A = squadra sinistra, col F = 'X-Y', col G = squadra destra (UPPERCASE)
+- Colonne per ogni squadra: Ruolo | Calciatore | vuota | Voto_no_bonus | Voto_con_bonus
+- 'Panchina' separa titolari da panchina (is_starter = 0)
+- 'TOTALE: XX,YY' marca fine della squadra
+- '-' = giocatore senza voto (sv o non entrato)
+- Parser: `_parse_formazioni_rows` in `backend/api/routers/lineups.py`
+- Lookup manager per `team_name` (case-insensitive) oltre che per `name`
 
 ---
 
 ## Blockers
 
-- Formato Excel formazioni reale da verificare quando disponibile (aggiornare `prompts/backend/05-import-formazioni.md`)
 - Struttura HTML fantagiaveno.it da verificare prima di implementare scraper (task 13)
 
 ## PR completate

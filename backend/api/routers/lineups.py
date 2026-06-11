@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -11,6 +12,9 @@ router = APIRouter(tags=["lineups"])
 _MANAGER_ALIASES = {"manager", "allenatore", "fantamanager"}
 _PLAYER_ALIASES = {"giocatore", "calciatore", "nome", "player"}
 _STARTER_ALIASES = {"titolare", "titular", "is_starter"}
+
+_ROLE_SET = frozenset({"p", "d", "c", "a"})
+_SCORE_RE = re.compile(r"^\d+-\d+$")
 
 
 def _find_columns(headers: list) -> dict:
@@ -36,17 +40,92 @@ def _safe_int(val, default: int = 0) -> int:
         return default
 
 
-def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
-    import openpyxl
+def _is_formazioni_format(all_rows: list) -> bool:
+    """Detect the real Formazioni format: match header rows with score in col 5."""
+    for row in all_rows:
+        if len(row) > 6:
+            cells = [str(c).strip() if c is not None else "" for c in row]
+            if cells[0] and cells[6] and _SCORE_RE.match(cells[5]):
+                return True
+    return False
 
-    wb = openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True)
-    ws = wb.active
 
+def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str]]:
+    """
+    Parse the real Formazioni Excel format.
+    Two matches side by side: left team cols 0-4, right team cols 6-10.
+    Match header row: team_left in col 0, score in col 5, team_right in col 6.
+    'Panchina' row separates starters from bench.
+    'TOTALE:...' row marks end of each team's data.
+    """
+    rows_out = []
+
+    left_team = right_team = None
+    left_starter = right_starter = True
+    left_done = right_done = False
+
+    for raw_row in all_rows:
+        if all(v is None for v in raw_row):
+            continue
+
+        cells = [str(c).strip() if c is not None else "" for c in raw_row]
+
+        # Match header: score pattern in col 5, team names in cols 0 and 6
+        if len(cells) > 6 and cells[0] and cells[6] and _SCORE_RE.match(cells[5]):
+            left_team = cells[0]
+            right_team = cells[6]
+            left_starter = right_starter = True
+            left_done = right_done = False
+            continue
+
+        if left_team is None:
+            continue
+
+        left_val = cells[0]
+        right_val = cells[6] if len(cells) > 6 else ""
+
+        # Panchina toggles is_starter for each side independently
+        if left_val.lower() == "panchina":
+            left_starter = False
+        if right_val.lower() == "panchina":
+            right_starter = False
+
+        # TOTALE marks end of team block
+        if left_val.lower().startswith("totale"):
+            left_done = True
+        if right_val.lower().startswith("totale"):
+            right_done = True
+
+        # Left player
+        if not left_done and left_val.lower() in _ROLE_SET:
+            player_left = cells[1] if len(cells) > 1 else ""
+            if player_left:
+                rows_out.append({
+                    "manager": left_team,
+                    "player": player_left,
+                    "is_starter": 1 if left_starter else 0,
+                })
+
+        # Right player
+        if not right_done and right_val.lower() in _ROLE_SET:
+            player_right = cells[7] if len(cells) > 7 else ""
+            if player_right:
+                rows_out.append({
+                    "manager": right_team,
+                    "player": player_right,
+                    "is_starter": 1 if right_starter else 0,
+                })
+
+    return rows_out, []
+
+
+def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
+    """Parse the flat format with manager/player/is_starter header columns."""
     cols = None
-    rows = []
+    rows_out = []
     skipped = 0
 
-    for raw_row in ws.iter_rows(values_only=True):
+    for raw_row in all_rows:
         if all(v is None for v in raw_row):
             continue
 
@@ -67,7 +146,7 @@ def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
             continue
 
         is_starter = _safe_int(cells[cols["is_starter"]], default=1)
-        rows.append({"manager": manager, "player": player, "is_starter": is_starter})
+        rows_out.append({"manager": manager, "player": player, "is_starter": is_starter})
 
     if cols is None:
         raise ValueError(
@@ -78,7 +157,19 @@ def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
     if skipped:
         warnings.append(f"{skipped} righe saltate (manager o giocatore vuoti)")
 
-    return rows, warnings
+    return rows_out, warnings
+
+
+def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
+    import openpyxl
+
+    wb = openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True)
+    ws = wb.active
+    all_rows = list(ws.iter_rows(values_only=True))
+
+    if _is_formazioni_format(all_rows):
+        return _parse_formazioni_rows(all_rows)
+    return _parse_flat_rows(all_rows)
 
 
 def _require_league(conn, league_id: int):
@@ -119,13 +210,14 @@ async def upload_lineups(
             for p in players
         }
 
-        # Build lookup: name.lower() -> manager_id
+        # Build lookup: manager name or team_name (case-insensitive) -> manager_id
         managers = conn.execute(
-            "SELECT id, name FROM manager WHERE league_id = ?", (league_id,)
+            "SELECT id, name, team_name FROM manager WHERE league_id = ?", (league_id,)
         ).fetchall()
-        manager_map: dict[str, int] = {
-            m["name"].strip().lower(): m["id"] for m in managers
-        }
+        manager_map: dict[str, int] = {}
+        for m in managers:
+            manager_map[m["name"].strip().lower()] = m["id"]
+            manager_map[m["team_name"].strip().lower()] = m["id"]
 
         # Idempotent: cancella lineup esistente per questa giornata
         conn.execute(

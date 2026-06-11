@@ -12,7 +12,7 @@ router = APIRouter(tags=["players"])
 _ROLE_ALIASES = {"r", "ruolo", "ruo"}
 _NAME_ALIASES = {"nome", "calciatore", "giocatore"}
 _TEAM_ALIASES = {"squadra", "sq", "team"}
-_QUOTA_ALIASES = {"qt a", "quotazione", "q.a.", "quota"}
+_QUOTA_ALIASES = {"qt a", "quotazione", "q.a.", "quota", "costo"}
 _STARTS_ALIASES = {"pv", "presenze"}
 
 _ROLE_MAP = {
@@ -50,17 +50,93 @@ def _safe_int(val, default: int = 0) -> int:
         return default
 
 
-def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
-    import openpyxl
+def _is_rose_format(all_rows: list) -> bool:
+    """Detect dual-column Rose format: role/name headers appear at both col 0 and col 5."""
+    for row in all_rows:
+        if len(row) < 7:
+            continue
+        c = [str(v).strip().lower() if v is not None else "" for v in row]
+        if c[0] in _ROLE_ALIASES and c[1] in _NAME_ALIASES and c[5] in _ROLE_ALIASES and c[6] in _NAME_ALIASES:
+            return True
+    return False
 
-    wb = openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True)
-    ws = wb.active
 
+def _parse_rose_rows(all_rows: list) -> tuple[list[dict], list[str]]:
+    """Parse the dual-column Rose format (two fanta-teams side by side per block)."""
+    rows_out = []
+    skipped = 0
+    left_team = None
+    right_team = None
+
+    for raw_row in all_rows:
+        if all(v is None for v in raw_row):
+            continue
+
+        cells = [str(c).strip() if c is not None else "" for c in raw_row]
+
+        # Team name row: col[0] has fanta-team name, col[1] empty, col[5] has right fanta-team name, col[6] empty
+        if (cells[0]
+                and not cells[1]
+                and len(cells) > 5
+                and cells[5]
+                and (len(cells) < 7 or not cells[6])
+                and cells[0].lower() not in _ROLE_ALIASES
+                and not cells[0].lower().startswith("crediti")):
+            left_team = cells[0]
+            right_team = cells[5]
+            continue
+
+        # Skip header rows, metadata, crediti
+        if (not left_team
+                or cells[0].lower() in _ROLE_ALIASES
+                or cells[0].lower().startswith("crediti")
+                or cells[0].lower().startswith("*")
+                or cells[0].lower().startswith("rose")
+                or cells[0].lower().startswith("http")):
+            continue
+
+        # Left player
+        role_left = _ROLE_MAP.get(cells[0].lower())
+        name_left = cells[1] if len(cells) > 1 else ""
+        if role_left and name_left:
+            rows_out.append({
+                "name": name_left,
+                "role": role_left,
+                "team": cells[2] if len(cells) > 2 else "",
+                "quota": _safe_int(cells[3], default=1) or 1 if len(cells) > 3 else 1,
+                "starts": 0,
+                "fanta_team": left_team,
+            })
+        elif cells[0] and name_left:
+            skipped += 1
+
+        # Right player (cols 5-8)
+        if len(cells) > 6 and cells[5]:
+            role_right = _ROLE_MAP.get(cells[5].lower())
+            name_right = cells[6] if len(cells) > 6 else ""
+            if role_right and name_right:
+                rows_out.append({
+                    "name": name_right,
+                    "role": role_right,
+                    "team": cells[7] if len(cells) > 7 else "",
+                    "quota": _safe_int(cells[8], default=1) or 1 if len(cells) > 8 else 1,
+                    "starts": 0,
+                    "fanta_team": right_team,
+                })
+
+    warnings = []
+    if skipped:
+        warnings.append(f"{skipped} righe saltate (ruolo non valido o nome vuoto)")
+    return rows_out, warnings
+
+
+def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
+    """Parse the standard flat format (single column block with header row)."""
     cols = None
-    rows = []
+    rows_out = []
     skipped = 0
 
-    for raw_row in ws.iter_rows(values_only=True):
+    for raw_row in all_rows:
         if all(v is None for v in raw_row):
             continue
 
@@ -88,7 +164,7 @@ def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
         if "starts" in cols:
             starts = _safe_int(cells[cols["starts"]], default=0)
 
-        rows.append({"name": name, "role": role, "team": team, "quota": quota, "starts": starts})
+        rows_out.append({"name": name, "role": role, "team": team, "quota": quota, "starts": starts})
 
     if cols is None:
         raise ValueError("Header non trovato: colonne obbligatorie (ruolo, nome, squadra, quotazione) non trovate")
@@ -99,7 +175,19 @@ def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
     if skipped:
         warnings.append(f"{skipped} righe saltate (ruolo non valido o nome vuoto)")
 
-    return rows, warnings
+    return rows_out, warnings
+
+
+def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
+    import openpyxl
+
+    wb = openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True)
+    ws = wb.active
+    all_rows = list(ws.iter_rows(values_only=True))
+
+    if _is_rose_format(all_rows):
+        return _parse_rose_rows(all_rows)
+    return _parse_flat_rows(all_rows)
 
 
 def _require_league(conn, league_id: int):
@@ -130,12 +218,33 @@ async def upload_listone(
 
     with get_db() as conn:
         _require_league(conn, league_id)
+
+        # Build fanta-team → manager_id map for auto-assignment (Rose format)
+        managers = conn.execute(
+            "SELECT id, team_name FROM manager WHERE league_id = ?", (league_id,)
+        ).fetchall()
+        fanta_team_map: dict[str, int] = {
+            m["team_name"].strip().lower(): m["id"] for m in managers
+        }
+        missing_teams: set[str] = set()
+
         conn.execute("DELETE FROM player_current WHERE league_id = ?", (league_id,))
-        conn.executemany(
-            "INSERT INTO player_current (league_id, name, role, team, quotation, starts_current_season)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            [(league_id, r["name"], r["role"], r["team"], r["quota"], r["starts"]) for r in rows],
-        )
+        for r in rows:
+            manager_id = None
+            fanta_team = r.get("fanta_team")
+            if fanta_team:
+                manager_id = fanta_team_map.get(fanta_team.strip().lower())
+                if manager_id is None:
+                    missing_teams.add(fanta_team.strip())
+            conn.execute(
+                "INSERT INTO player_current"
+                " (league_id, name, role, team, quotation, starts_current_season, manager_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (league_id, r["name"], r["role"], r["team"], r["quota"], r["starts"], manager_id),
+            )
+
+        for t in sorted(missing_teams):
+            warnings.append(f"Squadra '{t}' non trovata tra i manager — giocatori non assegnati")
 
     return {"imported": len(rows), "by_role": by_role, "warnings": warnings}
 
