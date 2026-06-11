@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block title %}FantaNostalgia{% endblock %}
+{% block og_title %}FantaNostalgia{% endblock %}
+{% block og_description %}Le leghe FantaNostalgia attive — la storia incontra il presente{% endblock %}
 
 {% block content %}
 <h1>FantaNostalgia</h1>
@@ -9,13 +11,17 @@
 {% if leagues %}
 <div class="league-list">
   {% for league in leagues %}
-  <a href="/lega/{{ league.id }}/classifica" class="league-card">
+  <div class="league-card">
     <h3>{{ league.name }}</h3>
     <div class="seasons">
       Stagione corrente: {{ league.season_current }} &nbsp;·&nbsp;
       Stagione storica: {{ league.season_historic }}
     </div>
-  </a>
+    <div class="card-actions">
+      <a href="/lega/{{ league.id }}/classifica" class="btn-link">Classifica</a>
+      <a href="/lega/{{ league.id }}/mapping" class="btn-link">Alter Ego</a>
+    </div>
+  </div>
   {% endfor %}
 </div>
 {% else %}
