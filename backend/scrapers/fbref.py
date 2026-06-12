@@ -3,14 +3,19 @@ Scraper fbref.com — statistiche storiche Serie A.
 
 Scarica per ogni partita: lineup, gol, cartellini, minuti giocati.
 Calcola il rating per ogni giocatore che è entrato in campo.
-Scrive su player_historic + historic_rating.
+
+Modalità di output:
+  default            scrive direttamente su SQLite (locale o GCS)
+  --export-csv FILE  esporta un CSV da importare via admin panel
 
 Usage:
     python -m backend.scrapers.fbref --season 2023-2024
+    python -m backend.scrapers.fbref --season 2023-2024 --export-csv fbref_2023-2024.csv
     python -m backend.scrapers.fbref --season 1998-1999 --force
 """
 
 import argparse
+import csv
 import logging
 import sqlite3
 import time
@@ -377,9 +382,75 @@ def scrape_season(season: str, *, force: bool = False) -> None:
             _upload_db_to_gcs()
 
 
+# ---------------------------------------------------------------------------
+# CSV export
+# ---------------------------------------------------------------------------
+
+CSV_FIELDS = [
+    "player_name", "role", "team", "season", "matchday",
+    "rating", "goals", "yellow_cards", "red_cards", "goals_conceded",
+]
+
+
+def _collect_season(season: str) -> list[dict]:
+    """Scrapa la stagione e restituisce tutti i record in memoria (senza toccare il DB)."""
+    session = _build_session()
+    log.info("Carico fixtures stagione %s...", season)
+    fixtures = _get_fixtures(session, season)
+    log.info("%d partite trovate.", len(fixtures))
+
+    records: list[dict] = []
+    matchdays = sorted({f["matchday"] for f in fixtures})
+
+    for md in matchdays:
+        for fix in [f for f in fixtures if f["matchday"] == md]:
+            try:
+                players = _scrape_match(session, fix)
+                for p in players:
+                    records.append({
+                        "player_name": p["name"],
+                        "role": p["role"],
+                        "team": p["team"],
+                        "season": season,
+                        "matchday": md,
+                        "rating": p["rating"],
+                        "goals": p["goals"],
+                        "yellow_cards": p["yellow_cards"],
+                        "red_cards": p["red_cards"],
+                        "goals_conceded": p["goals_conceded"],
+                    })
+                log.info(
+                    "G%d  %s %d-%d %s  (%d giocatori)",
+                    md, fix["home_team"], fix["home_score"],
+                    fix["away_score"], fix["away_team"], len(players),
+                )
+            except Exception as exc:
+                log.error(
+                    "Errore match %s vs %s (G%d): %s",
+                    fix["home_team"], fix["away_team"], md, exc,
+                )
+
+    return records
+
+
+def export_csv(season: str, output_path: str) -> None:
+    """Scrapa la stagione e scrive un CSV pronto per l'import via admin panel."""
+    records = _collect_season(season)
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+        writer.writeheader()
+        writer.writerows(records)
+    log.info("CSV esportato: %s (%d righe)", output_path, len(records))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scraper fbref.com — Serie A storica")
     parser.add_argument("--season", required=True, help="Stagione es. 2023-2024")
     parser.add_argument("--force", action="store_true", help="Riscrappa anche se già presente")
+    parser.add_argument("--export-csv", metavar="FILE", help="Esporta CSV invece di scrivere su DB")
     args = parser.parse_args()
-    scrape_season(args.season, force=args.force)
+
+    if args.export_csv:
+        export_csv(args.season, args.export_csv)
+    else:
+        scrape_season(args.season, force=args.force)
