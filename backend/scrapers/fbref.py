@@ -24,6 +24,7 @@ import cloudscraper
 from bs4 import BeautifulSoup
 
 from backend.api.db import ENV, _download_db_from_gcs, _get_db_path, _upload_db_to_gcs
+from backend.engine.rating import RatingWeights, compute_rating
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -48,37 +49,6 @@ _HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xhtml+xml;q=0.9,*/*;q=0.8",
     "Referer": "https://fbref.com/",
 }
-
-
-# ---------------------------------------------------------------------------
-# Rating algorithm
-# ---------------------------------------------------------------------------
-
-def _compute_rating(
-    *,
-    goals: int,
-    yellow_cards: int,
-    red_cards: int,
-    minutes: int,
-    team_won: bool,
-    is_goalkeeper: bool,
-    goals_conceded: int,
-) -> float:
-    rating = 6.0
-    if team_won:
-        rating += 0.5
-    rating += 3.0 * goals
-    if is_goalkeeper:
-        if goals_conceded == 0:
-            rating += 1.0
-        rating -= 1.0 * goals_conceded
-    if minutes > 80:
-        rating += 0.5
-    if minutes < 30:
-        rating -= 0.5
-    rating -= 0.5 * yellow_cards
-    rating -= 1.0 * red_cards
-    return round(rating, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +153,7 @@ def _parse_team_stats(
     table_index: int,
     goals_conceded: int,
     team_won: bool,
+    weights: RatingWeights,
 ) -> list[dict]:
     """
     Estrae le stats dei giocatori da una delle due tabelle summary del match report.
@@ -222,7 +193,7 @@ def _parse_team_stats(
         yellow = _int_cell(row.find(attrs={"data-stat": "cards_yellow"}))
         red = _int_cell(row.find(attrs={"data-stat": "cards_red"}))
 
-        rating = _compute_rating(
+        rating = compute_rating(
             goals=goals,
             yellow_cards=yellow,
             red_cards=red,
@@ -230,6 +201,7 @@ def _parse_team_stats(
             team_won=team_won,
             is_goalkeeper=is_gk,
             goals_conceded=goals_conceded if is_gk else 0,
+            weights=weights,
         )
 
         players.append(
@@ -250,7 +222,11 @@ def _parse_team_stats(
     return players
 
 
-def _scrape_match(session: cloudscraper.CloudScraper, fixture: dict) -> list[dict]:
+def _scrape_match(
+    session: cloudscraper.CloudScraper,
+    fixture: dict,
+    weights: RatingWeights,
+) -> list[dict]:
     soup = _fetch(session, fixture["report_url"])
 
     home_score = fixture["home_score"]
@@ -262,6 +238,7 @@ def _scrape_match(session: cloudscraper.CloudScraper, fixture: dict) -> list[dic
         table_index=0,
         goals_conceded=away_score,
         team_won=home_score > away_score,
+        weights=weights,
     )
     away_players = _parse_team_stats(
         soup,
@@ -269,6 +246,7 @@ def _scrape_match(session: cloudscraper.CloudScraper, fixture: dict) -> list[dic
         table_index=1,
         goals_conceded=home_score,
         team_won=away_score > home_score,
+        weights=weights,
     )
 
     return home_players + away_players
@@ -328,12 +306,14 @@ def _save_matchday(
 # Entry point
 # ---------------------------------------------------------------------------
 
-def scrape_season(season: str, *, force: bool = False) -> None:
+def scrape_season(season: str, *, force: bool = False, weights: RatingWeights | None = None) -> None:
     """
     Scarica e salva tutte le statistiche della stagione Serie A indicata.
     season formato: '2023-2024'
     """
-    # Download GCS una sola volta all'inizio (no-op in development)
+    if weights is None:
+        weights = RatingWeights()
+
     if ENV != "development":
         _download_db_from_gcs()
 
@@ -358,7 +338,7 @@ def scrape_season(season: str, *, force: bool = False) -> None:
 
             for fix in md_fixtures:
                 try:
-                    players = _scrape_match(session, fix)
+                    players = _scrape_match(session, fix, weights)
                     all_players.extend(players)
                     log.info(
                         "G%d  %s %d-%d %s  (%d giocatori)",
@@ -399,7 +379,7 @@ CSV_FIELDS = [
 ]
 
 
-def _collect_season(season: str) -> list[dict]:
+def _collect_season(season: str, weights: RatingWeights) -> list[dict]:
     """Scrapa la stagione e restituisce tutti i record in memoria (senza toccare il DB)."""
     session = _build_session()
     log.info("Carico fixtures stagione %s...", season)
@@ -412,7 +392,7 @@ def _collect_season(season: str) -> list[dict]:
     for md in matchdays:
         for fix in [f for f in fixtures if f["matchday"] == md]:
             try:
-                players = _scrape_match(session, fix)
+                players = _scrape_match(session, fix, weights)
                 for p in players:
                     records.append({
                         "player_name": p["name"],
@@ -442,9 +422,9 @@ def _collect_season(season: str) -> list[dict]:
     return records
 
 
-def export_csv(season: str, output_path: str) -> None:
+def export_csv(season: str, output_path: str, weights: RatingWeights | None = None) -> None:
     """Scrapa la stagione e scrive un CSV pronto per l'import via admin panel."""
-    records = _collect_season(season)
+    records = _collect_season(season, weights or RatingWeights())
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
@@ -457,9 +437,12 @@ if __name__ == "__main__":
     parser.add_argument("--season", required=True, help="Stagione es. 2023-2024")
     parser.add_argument("--force", action="store_true", help="Riscrappa anche se già presente")
     parser.add_argument("--export-csv", metavar="FILE", help="Esporta CSV invece di scrivere su DB")
+    parser.add_argument("--weights-file", metavar="FILE", help="JSON con i pesi del rating (default: pesi standard)")
     args = parser.parse_args()
 
+    weights = RatingWeights.from_json(args.weights_file) if args.weights_file else RatingWeights()
+
     if args.export_csv:
-        export_csv(args.season, args.export_csv)
+        export_csv(args.season, args.export_csv, weights)
     else:
-        scrape_season(args.season, force=args.force)
+        scrape_season(args.season, force=args.force, weights=weights)
