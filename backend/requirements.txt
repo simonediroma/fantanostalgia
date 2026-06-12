@@ -8,6 +8,7 @@ python-multipart==0.0.9     # upload file Excel
 openpyxl==3.1.2              # parsing Excel listone
 pandas==2.2.2                # manipolazione dati
 requests==2.32.2             # scraping HTTP
+cloudscraper==1.2.71         # bypass Cloudflare JS challenge (fbref)
 beautifulsoup4==4.12.3       # parsing HTML scraping
 lxml==5.2.2                  # parser HTML veloce
 google-cloud-storage==2.17.0 # SQLite su GCS
