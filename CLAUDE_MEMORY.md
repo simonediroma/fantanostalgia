@@ -1,9 +1,9 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-06-11
-**Branch attivo:** `claude/gifted-faraday-brf0xr`
-**PR in corso:** task 15 pronto per review — branch `claude/gifted-faraday-brf0xr`
+**Ultima sessione:** 2026-06-12
+**Branch attivo:** `claude/data-scraping-approach-jksb5l`
+**PR in corso:** [#31](https://github.com/simonediroma/fantanostalgia/pull/31) — scraper fbref + pesi configurabili
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,12 +11,13 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Mergia PR task 15 (`claude/gifted-faraday-brf0xr`) se approvata
-2. Procedi con task 13 (scraper fantagiaveno) — struttura HTML da verificare sul sito prima di iniziare
-3. Per usare i file reali nel flusso admin:
-   - Upload `Rose_erculotuo.xlsx` via endpoint `POST /admin/league/{id}/listone` → rileva automaticamente formato Rose, importa 250 giocatori e li assegna ai manager per `team_name`
-   - Upload `Formazioni_erculotuo_36_giornata.xlsx` via endpoint `POST /admin/league/{id}/lineups/{matchday}` → rileva formato Formazioni, importa 226 voci con titolari/panchina
-   - I nomi squadra in Formazioni sono UPPERCASE; i manager devono avere `team_name` corrispondente (case-insensitive)
+1. Mergia PR #31 (`claude/data-scraping-approach-jksb5l`) se approvata
+2. Testa lo scraper in locale:
+   - `pip install -r backend/requirements.txt`
+   - `python -m backend.scrapers.fbref --season 2023-2024 --export-csv fbref_2023-2024.csv`
+   - Se Cloudflare blocca, prova con `cloudscraper` già incluso (o cambia fonte)
+3. Importa il CSV via admin: `POST /admin/historic/import`
+4. Per cambiare i pesi senza riscrappare: `python -m backend.engine.recalculate --dump-weights pesi.json` → edita → `python -m backend.engine.recalculate --season 2023-2024 --weights-file pesi.json`
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -45,8 +46,8 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 
 ### Epica 3 — Utilities & DevOps
 - [x] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md` (branch: `claude/task-12-pl3qh8`)
-- [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md`
-- [ ] **14** — Scraper fbref + motore sintetico → `prompts/utilities/14-scraper-fbref-sintetico.md`
+- [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md` *(deprioritizzato: sostituito da approccio fbref+algoritmo)*
+- [x] **14** — Scraper fbref + motore sintetico → branch `claude/data-scraping-approach-jksb5l` (PR #31)
 - [x] **15** — Adattamento formato Excel reale → (branch: `claude/gifted-faraday-brf0xr`)
 - [x] **16** — Redesign estetica 8-bit Sensible Soccer → `prompts/utilities/16-redesign-8bit.md` (branch: `claude/prossimo-task-hyg0j4`)
 
@@ -79,7 +80,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 
 ## Blockers
 
-- Struttura HTML fantagiaveno.it da verificare prima di implementare scraper (task 13)
+- Cloudflare su fbref.com può bloccare richieste da datacenter IP (Cloud Run). Usare lo scraper in locale con `cloudscraper`.
 
 ## PR completate
 
@@ -95,3 +96,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#13](https://github.com/simonediroma/fantanostalgia/pull/13) — task/09-layout-base (`claude/task-09-nsvx6j`) ✓ mergiata
 - [#16](https://github.com/simonediroma/fantanostalgia/pull/16) — task/11-pagine-pubbliche (`claude/prossimo-task-lo5jxx`) ✓ mergiata
 - [#17](https://github.com/simonediroma/fantanostalgia/pull/17) — prompt task 16 aggiunto (`claude/8bit-aesthetic-redesign-459mxp`) ✓ mergiata
+- [#31](https://github.com/simonediroma/fantanostalgia/pull/31) — scraper fbref + RatingWeights + CSV export/import (`claude/data-scraping-approach-jksb5l`) — in review

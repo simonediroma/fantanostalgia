@@ -59,10 +59,21 @@ def init_db() -> None:
 
     with sqlite3.connect(_get_db_path()) as conn:
         conn.executescript(schema)
-        try:
-            conn.execute("ALTER TABLE matchday_draw ADD COLUMN cycle INTEGER NOT NULL DEFAULT 1")
-        except sqlite3.OperationalError:
-            pass  # colonna già presente
+        for _col, _def in [
+            ("cycle", "INTEGER NOT NULL DEFAULT 1"),          # matchday_draw
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE matchday_draw ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
+        for _col, _def in [
+            ("team_won", "INTEGER DEFAULT 0"),
+            ("minutes", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE historic_rating ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
 
     if ENV != "development":

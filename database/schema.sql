@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS historic_rating (
     penalties_scored INTEGER DEFAULT 0,
     penalties_missed INTEGER DEFAULT 0,
     goals_conceded INTEGER DEFAULT 0,
+    team_won INTEGER DEFAULT 0,
+    minutes INTEGER DEFAULT 0,
     source TEXT NOT NULL CHECK(source IN ('archive', 'synthetic')),
     UNIQUE(player_historic_id, matchday)
 );
