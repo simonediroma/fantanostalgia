@@ -1,0 +1,13 @@
+# Dipendenze minime per eseguire solo lo scraper fbref in locale.
+# Non richiede pandas, FastAPI, GCS SDK, ecc.
+#
+# Installazione:
+#   pip install -r backend/requirements-scraper.txt
+#
+# Uso:
+#   python -m backend.scrapers.fbref --season 2023-2024 --export-csv fbref_2023-2024.csv
+
+cloudscraper==1.2.71     # HTTP + bypass Cloudflare JS challenge
+beautifulsoup4==4.12.3   # parsing HTML
+lxml==5.2.2              # parser HTML veloce
+python-dotenv==1.0.1     # caricamento .env (ENV, DB_LOCAL_PATH)
