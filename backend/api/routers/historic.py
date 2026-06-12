@@ -19,6 +19,7 @@ router = APIRouter(prefix="/admin/historic", tags=["historic"])
 _REQUIRED_FIELDS = {
     "player_name", "role", "team", "season", "matchday",
     "rating", "goals", "yellow_cards", "red_cards", "goals_conceded",
+    "team_won", "minutes",
 }
 
 _VALID_ROLES = {"P", "D", "C", "A"}
@@ -49,6 +50,8 @@ def _parse_csv(content: bytes) -> list[dict]:
                 "yellow_cards": int(row["yellow_cards"]),
                 "red_cards": int(row["red_cards"]),
                 "goals_conceded": int(row["goals_conceded"]),
+                "team_won": int(row["team_won"]),
+                "minutes": int(row["minutes"]),
             })
         except (ValueError, KeyError) as e:
             raise HTTPException(400, f"Riga {i}: formato non valido — {e}")
@@ -100,8 +103,8 @@ async def import_historic_csv(
                 INSERT OR IGNORE INTO historic_rating
                   (player_historic_id, matchday, rating, goals, assists,
                    yellow_cards, red_cards, own_goals, penalties_scored,
-                   penalties_missed, goals_conceded, source)
-                VALUES (?, ?, ?, ?, 0, ?, ?, 0, 0, 0, ?, 'synthetic')
+                   penalties_missed, goals_conceded, team_won, minutes, source)
+                VALUES (?, ?, ?, ?, 0, ?, ?, 0, 0, 0, ?, ?, ?, 'synthetic')
                 """,
                 (
                     pid,
@@ -111,6 +114,8 @@ async def import_historic_csv(
                     row["yellow_cards"],
                     row["red_cards"],
                     row["goals_conceded"],
+                    row["team_won"],
+                    row["minutes"],
                 ),
             )
             if cur.rowcount:

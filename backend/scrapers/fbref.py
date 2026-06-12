@@ -241,6 +241,8 @@ def _parse_team_stats(
                 "yellow_cards": yellow,
                 "red_cards": red,
                 "goals_conceded": goals_conceded if is_gk else 0,
+                "team_won": int(team_won),
+                "minutes": minutes,
                 "rating": rating,
             }
         )
@@ -311,10 +313,14 @@ def _save_matchday(
             INSERT OR IGNORE INTO historic_rating
               (player_historic_id, matchday, rating, goals, assists,
                yellow_cards, red_cards, own_goals, penalties_scored,
-               penalties_missed, goals_conceded, source)
-            VALUES (?, ?, ?, ?, 0, ?, ?, 0, 0, 0, ?, 'synthetic')
+               penalties_missed, goals_conceded, team_won, minutes, source)
+            VALUES (?, ?, ?, ?, 0, ?, ?, 0, 0, 0, ?, ?, ?, 'synthetic')
             """,
-            (pid, matchday, p["rating"], p["goals"], p["yellow_cards"], p["red_cards"], p["goals_conceded"]),
+            (
+                pid, matchday, p["rating"], p["goals"],
+                p["yellow_cards"], p["red_cards"], p["goals_conceded"],
+                p["team_won"], p["minutes"],
+            ),
         )
 
 
@@ -389,6 +395,7 @@ def scrape_season(season: str, *, force: bool = False) -> None:
 CSV_FIELDS = [
     "player_name", "role", "team", "season", "matchday",
     "rating", "goals", "yellow_cards", "red_cards", "goals_conceded",
+    "team_won", "minutes",
 ]
 
 
@@ -418,6 +425,8 @@ def _collect_season(season: str) -> list[dict]:
                         "yellow_cards": p["yellow_cards"],
                         "red_cards": p["red_cards"],
                         "goals_conceded": p["goals_conceded"],
+                        "team_won": p["team_won"],
+                        "minutes": p["minutes"],
                     })
                 log.info(
                     "G%d  %s %d-%d %s  (%d giocatori)",
