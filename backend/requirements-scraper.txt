@@ -1,0 +1,17 @@
+# Dipendenze minime per eseguire solo gli scraper in locale.
+# Non richiede pandas, FastAPI, GCS SDK, ecc.
+#
+# Installazione:
+#   pip install -r backend/requirements-scraper.txt
+#
+# Uso (understat, consigliato — nessun Cloudflare):
+#   python -m backend.scrapers.understat --season 2015-2016 --export-csv out.csv
+#
+# Uso (fbref, stagioni pre-2014 — può essere bloccato da Cloudflare):
+#   python -m backend.scrapers.fbref --season 2005-2006 --export-csv out.csv
+
+requests==2.32.2         # HTTP client base
+cloudscraper==1.2.71     # bypass Cloudflare (fbref only)
+beautifulsoup4==4.12.3   # parsing HTML (fbref only)
+lxml==5.2.2              # parser HTML veloce (fbref only)
+python-dotenv==1.0.1     # caricamento .env (ENV, DB_LOCAL_PATH)
