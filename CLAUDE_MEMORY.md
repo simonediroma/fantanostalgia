@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-06-12
-**Branch attivo:** `claude/data-scraping-approach-jksb5l`
-**PR in corso:** [#31](https://github.com/simonediroma/fantanostalgia/pull/31) — scraper fbref + pesi configurabili
+**Branch attivo:** `main`
+**PR in corso:** nessuna
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,13 +11,15 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Mergia PR #31 (`claude/data-scraping-approach-jksb5l`) se approvata
-2. Testa lo scraper in locale:
-   - `pip install -r backend/requirements.txt`
-   - `python -m backend.scrapers.fbref --season 2023-2024 --export-csv fbref_2023-2024.csv`
-   - Se Cloudflare blocca, prova con `cloudscraper` già incluso (o cambia fonte)
-3. Importa il CSV via admin: `POST /admin/historic/import`
-4. Per cambiare i pesi senza riscrappare: `python -m backend.engine.recalculate --dump-weights pesi.json` → edita → `python -m backend.engine.recalculate --season 2023-2024 --weights-file pesi.json`
+1. Esegui lo scraper understat in locale (fbref bloccato da Cloudflare):
+   ```
+   pip install -r backend/requirements-scraper.txt
+   $env:PYTHONPATH = "."   # PowerShell Windows
+   python -m backend.scrapers.understat --season 2015-2016 --export-csv out.csv
+   ```
+2. Importa il CSV via admin: `POST /admin/historic/import`
+3. Per cambiare i pesi senza riscrappare: `python -m backend.engine.recalculate --dump-weights pesi.json` → edita → `python -m backend.engine.recalculate --season 2023-2024 --weights-file pesi.json`
+4. Per stagioni pre-2014 (non coperte da understat): valutare Web Scraper Chrome su fbref o fonte alternativa (worldfootball.net)
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -96,4 +98,5 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#13](https://github.com/simonediroma/fantanostalgia/pull/13) — task/09-layout-base (`claude/task-09-nsvx6j`) ✓ mergiata
 - [#16](https://github.com/simonediroma/fantanostalgia/pull/16) — task/11-pagine-pubbliche (`claude/prossimo-task-lo5jxx`) ✓ mergiata
 - [#17](https://github.com/simonediroma/fantanostalgia/pull/17) — prompt task 16 aggiunto (`claude/8bit-aesthetic-redesign-459mxp`) ✓ mergiata
-- [#31](https://github.com/simonediroma/fantanostalgia/pull/31) — scraper fbref + RatingWeights + CSV export/import (`claude/data-scraping-approach-jksb5l`) — in review
+- [#31](https://github.com/simonediroma/fantanostalgia/pull/31) — scraper fbref + RatingWeights + CSV export/import + understat (`claude/data-scraping-approach-jksb5l`) ✓ mergiata
+- [#32](https://github.com/simonediroma/fantanostalgia/pull/32) — requirements-scraper.txt (`task/requirements-scraper`) ✓ mergiata
