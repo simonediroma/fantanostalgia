@@ -1,13 +1,24 @@
-# Dipendenze minime per eseguire solo lo scraper fbref in locale.
+# Dipendenze minime per eseguire solo gli scraper in locale.
 # Non richiede pandas, FastAPI, GCS SDK, ecc.
 #
 # Installazione:
 #   pip install -r backend/requirements-scraper.txt
+#   playwright install chromium        # scarica il browser (solo per fbref_pw)
 #
-# Uso:
-#   python -m backend.scrapers.fbref --season 2023-2024 --export-csv fbref_2023-2024.csv
+# Scraper disponibili:
+#   understat  — Serie A 2014/15+, nessun Cloudflare (consigliato)
+#   fbref_pw   — Serie A da 1930, bypassa Cloudflare con browser reale
+#   fbref      — Serie A da 1930, richiede IP non bloccato da Cloudflare
+#
+# Uso understat:
+#   python -m backend.scrapers.understat --season 2015-2016 --export-csv out.csv
+#
+# Uso fbref con Playwright:
+#   python -m backend.scrapers.fbref_pw --season 2005-2006 --export-csv out.csv
 
-cloudscraper==1.2.71     # HTTP + bypass Cloudflare JS challenge
+requests==2.32.2         # HTTP client base (understat)
+cloudscraper==1.2.71     # bypass Cloudflare leggero (fbref)
 beautifulsoup4==4.12.3   # parsing HTML
 lxml==5.2.2              # parser HTML veloce
-python-dotenv==1.0.1     # caricamento .env (ENV, DB_LOCAL_PATH)
+playwright==1.44.0       # browser automation per fbref_pw
+python-dotenv==1.0.1     # caricamento .env
