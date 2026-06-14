@@ -25,6 +25,10 @@ if os.path.isdir(_admin_dir):
     app.mount("/admin/css", StaticFiles(directory=os.path.join(_admin_dir, "css")), name="admin-css")
     app.mount("/admin/js", StaticFiles(directory=os.path.join(_admin_dir, "js")), name="admin-js")
 
+_webscraper_dir = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "webscraper")
+if os.path.isdir(_webscraper_dir):
+    app.mount("/webscraper", StaticFiles(directory=_webscraper_dir, html=True), name="webscraper")
+
 app.include_router(views.router)
 app.include_router(auth.router)
 app.include_router(league.router)

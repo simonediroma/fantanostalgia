@@ -1,0 +1,104 @@
+{
+  "_id": "fbref-serie-a-all-seasons",
+  "startUrl": [
+    "SOSTITUISCI_CON_URL_FILE_LOCALE"
+  ],
+  "selectors": [
+    {
+      "id": "season_link",
+      "type": "SelectorLink",
+      "parentSelectors": ["_root"],
+      "selector": "ul li a",
+      "multiple": true,
+      "delay": 2000
+    },
+    {
+      "id": "match_link",
+      "type": "SelectorLink",
+      "parentSelectors": ["season_link"],
+      "selector": "table[id*='sched'] tbody tr:not(.spacer):not(.thead) td[data-stat='score'] a",
+      "multiple": true,
+      "delay": 4000
+    },
+    {
+      "id": "home_score",
+      "type": "SelectorText",
+      "parentSelectors": ["match_link"],
+      "selector": "div.scorebox > div:first-child div.score",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "away_score",
+      "type": "SelectorText",
+      "parentSelectors": ["match_link"],
+      "selector": "div.scorebox > div:last-child div.score",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "player_row",
+      "type": "SelectorElement",
+      "parentSelectors": ["match_link"],
+      "selector": "table[id^='stats_'][id$='_summary'] tbody tr:not(.thead):not(.spacer)",
+      "multiple": true,
+      "delay": 3000
+    },
+    {
+      "id": "player_name",
+      "type": "SelectorText",
+      "parentSelectors": ["player_row"],
+      "selector": "td[data-stat='player']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "position",
+      "type": "SelectorText",
+      "parentSelectors": ["player_row"],
+      "selector": "td[data-stat='position']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "minutes",
+      "type": "SelectorText",
+      "parentSelectors": ["player_row"],
+      "selector": "td[data-stat='minutes']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "goals",
+      "type": "SelectorText",
+      "parentSelectors": ["player_row"],
+      "selector": "td[data-stat='goals']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "yellow_card",
+      "type": "SelectorText",
+      "parentSelectors": ["player_row"],
+      "selector": "td[data-stat='cards_yellow']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "red_card",
+      "type": "SelectorText",
+      "parentSelectors": ["player_row"],
+      "selector": "td[data-stat='cards_red']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    }
+  ]
+}

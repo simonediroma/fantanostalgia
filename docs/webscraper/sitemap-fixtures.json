@@ -1,0 +1,60 @@
+{
+  "_id": "fbref-serie-a-fixtures",
+  "startUrl": [
+    "https://fbref.com/en/comps/11/[SEASON]/schedule/[SEASON]-Serie-A-Scores-and-Fixtures"
+  ],
+  "selectors": [
+    {
+      "id": "match_row",
+      "type": "SelectorElement",
+      "parentSelectors": ["_root"],
+      "selector": "table[id*='sched'] tbody tr:not(.spacer):not(.thead)",
+      "multiple": true,
+      "delay": 0
+    },
+    {
+      "id": "matchday",
+      "type": "SelectorText",
+      "parentSelectors": ["match_row"],
+      "selector": "th[data-stat='week_num']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "home_team",
+      "type": "SelectorText",
+      "parentSelectors": ["match_row"],
+      "selector": "td[data-stat='home_team']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "score",
+      "type": "SelectorText",
+      "parentSelectors": ["match_row"],
+      "selector": "td[data-stat='score']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "away_team",
+      "type": "SelectorText",
+      "parentSelectors": ["match_row"],
+      "selector": "td[data-stat='away_team']",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "report_link",
+      "type": "SelectorLink",
+      "parentSelectors": ["match_row"],
+      "selector": "td[data-stat='score'] a",
+      "multiple": false,
+      "delay": 0
+    }
+  ]
+}
