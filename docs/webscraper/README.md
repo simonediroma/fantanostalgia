@@ -1,34 +1,85 @@
 # Guida Web Scraper Chrome — fbref.com Serie A
 
-## Setup
+## Opzione A — Tutte le stagioni storiche in un colpo (consigliata)
+
+Usa `sitemap-all-seasons.json` + `seasons.html`.
+La sitemap parte da un file HTML locale che contiene tutti i link alle stagioni fbref,
+senza placeholder da sostituire.
+
+### Setup
 
 1. Installa l'estensione **Web Scraper** da Chrome Web Store
-2. Apri DevTools → tab "Web Scraper"
-3. Clicca **"Create new sitemap"** → **"Import sitemap"**
-4. Incolla il contenuto di `sitemap-match-reports.json`
-5. Sostituisci `[SEASON]` nell'URL con la stagione che vuoi (es. `2005-2006`)
+2. Abilita "Allow access to file URLs" in `chrome://extensions` → Web Scraper
+3. Apri `docs/webscraper/seasons.html` in Chrome
+4. Copia l'URL dalla barra indirizzi (sarà tipo `file:///C:/path/to/seasons.html`)
+5. Apri `sitemap-all-seasons.json`, sostituisci `SOSTITUISCI_CON_URL_FILE_LOCALE` con quell'URL
+6. DevTools → Web Scraper → "Create new sitemap" → "Import sitemap" → incolla il JSON
 
-## URL di partenza
-
-```
-https://fbref.com/en/comps/11/2005-2006/schedule/2005-2006-Serie-A-Scores-and-Fixtures
-```
-
-## Struttura sitemap (2 livelli)
+### Struttura sitemap (3 livelli)
 
 ```
-_root (fixtures page)
-  └── match_link  [SelectorLink — segue ogni "Match Report"]
-        ├── home_score   [SelectorText — punteggio squadra casa]
-        ├── away_score   [SelectorText — punteggio squadra ospite]
-        └── player_row  [SelectorElement — righe delle due tabelle stats]
-              ├── player_name
-              ├── position
-              ├── minutes
-              ├── goals
-              ├── yellow_card
-              └── red_card
+_root (seasons.html — file locale)
+  └── season_link  [SelectorLink — ogni stagione fbref]
+        └── match_link  [SelectorLink — ogni "Match Report"]
+              ├── home_score   [SelectorText]
+              ├── away_score   [SelectorText]
+              └── player_row  [SelectorElement]
+                    ├── player_name
+                    ├── position
+                    ├── minutes
+                    ├── goals
+                    ├── yellow_card
+                    └── red_card
 ```
+
+### Stagioni incluse in seasons.html
+
+2000-01 → 2013-14 (14 stagioni, ~5320 partite)
+
+Per aggiungere stagioni: modifica `seasons.html` aggiungendo un `<li><a href="...">` con l'URL fbref corrispondente.
+
+### Scraping
+
+1. Seleziona il selector `player_row` (non `season_link` o `match_link`)
+2. Clicca **"Scrape"**
+3. Attendi il completamento — stima ~45 min per stagione × 14 stagioni ≈ **10 ore**
+   (puoi fare stagioni separate usando le sitemap per singola stagione)
+4. Clicca **"Export data as CSV"**
+
+---
+
+## Opzione B — Stagione singola
+
+Usa le sitemap `sitemap-2000-2001.json`, `sitemap-2010-2011.json`, ecc.
+(URL già compilati, niente da sostituire).
+
+Oppure `sitemap-match-reports.json` (generico, con `[SEASON]` da sostituire).
+
+---
+
+## Conversione CSV
+
+Il CSV di Web Scraper non è nel formato dell'admin. Converti con:
+
+```bash
+# Windows PowerShell
+$env:PYTHONPATH = "."
+python -m backend.scrapers.convert_webscraper `
+  --input webscraper_export.csv `
+  --season 2005-2006 `
+  --output fbref_2005-2006.csv
+
+# Linux/Mac
+PYTHONPATH=. python -m backend.scrapers.convert_webscraper \
+  --input webscraper_export.csv \
+  --season 2005-2006 \
+  --output fbref_2005-2006.csv
+```
+
+Il convertitore legge `home_score` e `away_score` dal CSV per calcolare
+`team_won` e `goals_conceded`. Se mancano, produce un warning e usa 0 come fallback.
+
+---
 
 ## Impostazioni consigliate
 
@@ -36,37 +87,10 @@ _root (fixtures page)
 - **Page load delay:** 3000 ms
 - Lascia la finestra Chrome aperta e visibile durante lo scraping
 
-## Scraping
+---
 
-1. Seleziona il selector `match_link`
-2. Clicca **"Scrape"**
-3. Attendi il completamento (380 partite × ~7 sec ≈ 45 min)
-4. Clicca **"Export data as CSV"**
+## Alternativa per stagioni 2014-15 in poi
 
-## Conversione CSV
-
-Il CSV di Web Scraper non è nel formato dell'admin. Converti con:
-
-```bash
-$env:PYTHONPATH = "."
-python -m backend.scrapers.convert_webscraper \
-  --input webscraper_export.csv \
-  --season 2005-2006 \
-  --output fbref_2005-2006.csv
-```
-
-## Note sul risultato
-
-Web Scraper cattura `home_score` e `away_score` dalla pagina di dettaglio della partita
-(selettore `div.scorebox`). Il convertitore usa questi valori per calcolare
-`team_won` e `goals_conceded` per i portieri.
-
-Se il selettore non trova il punteggio (es. formato HTML cambiato), il convertitore
-produce un warning e imposta `team_won=0` / `goals_conceded=0` come fallback.
-
-## Alternativa più veloce
-
-Per stagioni dal 2014-2015 in poi usa understat (più semplice):
 ```bash
 python -m backend.scrapers.understat --season 2014-2015 --export-csv out.csv
 ```
