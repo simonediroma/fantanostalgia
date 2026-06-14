@@ -19,6 +19,8 @@ https://fbref.com/en/comps/11/2005-2006/schedule/2005-2006-Serie-A-Scores-and-Fi
 ```
 _root (fixtures page)
   └── match_link  [SelectorLink — segue ogni "Match Report"]
+        ├── home_score   [SelectorText — punteggio squadra casa]
+        ├── away_score   [SelectorText — punteggio squadra ospite]
         └── player_row  [SelectorElement — righe delle due tabelle stats]
               ├── player_name
               ├── position
@@ -53,14 +55,14 @@ python -m backend.scrapers.convert_webscraper \
   --output fbref_2005-2006.csv
 ```
 
-## Limitazione importante
+## Note sul risultato
 
-Web Scraper **non cattura il risultato della partita** (score home/away).
-Di conseguenza nel CSV convertito:
-- `team_won = 0` per tutti i giocatori (manca il bonus vittoria +0.5)
-- `goals_conceded = 0` per tutti i portieri (manca malus/bonus GK)
+Web Scraper cattura `home_score` e `away_score` dalla pagina di dettaglio della partita
+(selettore `div.scorebox`). Il convertitore usa questi valori per calcolare
+`team_won` e `goals_conceded` per i portieri.
 
-Il rating sarà parziale. Per dati completi usa `fbref_pw` (Playwright).
+Se il selettore non trova il punteggio (es. formato HTML cambiato), il convertitore
+produce un warning e imposta `team_won=0` / `goals_conceded=0` come fallback.
 
 ## Alternativa più veloce
 

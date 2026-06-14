@@ -21,6 +21,24 @@
       "delay": 0
     },
     {
+      "id": "home_score",
+      "type": "SelectorText",
+      "parentSelectors": ["match_link"],
+      "selector": "div.scorebox > div:first-child div.score",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
+      "id": "away_score",
+      "type": "SelectorText",
+      "parentSelectors": ["match_link"],
+      "selector": "div.scorebox > div:last-child div.score",
+      "multiple": false,
+      "regex": "",
+      "delay": 0
+    },
+    {
       "id": "player_row",
       "type": "SelectorElement",
       "parentSelectors": ["match_link"],

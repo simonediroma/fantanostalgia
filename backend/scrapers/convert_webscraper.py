@@ -61,7 +61,7 @@ def _int(val: str) -> int:
 
 def _extract_match_info(href: str) -> dict | None:
     """
-    Estrae home_team, away_team, date dall'URL del match report fbref.
+    Estrae home_team, away_team dall'URL del match report fbref.
     Formato: /en/matches/{id}/{Home}-vs-{Away}-{date}-Serie-A
     """
     m = re.search(r"/en/matches/[^/]+/(.+?)-vs-(.+?)-(\d{4}-\d{2}-\d{2})", href)
@@ -70,6 +70,13 @@ def _extract_match_info(href: str) -> dict | None:
     home = m.group(1).replace("-", " ").title()
     away = m.group(2).replace("-", " ").title()
     return {"home_team": home, "away_team": away}
+
+
+def _parse_score(val: str) -> int:
+    try:
+        return int(val.strip())
+    except (ValueError, AttributeError):
+        return -1
 
 
 def convert(input_path: str, season: str, output_path: str, weights: RatingWeights) -> None:
@@ -97,25 +104,32 @@ def convert(input_path: str, season: str, output_path: str, weights: RatingWeigh
             log.warning("Impossibile estrarre info match da URL: %s", href)
             continue
 
-        # Web Scraper non conosce il risultato — usiamo un placeholder.
-        # IMPORTANTE: il risultato deve essere aggiunto manualmente o via
-        # un secondo scraping. Per ora team_won=0 e goals_conceded=0.
-        log.warning(
-            "Match %s vs %s: risultato non disponibile da Web Scraper. "
-            "team_won e goals_conceded saranno 0. "
-            "Aggiorna manualmente o usa lo scraper fbref_pw.",
-            match_info["home_team"],
-            match_info["away_team"],
-        )
+        # Prova a ricavare il risultato dai campi home_score/away_score
+        first = player_rows[0]
+        home_score = _parse_score(first.get("home_score", ""))
+        away_score = _parse_score(first.get("away_score", ""))
+        score_available = home_score >= 0 and away_score >= 0
+
+        if not score_available:
+            log.warning(
+                "Match %s vs %s: risultato non disponibile. "
+                "team_won e goals_conceded saranno 0.",
+                match_info["home_team"],
+                match_info["away_team"],
+            )
+
+        home_won = score_available and home_score > away_score
+        away_won = score_available and away_score > home_score
 
         # Prova a ricavare matchday dal campo se presente
-        matchday = _int(player_rows[0].get("matchday", "0")) or 0
+        matchday = _int(first.get("matchday", "0")) or 0
 
         # Le prime ~11 righe sono home, le successive ~11 sono away
         # (ordine tabelle fbref: sempre home prima, away dopo)
         mid = len(player_rows) // 2
         for i, p in enumerate(player_rows):
-            team = match_info["home_team"] if i < mid else match_info["away_team"]
+            is_home = i < mid
+            team = match_info["home_team"] if is_home else match_info["away_team"]
             minutes = _int(p.get("minutes", "0"))
             if minutes == 0:
                 continue
@@ -125,14 +139,22 @@ def convert(input_path: str, season: str, output_path: str, weights: RatingWeigh
             yellow = _int(p.get("yellow_card", "0"))
             red = _int(p.get("red_card", "0"))
 
+            if score_available:
+                team_won = home_won if is_home else away_won
+                # goals conceded = goals scored by the opponent
+                goals_conceded = away_score if is_home else home_score
+            else:
+                team_won = False
+                goals_conceded = 0
+
             rating = compute_rating(
                 goals=goals,
                 yellow_cards=yellow,
                 red_cards=red,
                 minutes=minutes,
-                team_won=False,      # sconosciuto senza risultato
+                team_won=team_won,
                 is_goalkeeper=role == "P",
-                goals_conceded=0,    # sconosciuto senza risultato
+                goals_conceded=goals_conceded,
                 weights=weights,
             )
 
@@ -146,8 +168,8 @@ def convert(input_path: str, season: str, output_path: str, weights: RatingWeigh
                 "goals": goals,
                 "yellow_cards": yellow,
                 "red_cards": red,
-                "goals_conceded": 0,
-                "team_won": 0,
+                "goals_conceded": goals_conceded,
+                "team_won": 1 if team_won else 0,
                 "minutes": minutes,
             })
 
@@ -157,11 +179,6 @@ def convert(input_path: str, season: str, output_path: str, weights: RatingWeigh
         writer.writerows(out_rows)
 
     log.info("Convertite %d righe → %s", len(out_rows), output_path)
-    log.warning(
-        "ATTENZIONE: team_won e goals_conceded sono 0 per tutte le righe. "
-        "Il rating manca dei bonus vittoria e portiere. "
-        "Usa fbref_pw per dati completi."
-    )
 
 
 if __name__ == "__main__":
