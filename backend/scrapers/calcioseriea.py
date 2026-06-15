@@ -2,10 +2,8 @@
 Scraper calcio-seriea.net — statistiche storiche Serie A.
 
 Scarica per ogni partita: lineup, gol, cartellini, minuti giocati.
+I ruoli vengono estratti automaticamente dalle pagine rosa (/rose/{year}/).
 Calcola il rating sintetico per ogni giocatore che è entrato in campo.
-Il sito non fornisce voti reali né ruoli: il portiere è rilevato dalla
-maglia #1, tutti gli altri sono trattati come 'C' (default configurabile
-con --roles-csv).
 
 Modalità di output:
   default            scrive direttamente su SQLite (locale o GCS)
@@ -13,7 +11,6 @@ Modalità di output:
 
 Usage:
     python -m backend.scrapers.calcioseriea --season 2016-2017 --export-csv out.csv
-    python -m backend.scrapers.calcioseriea --season 2016-2017 --export-csv out.csv --roles-csv ruoli.csv
     python -m backend.scrapers.calcioseriea --season 2016-2017 --force
 """
 
@@ -46,6 +43,13 @@ _HEADERS = {
     "Referer": "http://calcio-seriea.net/",
 }
 
+_ROLE_MAP = {
+    "PORTIERI": "P",
+    "DIFENSORI": "D",
+    "CENTROCAMPISTI": "C",
+    "ATTACCANTI": "A",
+}
+
 CSV_FIELDS = [
     "player_name", "role", "team", "season", "matchday",
     "rating", "goals", "yellow_cards", "red_cards", "goals_conceded",
@@ -71,19 +75,78 @@ def _fetch(session: requests.Session, url: str) -> BeautifulSoup:
     return BeautifulSoup(resp.text, "lxml")
 
 
+def _player_id_from_href(href: str) -> int | None:
+    """Estrae l'ID numerico da '/scheda_giocatore/{year}/{id}/'."""
+    m = re.search(r"/scheda_giocatore/\d+/(\d+)/", href)
+    return int(m.group(1)) if m else None
+
+
 # ---------------------------------------------------------------------------
-# Roles override
+# Ruoli dalle pagine rosa
 # ---------------------------------------------------------------------------
 
-def _load_roles_csv(path: str) -> dict[str, str]:
-    """Carica un CSV con colonne name,role per override del default 'C'."""
-    roles: dict[str, str] = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            name = row.get("name", "").strip()
-            role = row.get("role", "").strip().upper()
-            if name and role in ("P", "D", "C", "A"):
-                roles[name] = role
+def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
+    """
+    Scarica /rose/{year}/ e restituisce gli URL di tutte le squadre.
+    Le squadre sono elencate come icone con <a href="/rose/{year}/{id}/">.
+    """
+    soup = _fetch(session, f"{BASE}/rose/{year}/")
+    urls: list[str] = []
+    for a in soup.find_all("a", href=re.compile(rf"/rose/{year}/\d+/")):
+        href = a.get("href", "")
+        url = href if href.startswith("http") else BASE + href
+        if url not in urls:
+            urls.append(url)
+    return urls
+
+
+def _scrape_rose(session: requests.Session, url: str) -> dict[int, str]:
+    """
+    Scarica la pagina rosa di una squadra e restituisce {player_id: role}.
+    Ruoli da sezioni SubTitle: PORTIERI/DIFENSORI/CENTROCAMPISTI/ATTACCANTI.
+    """
+    soup = _fetch(session, url)
+    roles: dict[int, str] = {}
+    current_role = "C"  # fallback
+
+    for row in soup.find_all("tr"):
+        # Rileva cambio sezione
+        sub = row.find("td", class_="SubTitle")
+        if sub:
+            text = sub.get_text(strip=True).upper()
+            for key, role in _ROLE_MAP.items():
+                if key in text:
+                    current_role = role
+                    break
+            continue
+
+        # Riga giocatore: cerca link scheda_giocatore
+        for a in row.find_all("a", href=re.compile(r"/scheda_giocatore/")):
+            pid = _player_id_from_href(a.get("href", ""))
+            if pid is not None:
+                roles[pid] = current_role
+
+    return roles
+
+
+def _get_roles_map(session: requests.Session, season: str) -> dict[int, str]:
+    """
+    Scarica le rose di tutte le squadre e restituisce {player_id: role}.
+    """
+    year = _season_to_year(season)
+    log.info("Carico ruoli dalle pagine rosa (anno %d)...", year)
+    team_urls = _get_team_rose_urls(session, year)
+    log.info("  %d squadre trovate.", len(team_urls))
+
+    roles: dict[int, str] = {}
+    for url in team_urls:
+        try:
+            team_roles = _scrape_rose(session, url)
+            roles.update(team_roles)
+        except Exception as exc:
+            log.warning("  Errore rosa %s: %s", url, exc)
+
+    log.info("  %d giocatori con ruolo.", len(roles))
     return roles
 
 
@@ -98,42 +161,34 @@ def _season_to_year(season: str) -> int:
 
 def _get_matchday_urls(session: requests.Session, season: str) -> list[tuple[int, str]]:
     """
-    Scarica la prima giornata della stagione per estrarre tutti i link
-    alle giornate regolari (skippa recuperi come '3r', '19r').
+    Scarica /risultati/{year}/ per estrarre i link a tutte le giornate regolari
+    (skippa recuperi come '3r', '19r').
     Ritorna lista di (matchday_num, url) ordinata.
     """
     year = _season_to_year(season)
-    index_url = f"{BASE}/risultati/{year}/"
-    soup = _fetch(session, index_url)
+    soup = _fetch(session, f"{BASE}/risultati/{year}/")
 
-    # La pagina index fa redirect alla prima giornata disponibile.
-    # I link alle giornate sono in <td class="Nav3Off"> e <td class="Nav3On">.
     matchdays: list[tuple[int, str]] = []
+    seen: set[int] = set()
     for td in soup.find_all("td", class_=lambda c: c and "Nav3" in c):
         a = td.find("a", class_="Nav3")
         if not a:
             continue
         label = a.get_text(strip=True)
-        # Skippa recuperi (es. "3r", "19r", "12r")
         if re.match(r"^\d+r$", label):
-            continue
+            continue  # recupero
         try:
             num = int(label)
         except ValueError:
             continue
+        if num in seen:
+            continue
+        seen.add(num)
         href = a.get("href", "")
-        if href:
-            matchdays.append((num, href if href.startswith("http") else BASE + href))
+        url = href if href.startswith("http") else BASE + href
+        matchdays.append((num, url))
 
-    # Deduplica (stessa giornata può comparire in righe diverse della nav)
-    seen: set[int] = set()
-    result: list[tuple[int, str]] = []
-    for num, url in matchdays:
-        if num not in seen:
-            seen.add(num)
-            result.append((num, url))
-
-    return sorted(result, key=lambda x: x[0])
+    return sorted(matchdays, key=lambda x: x[0])
 
 
 def _parse_matches(soup: BeautifulSoup) -> list[dict]:
@@ -142,13 +197,11 @@ def _parse_matches(soup: BeautifulSoup) -> list[dict]:
     Ritorna lista di dict con home, away, home_goals, away_goals, tabellino_url.
     """
     matches = []
-    # Le partite sono in <tr> con <td class="TableCell"> contenenti <b>SQUADRA</b>
     for row in soup.find_all("tr"):
         tds = row.find_all("td", class_="TableCell")
         if len(tds) < 5:
             continue
 
-        # td[1]: nomi squadre, td[2]: punteggio, td[4]: link tabellino
         teams_td = tds[1]
         score_td = tds[2]
         tab_td = tds[4]
@@ -185,21 +238,24 @@ def _parse_matches(soup: BeautifulSoup) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def _extract_minute(td) -> int | None:
-    """Estrae il minuto da un td contenente es. '63'' o '&nbsp;63'' o '63'&nbsp;'."""
+    """Estrae il minuto da un td contenente es. '63'' o '90+2''."""
     text = td.get_text(strip=True).replace("\xa0", "").replace("'", "").strip()
-    if text.isdigit():
-        return int(text)
-    # Gestisce "90+2" e "45+1"
     m = re.match(r"^(\d+)(?:\+\d+)?$", text)
-    if m:
-        return int(m.group(1))
-    return None
+    return int(m.group(1)) if m else None
 
 
-def _parse_scorers(soup: BeautifulSoup, home_team: str, away_team: str) -> tuple[dict[str, int], dict[str, int]]:
+def _parse_scorers(soup: BeautifulSoup) -> tuple[dict[int, int], dict[int, int]]:
     """
-    Estrae i marcatori dalla sezione gol del tabellino (righe prima di TITOLARI).
-    Ritorna (home_goals_by_player, away_goals_by_player) — chiavi: nome normalizzato.
+    Estrae i marcatori dalla sezione gol del tabellino.
+    Usa player_id come chiave (da link scheda_giocatore nei TITOLARI).
+    Fallback: ritorna dict vuoti — i gol verranno assegnati 0.
+
+    Nota: la sezione marcatori usa nomi testuali, non link. Per abbinare
+    i gol ai giocatori usiamo i nomi nei tabellini come fallback (non affidabile
+    per nomi composti). Metodo più robusto: contare i gol dalla sezione testo
+    e assegnarli per nome normalizzato, poi risolvere via player_id nel parsing
+    righe giocatore.
+    Ritorna (home_goals_by_name, away_goals_by_name) — chiavi: nome uppercase strip.
     """
     home_goals: dict[str, int] = {}
     away_goals: dict[str, int] = {}
@@ -208,50 +264,40 @@ def _parse_scorers(soup: BeautifulSoup, home_team: str, away_team: str) -> tuple
     for row in soup.find_all("tr"):
         tds = row.find_all("td")
 
-        # Inizia dopo il MainTitle (header partita) e finisce a TITOLARI
         if any("MainTitle" in (td.get("class") or []) for td in tds):
             in_scorers = True
             continue
 
         if any("SubTitle" in (td.get("class") or []) for td in tds):
             if in_scorers:
-                break  # TITOLARI trovato, fine sezione gol
+                break
             continue
 
         if not in_scorers:
             continue
 
-        # Riga gol: 10 td, divider in posizione 4 e 5
-        border_tds = row.find_all("td", class_=lambda c: c and "TableCellBorder" in c)
-        if len(border_tds) < 3:
-            continue
-
-        # Struttura: [nome_home colspan=3] [minuto] [divR] [divL] [minuto] [nome_away colspan=3]
         all_tds = row.find_all("td")
         if len(all_tds) < 8:
             continue
 
-        # Home scorer: nome in all_tds[0] (colspan=3), minuto in all_tds[3]
-        home_name = all_tds[0].get_text(strip=True)
-        home_min_text = all_tds[3].get_text(strip=True)
-        # Away scorer: minuto in all_tds[5], nome in all_tds[7]
-        away_min_text = all_tds[5].get_text(strip=True) if len(all_tds) > 5 else ""
-        away_name = all_tds[7].get_text(strip=True) if len(all_tds) > 7 else ""
+        # Verifica che sia una riga marcatori (ha TableCellBorder)
+        if not any("TableCellBorder" in (td.get("class") or []) for td in all_tds):
+            continue
 
-        if home_name and home_name != "\xa0" and home_min_text and home_min_text != "\xa0":
-            key = _normalize_name(home_name)
+        home_name = all_tds[0].get_text(strip=True).replace("\xa0", "").strip()
+        home_min = all_tds[3].get_text(strip=True).replace("\xa0", "").strip()
+        away_min = all_tds[5].get_text(strip=True).replace("\xa0", "").strip() if len(all_tds) > 5 else ""
+        away_name = all_tds[7].get_text(strip=True).replace("\xa0", "").strip() if len(all_tds) > 7 else ""
+
+        if home_name and home_min and home_min not in ("", "&nbsp;"):
+            key = home_name.upper()
             home_goals[key] = home_goals.get(key, 0) + 1
 
-        if away_name and away_name != "\xa0" and away_min_text and away_min_text != "\xa0":
-            key = _normalize_name(away_name)
+        if away_name and away_min and away_min not in ("", "&nbsp;"):
+            key = away_name.upper()
             away_goals[key] = away_goals.get(key, 0) + 1
 
     return home_goals, away_goals
-
-
-def _normalize_name(raw: str) -> str:
-    """Normalizza nome per lookup: uppercase, rimuove spazi extra."""
-    return " ".join(raw.upper().split())
 
 
 def _parse_player_rows(
@@ -262,12 +308,12 @@ def _parse_player_rows(
     away_goals_map: dict[str, int],
     home_goals: int,
     away_goals: int,
-    roles_override: dict[str, str],
+    roles_map: dict[int, str],
     weights: RatingWeights,
 ) -> list[dict]:
     """
-    Parsea le sezioni TITOLARI e A DISPOSIZIONE del tabellino.
-    Ritorna lista di dict per ogni giocatore che ha giocato > 0 minuti.
+    Parsea TITOLARI e A DISPOSIZIONE. Ritorna un record per ogni giocatore
+    che ha giocato > 0 minuti.
     """
     home_won = home_goals > away_goals
     away_won = away_goals > home_goals
@@ -280,7 +326,6 @@ def _parse_player_rows(
     for row in soup.find_all("tr"):
         tds = row.find_all("td")
 
-        # Rileva sezione
         sub_tds = [td for td in tds if "SubTitle" in (td.get("class") or [])]
         if sub_tds:
             text = sub_tds[0].get_text(strip=True).upper()
@@ -294,74 +339,50 @@ def _parse_player_rows(
 
         if section is None:
             continue
-
-        # Riga giocatore: deve avere almeno 10 td con la struttura attesa
         if len(tds) < 10:
             continue
-
-        # Verifica che sia una riga dati (ha TableCellBorder)
         if not any("TableCellBorder" in (td.get("class") or []) for td in tds):
             continue
 
-        # --- Home player (cols 0-3) ---
-        home_name_td = tds[1]
-        home_num_td = tds[2]
-        home_sub_td = tds[3]
-        home_card_td = tds[0]
-
-        # --- Away player (cols 6-9) ---
-        away_sub_td = tds[6]
-        away_num_td = tds[7]
-        away_name_td = tds[8]
-        away_card_td = tds[9]
-
-        for side, name_td, num_td, sub_td, card_td, team, won, gc, goals_map in [
-            ("home", home_name_td, home_num_td, home_sub_td, home_card_td,
+        for side, name_td, sub_td, card_td, team, won, gc, goals_map in [
+            ("home", tds[1], tds[3], tds[0],
              home_team, home_won, away_goals, home_goals_map),
-            ("away", away_name_td, away_num_td, away_sub_td, away_card_td,
+            ("away", tds[8], tds[6], tds[9],
              away_team, away_won, home_goals, away_goals_map),
         ]:
             name_link = name_td.find("a")
             if not name_link:
-                continue  # riga vuota (bench padding asimmetrico)
+                continue
 
             raw_name = name_link.get_text(strip=True)
             if not raw_name:
                 continue
 
-            shirt_text = num_td.find("b")
-            shirt = shirt_text.get_text(strip=True) if shirt_text else ""
+            # Ruolo da roles_map via player_id
+            pid = _player_id_from_href(name_link.get("href", ""))
+            role = roles_map.get(pid, "C") if pid is not None else "C"
 
-            # Ruolo: portiere da maglia 1, altrimenti override o default 'C'
-            if shirt == "1":
-                role = "P"
-            else:
-                role = roles_override.get(_normalize_name(raw_name), "C")
-
-            # Minuti: calcola da icone uscito/entrato
+            # Minuti da icone uscito/entrato
             sub_imgs = sub_td.find_all("img")
             sub_minute = _extract_minute(sub_td)
 
             if section == "titolari":
                 has_uscito = any("uscito" in (img.get("alt") or "") for img in sub_imgs)
                 minutes = sub_minute if (has_uscito and sub_minute is not None) else 90
-            else:  # disposizione
+            else:
                 has_entrato = any("entrato" in (img.get("alt") or "") for img in sub_imgs)
-                if has_entrato and sub_minute is not None:
-                    minutes = 90 - sub_minute
-                else:
-                    minutes = 0
+                minutes = (90 - sub_minute) if (has_entrato and sub_minute is not None) else 0
 
             if minutes == 0:
-                continue  # non entrato in campo
+                continue
 
             # Cartellini
             card_imgs = card_td.find_all("img")
             yellow = sum(1 for img in card_imgs if "ammonit" in (img.get("alt") or "").lower())
             red = sum(1 for img in card_imgs if "espuls" in (img.get("alt") or "").lower())
 
-            # Gol: lookup per nome normalizzato
-            name_key = _normalize_name(raw_name)
+            # Gol per nome normalizzato
+            name_key = raw_name.upper()
             goals = goals_map.get(name_key, 0)
 
             is_gk = role == "P"
@@ -402,14 +423,12 @@ def _scrape_tabellino(
     match: dict,
     season: str,
     matchday: int,
-    roles_override: dict[str, str],
+    roles_map: dict[int, str],
     weights: RatingWeights,
 ) -> list[dict]:
     soup = _fetch(session, match["tabellino_url"])
 
-    home_goals_map, away_goals_map = _parse_scorers(
-        soup, match["home"], match["away"]
-    )
+    home_goals_map, away_goals_map = _parse_scorers(soup)
 
     players = _parse_player_rows(
         soup,
@@ -419,7 +438,7 @@ def _scrape_tabellino(
         away_goals_map=away_goals_map,
         home_goals=match["home_goals"],
         away_goals=match["away_goals"],
-        roles_override=roles_override,
+        roles_map=roles_map,
         weights=weights,
     )
 
@@ -494,12 +513,15 @@ def _save_records(conn: sqlite3.Connection, records: list[dict]) -> None:
 def _collect_season(
     season: str,
     weights: RatingWeights,
-    roles_override: dict[str, str],
 ) -> list[dict]:
     """Scrapa la stagione e ritorna tutti i record in memoria."""
     session = _build_session()
-    year = _season_to_year(season)
 
+    # 1. Pre-scraping ruoli dalle rose
+    roles_map = _get_roles_map(session, season)
+
+    # 2. Lista giornate
+    year = _season_to_year(season)
     log.info("Carico giornate stagione %s (year=%d)...", season, year)
     matchday_urls = _get_matchday_urls(session, season)
     log.info("%d giornate trovate.", len(matchday_urls))
@@ -520,7 +542,7 @@ def _collect_season(
         for match in matches:
             try:
                 match_records = _scrape_tabellino(
-                    session, match, season, matchday_num, roles_override, weights
+                    session, match, season, matchday_num, roles_map, weights
                 )
                 records.extend(match_records)
                 log.info(
@@ -548,12 +570,9 @@ def scrape_season(
     *,
     force: bool = False,
     weights: RatingWeights | None = None,
-    roles_override: dict[str, str] | None = None,
 ) -> None:
     if weights is None:
         weights = RatingWeights()
-    if roles_override is None:
-        roles_override = {}
 
     if ENV != "development":
         _download_db_from_gcs()
@@ -566,11 +585,10 @@ def scrape_season(
             log.info("Stagione %s già nel DB. Usa --force per riscrappare.", season)
             return
 
-        records = _collect_season(season, weights, roles_override)
+        records = _collect_season(season, weights)
         log.info("Totale record raccolti: %d", len(records))
 
-        for r in records:
-            _save_records(conn, [r])
+        _save_records(conn, records)
         conn.commit()
         log.info("Stagione %s salvata.", season)
 
@@ -584,9 +602,8 @@ def export_csv(
     season: str,
     output_path: str,
     weights: RatingWeights | None = None,
-    roles_override: dict[str, str] | None = None,
 ) -> None:
-    records = _collect_season(season, weights or RatingWeights(), roles_override or {})
+    records = _collect_season(season, weights or RatingWeights())
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
@@ -600,13 +617,11 @@ if __name__ == "__main__":
     parser.add_argument("--force", action="store_true", help="Riscrappa anche se già presente nel DB")
     parser.add_argument("--export-csv", metavar="FILE", help="Esporta CSV invece di scrivere su DB")
     parser.add_argument("--weights-file", metavar="FILE", help="JSON con i pesi del rating")
-    parser.add_argument("--roles-csv", metavar="FILE", help="CSV con colonne name,role per override del default 'C'")
     args = parser.parse_args()
 
     weights = RatingWeights.from_json(args.weights_file) if args.weights_file else RatingWeights()
-    roles_override = _load_roles_csv(args.roles_csv) if args.roles_csv else {}
 
     if args.export_csv:
-        export_csv(args.season, args.export_csv, weights, roles_override)
+        export_csv(args.season, args.export_csv, weights)
     else:
-        scrape_season(args.season, force=args.force, weights=weights, roles_override=roles_override)
+        scrape_season(args.season, force=args.force, weights=weights)
