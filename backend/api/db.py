@@ -74,6 +74,48 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE historic_rating ADD COLUMN {_col} {_def}")
             except sqlite3.OperationalError:
                 pass
+        for _col, _def in [
+            ("user_id", "INTEGER"),
+            ("assignments_locked", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE manager ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
+        for _col, _def in [
+            ("associations_closed", "INTEGER DEFAULT 0"),
+            ("associations_closed_at", "TIMESTAMP"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE league ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS user (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS league_invite (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER REFERENCES league(id),
+                manager_id INTEGER REFERENCES manager(id),
+                token TEXT NOT NULL UNIQUE,
+                used_by_user_id INTEGER REFERENCES user(id),
+                used_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS manager_nostalgia_pool (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                manager_id INTEGER REFERENCES manager(id),
+                league_id INTEGER REFERENCES league(id),
+                player_historic_id INTEGER REFERENCES player_historic(id),
+                assigned_player_current_id INTEGER REFERENCES player_current(id),
+                UNIQUE(manager_id, player_historic_id)
+            );
+        """)
         conn.commit()
 
     if ENV != "development":

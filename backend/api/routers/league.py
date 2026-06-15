@@ -1,7 +1,8 @@
 import re
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator, model_validator
 
 from backend.api.db import get_db
@@ -162,7 +163,14 @@ def list_managers(league_id: int):
         if row is None:
             raise HTTPException(status_code=404, detail="Lega non trovata")
         rows = conn.execute(
-            "SELECT id, name, team_name FROM manager WHERE league_id = ? ORDER BY name",
+            """
+            SELECT m.id, m.name, m.team_name,
+                   CASE WHEN m.user_id IS NOT NULL THEN 1 ELSE 0 END AS user_linked,
+                   COALESCE(m.assignments_locked, 0) AS assignments_locked
+            FROM manager m
+            WHERE m.league_id = ?
+            ORDER BY m.name
+            """,
             (league_id,),
         ).fetchall()
     return [dict(r) for r in rows]
@@ -211,3 +219,28 @@ def create_manager(
         mid = cur.lastrowid
         manager_row = conn.execute("SELECT * FROM manager WHERE id = ?", (mid,)).fetchone()
     return dict(manager_row)
+
+
+@router.post("/admin/league/{league_id}/managers/{manager_id}/invite")
+def create_invite(
+    league_id: int,
+    manager_id: int,
+    request: Request,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        mgr = conn.execute(
+            "SELECT id FROM manager WHERE id = ? AND league_id = ?",
+            (manager_id, league_id),
+        ).fetchone()
+        if mgr is None:
+            raise HTTPException(status_code=404, detail="Manager non trovato")
+
+        token = uuid.uuid4().hex
+        conn.execute(
+            "INSERT INTO league_invite (league_id, manager_id, token) VALUES (?, ?, ?)",
+            (league_id, manager_id, token),
+        )
+
+    base_url = str(request.base_url).rstrip("/")
+    return {"token": token, "join_url": f"{base_url}/coach/join?token={token}"}

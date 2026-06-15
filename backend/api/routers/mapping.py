@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.db import get_db
 from backend.api.routers.auth import get_current_admin
-from backend.engine.mapping import generate_mapping
+from backend.engine.mapping import assign_nostalgia_pools, auto_assign_remaining, generate_mapping
 
 router = APIRouter(tags=["mapping"])
 
@@ -140,6 +140,93 @@ def get_public_mapping(league_id: int):
         result = _build_public_mapping(conn, league_id)
 
     return result
+
+
+@router.post("/admin/league/{league_id}/mapping/assign-pools")
+def assign_pools(
+    league_id: int,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        _require_league(conn, league_id)
+
+        league = conn.execute(
+            "SELECT season_historic FROM league WHERE id = ?", (league_id,)
+        ).fetchone()
+        has_historic = conn.execute(
+            "SELECT 1 FROM player_historic WHERE season = ? LIMIT 1",
+            (league["season_historic"],),
+        ).fetchone()
+        if not has_historic:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nessun giocatore storico trovato per la stagione {league['season_historic']}",
+            )
+
+        has_managers = conn.execute(
+            "SELECT 1 FROM manager WHERE league_id = ? LIMIT 1", (league_id,)
+        ).fetchone()
+        if not has_managers:
+            raise HTTPException(status_code=400, detail="Nessun manager trovato per questa lega")
+
+        try:
+            result = assign_nostalgia_pools(conn, league_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    return {"assigned_by_manager": result.assigned_by_manager}
+
+
+@router.get("/admin/league/{league_id}/coaches-status")
+def coaches_status(
+    league_id: int,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        _require_league(conn, league_id)
+
+        rows = conn.execute(
+            """
+            SELECT
+                m.id AS manager_id,
+                m.name AS manager_name,
+                m.team_name,
+                CASE WHEN m.user_id IS NOT NULL THEN 1 ELSE 0 END AS user_linked,
+                COALESCE(m.assignments_locked, 0) AS is_locked,
+                COUNT(mnp.id) AS pool_size,
+                SUM(CASE WHEN mnp.assigned_player_current_id IS NOT NULL THEN 1 ELSE 0 END) AS assigned_count
+            FROM manager m
+            LEFT JOIN manager_nostalgia_pool mnp ON mnp.manager_id = m.id
+            WHERE m.league_id = ?
+            GROUP BY m.id
+            ORDER BY m.name
+            """,
+            (league_id,),
+        ).fetchall()
+
+    return [dict(r) for r in rows]
+
+
+@router.post("/admin/league/{league_id}/mapping/close-associations")
+def close_associations(
+    league_id: int,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        _require_league(conn, league_id)
+
+        league = conn.execute(
+            "SELECT associations_closed FROM league WHERE id = ?", (league_id,)
+        ).fetchone()
+        if league["associations_closed"] == 1:
+            raise HTTPException(status_code=400, detail="Periodo associazioni già chiuso")
+
+        try:
+            auto_assign_remaining(conn, league_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    return {"detail": "Periodo associazioni chiuso. Associazioni mancanti generate automaticamente."}
 
 
 @router.get("/admin/league/{league_id}/mapping")

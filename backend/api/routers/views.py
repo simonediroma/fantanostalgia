@@ -2,13 +2,15 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
 templates = Jinja2Templates(directory=_templates_dir)
+
+_coach_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "coach")
 
 router = APIRouter(tags=["views"], default_response_class=HTMLResponse)
 
@@ -102,6 +104,32 @@ def classifica(request: Request, league_id: int):
         "normal": normal,
         "nostalgia": nostalgia,
     })
+
+
+@router.get("/coach/login", include_in_schema=False)
+@router.get("/coach/join", include_in_schema=False)
+def coach_login(request: Request):
+    p = os.path.join(_coach_dir, "login.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach login not available", status_code=404)
+
+
+@router.get("/coach/", include_in_schema=False)
+@router.get("/coach", include_in_schema=False)
+def coach_home(request: Request):
+    p = os.path.join(_coach_dir, "index.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach home not available", status_code=404)
+
+
+@router.get("/coach/lega/{league_id}", include_in_schema=False)
+def coach_rosa(request: Request, league_id: int):
+    p = os.path.join(_coach_dir, "rosa.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach rosa not available", status_code=404)
 
 
 @router.get("/lega/{league_id}/mapping")

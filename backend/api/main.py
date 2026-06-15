@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.db import init_db
-from backend.api.routers import auth, historic, league, lineups, mapping, matchday, players, standings, views
+from backend.api.routers import auth, coach, historic, league, lineups, mapping, matchday, players, standings, views
 
 
 @asynccontextmanager
@@ -25,12 +25,18 @@ if os.path.isdir(_admin_dir):
     app.mount("/admin/css", StaticFiles(directory=os.path.join(_admin_dir, "css")), name="admin-css")
     app.mount("/admin/js", StaticFiles(directory=os.path.join(_admin_dir, "js")), name="admin-js")
 
+_coach_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "coach")
+if os.path.isdir(_coach_dir):
+    app.mount("/coach/js", StaticFiles(directory=os.path.join(_coach_dir, "js")), name="coach-js")
+    app.mount("/coach/css", StaticFiles(directory=os.path.join(_coach_dir, "css")), name="coach-css")
+
 _webscraper_dir = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "webscraper")
 if os.path.isdir(_webscraper_dir):
     app.mount("/webscraper", StaticFiles(directory=_webscraper_dir, html=True), name="webscraper")
 
 app.include_router(views.router)
 app.include_router(auth.router)
+app.include_router(coach.router)
 app.include_router(league.router)
 app.include_router(players.router)
 app.include_router(mapping.router)

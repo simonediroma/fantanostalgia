@@ -154,13 +154,47 @@
         <!-- ── Step 2: Mapping ───────────────────────────────────────────── -->
         <div id="ws-2" class="wizard-step">
           <div id="mappingMsg"></div>
+
+          <!-- Assegna pool nostalgia -->
           <div class="panel">
-            <h4>Genera mapping alter ego</h4>
+            <h4>1. Assegna pool nostalgia agli allenatori</h4>
             <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 1rem">
-              Assegna casualmente un giocatore storico (alter ego) a ogni giocatore attuale, per ruolo.
+              Assegna casualmente 12 giocatori storici (1P+4D+4C+3A) a ogni squadra. Gli allenatori li vedranno nel loro pannello.
             </p>
-            <button id="generateMappingBtn">Genera mapping</button>
+            <button id="assignPoolsBtn">Assegna pool nostalgia</button>
           </div>
+          <div id="poolAssignPreview"></div>
+
+          <!-- Inviti allenatori + status -->
+          <div class="panel">
+            <h4>2. Inviti e stato allenatori</h4>
+            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
+              Genera link invito per ogni allenatore e monitora lo stato delle associazioni.
+            </p>
+            <button class="secondary" id="refreshCoachStatusBtn" style="font-size:0.75rem;margin-bottom:0.75rem">↻ Aggiorna stato</button>
+            <div id="coachStatusTable"></div>
+          </div>
+
+          <!-- Chiudi periodo -->
+          <div class="panel">
+            <h4>3. Chiudi periodo associazioni</h4>
+            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.35rem">
+              Gli allenatori che non hanno ancora bloccato riceveranno associazioni automatiche basate sulla titolarità.
+            </p>
+            <p style="color:var(--red);font-size:0.82rem;margin-bottom:1rem">Operazione irreversibile.</p>
+            <button class="danger" id="closeAssociationsBtn">Chiudi periodo associazioni</button>
+          </div>
+
+          <!-- Vecchio mapping automatico (avanzato) -->
+          <details style="margin-top:0.5rem">
+            <summary style="color:var(--muted);font-size:0.82rem;cursor:pointer">Mapping automatico diretto (avanzato)</summary>
+            <div class="panel" style="margin-top:0.5rem">
+              <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 1rem">
+                Genera mapping completo saltando la fase manuale degli allenatori.
+              </p>
+              <button id="generateMappingBtn" class="secondary">Genera mapping diretto</button>
+            </div>
+          </details>
           <div id="mappingPreview"></div>
         </div>
 
@@ -464,6 +498,9 @@ async function loadManagePage() {
     if (bustAperte) {
       loadAndRenderPublicMapping();
     }
+
+    // Pre-load coach status (async, don't block)
+    refreshCoachStatus().catch(() => {});
   } catch (err) {
     showMsg('dashMsg', 'Errore caricamento lega: ' + err.message, true);
     showPage('pg-dashboard');
@@ -653,6 +690,98 @@ document.getElementById('saveAssignBtn').addEventListener('click', async () => {
     showMsg('listonMsg', `${res.assigned} giocatori assegnati.`);
   } catch (err) {
     showMsg('listonMsg', err.message, true);
+  }
+});
+
+// ── Mapping — pool nostalgia + allenatori ────────────────────────────────────
+
+document.getElementById('assignPoolsBtn').addEventListener('click', async () => {
+  try {
+    const res = await apiAssignPools(currentLeagueId);
+    const rows = (res.assigned_by_manager || []).map(m =>
+      `<tr>
+        <td>${esc(m.manager)}</td>
+        <td style="text-align:center">${m.P}</td>
+        <td style="text-align:center">${m.D}</td>
+        <td style="text-align:center">${m.C}</td>
+        <td style="text-align:center">${m.A}</td>
+      </tr>`
+    ).join('');
+    document.getElementById('poolAssignPreview').innerHTML = `
+      <div class="panel mt-md">
+        <h4>Pool assegnati</h4>
+        <div class="table-wrap mt-sm"><table>
+          <thead><tr><th>Manager</th><th>P</th><th>D</th><th>C</th><th>A</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+    showMsg('mappingMsg', 'Pool nostalgia assegnati agli allenatori.');
+    await refreshCoachStatus();
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
+  }
+});
+
+async function refreshCoachStatus() {
+  try {
+    const rows = await apiCoachesStatus(currentLeagueId);
+    const el = document.getElementById('coachStatusTable');
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty">Nessun manager.</div>';
+      return;
+    }
+    el.innerHTML = `<table>
+      <thead><tr>
+        <th>Manager</th><th>Squadra</th><th>Account</th>
+        <th>Pool</th><th>Assegnati</th><th>Stato</th><th>Invito</th>
+      </tr></thead>
+      <tbody>${rows.map(r => {
+        const linked = r.user_linked ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--muted)">—</span>';
+        const stato = r.is_locked
+          ? '<span style="color:var(--green)">Bloccato</span>'
+          : `${r.assigned_count}/${r.pool_size}`;
+        return `<tr>
+          <td>${esc(r.manager_name)}</td>
+          <td>${esc(r.team_name)}</td>
+          <td>${linked}</td>
+          <td style="text-align:center">${r.pool_size}</td>
+          <td style="text-align:center">${r.assigned_count}</td>
+          <td>${stato}</td>
+          <td><button class="secondary btn-invite" data-mid="${r.manager_id}"
+              style="font-size:0.65rem;padding:2px 8px">Genera link</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+
+    el.querySelectorAll('.btn-invite').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          const inv = await apiCreateInvite(currentLeagueId, parseInt(btn.dataset.mid));
+          const url = inv.join_url;
+          btn.textContent = 'Copiato!';
+          await navigator.clipboard.writeText(url).catch(() => {});
+          prompt('Link invito (copia manualmente se necessario):', url);
+          setTimeout(() => { btn.textContent = 'Genera link'; }, 2000);
+        } catch (err) {
+          showMsg('mappingMsg', err.message, true);
+        }
+      });
+    });
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
+  }
+}
+
+document.getElementById('refreshCoachStatusBtn').addEventListener('click', refreshCoachStatus);
+
+document.getElementById('closeAssociationsBtn').addEventListener('click', async () => {
+  if (!confirm('Chiudere il periodo? Le associazioni mancanti saranno generate automaticamente. Operazione irreversibile.')) return;
+  try {
+    const res = await apiCloseAssociations(currentLeagueId);
+    showMsg('mappingMsg', res.detail);
+    await refreshCoachStatus();
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
   }
 });
 

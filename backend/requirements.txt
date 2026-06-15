@@ -15,6 +15,7 @@ google-cloud-storage==2.17.0 # SQLite su GCS
 google-cloud-secret-manager==2.20.0
 schedule==1.2.2              # cron locale dev
 python-dotenv==1.0.1
+passlib[bcrypt]==1.7.4
 pytest==8.2.0
 httpx==0.27.0                # test FastAPI
 httpcore==1.0.5              # httpx dependency (explicit pin to avoid resolver timeout)
