@@ -7,6 +7,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/fantanostalgia/fantanostalgia-api:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -16,22 +18,19 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
 
       - name: Build backend
-        run: |
-          docker build \
-            -t gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-api:${{ github.sha }} \
-            -f Dockerfile.backend .
+        run: docker build -t $IMAGE -f Dockerfile.backend .
 
       - name: Push backend
-        run: docker push gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-api:${{ github.sha }}
+        run: docker push $IMAGE
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy fantanostalgia \
-            --image=gcr.io/${{ secrets.GCP_PROJECT }}/fantanostalgia-api:${{ github.sha }} \
+            --image=$IMAGE \
             --region=europe-west1 \
             --platform=managed \
             --allow-unauthenticated \
