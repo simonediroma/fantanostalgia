@@ -10,7 +10,18 @@
 </head>
 <body>
   <h1>fbref Serie A — Stagioni storiche</h1>
-  <p>Punto di partenza per Web Scraper Chrome. Ogni link porta alla pagina fixtures di fbref.</p>
+
+  <h2>Sitemap Web Scraper (JSON)</h2>
+  <ul>
+    <li><a href="sitemap-all-seasons.json">sitemap-all-seasons.json</a> — tutte le stagioni, parte da questa pagina</li>
+    <li><a href="sitemap-match-reports.json">sitemap-match-reports.json</a> — stagione singola (generico, con [SEASON])</li>
+    <li><a href="sitemap-2000-2001.json">sitemap-2000-2001.json</a> — stagione 2000-2001</li>
+    <li><a href="sitemap-2010-2011.json">sitemap-2010-2011.json</a> — stagione 2010-2011</li>
+    <li><a href="sitemap-fixtures.json">sitemap-fixtures.json</a> — solo fixtures (senza dettaglio partita)</li>
+  </ul>
+
+  <h2>Link stagioni (punto di partenza sitemap-all-seasons)</h2>
+  <p>Ogni link porta alla pagina fixtures di fbref.</p>
   <ul>
     <li><a href="https://fbref.com/en/comps/11/2000-2001/schedule/2000-2001-Serie-A-Scores-and-Fixtures">2000-2001</a></li>
     <li><a href="https://fbref.com/en/comps/11/2001-2002/schedule/2001-2002-Serie-A-Scores-and-Fixtures">2001-2002</a></li>
@@ -27,5 +38,12 @@
     <li><a href="https://fbref.com/en/comps/11/2012-2013/schedule/2012-2013-Serie-A-Scores-and-Fixtures">2012-2013</a></li>
     <li><a href="https://fbref.com/en/comps/11/2013-2014/schedule/2013-2014-Serie-A-Scores-and-Fixtures">2013-2014</a></li>
   </ul>
+
+  <h2>Uso rapido</h2>
+  <ol>
+    <li>Scarica una sitemap JSON qui sopra</li>
+    <li>DevTools → Web Scraper → "Create new sitemap" → "Import sitemap"</li>
+    <li>Per <code>sitemap-all-seasons.json</code>: sostituisci <code>SOSTITUISCI_CON_URL_FILE_LOCALE</code> con l'URL di questa pagina</li>
+  </ol>
 </body>
 </html>
