@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FantaNostalgia — Le mie leghe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/coach/css/coach.css">
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">⚽ FantaNostalgia <span class="badge">allenatore</span></span>
+  <div class="row-gap">
+    <span id="userName" style="font-size:0.8rem;color:var(--muted)"></span>
+    <button class="secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
+  </div>
+</div>
+
+<div class="content">
+  <div id="msgBox"></div>
+  <h2 style="font-family:var(--font-pixel);font-size:0.7rem;color:var(--accent);margin-bottom:1.5rem;text-transform:uppercase">
+    Le mie leghe
+  </h2>
+
+  <div id="leagueList"><div class="empty">Caricamento…</div></div>
+</div>
+
+<script>
+'use strict';
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function init() {
+  let me;
+  try {
+    const res = await fetch('/auth/user/me');
+    if (res.status === 401) {
+      window.location.href = '/coach/login';
+      return;
+    }
+    me = await res.json();
+  } catch(e) {
+    window.location.href = '/coach/login';
+    return;
+  }
+
+  document.getElementById('userName').textContent = me.name;
+
+  const list = document.getElementById('leagueList');
+
+  if (!me.leagues || me.leagues.length === 0) {
+    list.innerHTML = '<div class="empty">Nessuna lega trovata. Chiedi al presidente di inviarti un link.</div>';
+    return;
+  }
+
+  list.innerHTML = me.leagues.map(l => {
+    const locked = l.assignments_locked ? '<span class="badge badge-green">Bloccato</span>' : '';
+    const closed = l.associations_closed ? '<span class="badge badge-red">Periodo chiuso</span>' : '';
+    return `
+      <a href="/coach/lega/${l.league_id}" style="text-decoration:none">
+        <div class="league-card">
+          <div>
+            <div class="league-name">${esc(l.league_name)} ${locked}${closed}</div>
+            <div class="league-team">Squadra: ${esc(l.team_name)}</div>
+          </div>
+          <button style="font-size:0.5rem">Gestisci →</button>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/auth/user/logout', {method:'POST'});
+  window.location.href = '/coach/login';
+});
+
+init();
+</script>
+</body>
+</html>
