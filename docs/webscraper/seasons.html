@@ -4,13 +4,77 @@
   <meta charset="UTF-8">
   <title>fbref Serie A — Stagioni storiche</title>
   <style>
-    body { font-family: monospace; padding: 2rem; }
-    ul { line-height: 2; }
+    body { font-family: monospace; padding: 2rem; max-width: 860px; }
+    ul, ol { line-height: 2; }
+    h2 { margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 0.3rem; }
+    h3 { margin-top: 1.5rem; }
+    pre { background: #f4f4f4; padding: 1rem; overflow: auto; font-size: 0.9em; }
+    code { background: #f4f4f4; padding: 0.1em 0.3em; }
   </style>
 </head>
 <body>
   <h1>fbref Serie A — Stagioni storiche</h1>
-  <p>Punto di partenza per Web Scraper Chrome. Ogni link porta alla pagina fixtures di fbref.</p>
+
+  <h2>Sitemap Web Scraper (JSON)</h2>
+  <ul>
+    <li><a href="sitemap-all-seasons.json">sitemap-all-seasons.json</a> — tutte le stagioni, parte da questa pagina</li>
+    <li><a href="sitemap-match-reports.json">sitemap-match-reports.json</a> — stagione singola (generico, con [SEASON])</li>
+    <li><a href="sitemap-2000-2001.json">sitemap-2000-2001.json</a> — stagione 2000-2001</li>
+    <li><a href="sitemap-2010-2011.json">sitemap-2010-2011.json</a> — stagione 2010-2011</li>
+    <li><a href="sitemap-fixtures.json">sitemap-fixtures.json</a> — solo fixtures (senza dettaglio partita)</li>
+  </ul>
+
+  <h2>Guida: dall'installazione allo scraping</h2>
+
+  <h3>1. Installa l'estensione</h3>
+  <ol>
+    <li>Vai su <a href="https://chrome.google.com/webstore/detail/web-scraper/jnhgnonknehpejjnehehllkliplmbmhn" target="_blank">Chrome Web Store → Web Scraper</a> e clicca <strong>Aggiungi a Chrome</strong>.</li>
+    <li>Apri <code>chrome://extensions</code>, trova Web Scraper e abilita <strong>"Consenti accesso agli URL dei file"</strong> (serve solo se apri questa pagina da locale con <code>file://</code>).</li>
+  </ol>
+
+  <h3>2. Importa la sitemap</h3>
+  <ol>
+    <li>Scarica la sitemap dalla lista qui sopra (consigliata: <a href="sitemap-all-seasons.json">sitemap-all-seasons.json</a>).</li>
+    <li>Apri DevTools (<code>F12</code>) → tab <strong>Web Scraper</strong>.</li>
+    <li>Clicca <strong>"Create new sitemap"</strong> → <strong>"Import sitemap"</strong>.</li>
+    <li>Incolla il contenuto del JSON e clicca <strong>"Import sitemap"</strong>.</li>
+    <li>
+      Se usi <code>sitemap-all-seasons.json</code>: apri la sitemap appena importata → clicca <strong>"Edit metadata"</strong>
+      → sostituisci <code>SOSTITUISCI_CON_URL_FILE_LOCALE</code> con l'URL di questa pagina
+      (copialo dalla barra indirizzi, es. <code>https://fantanostalgia-xxx.run.app/webscraper/seasons.html</code>) → <strong>"Save sitemap"</strong>.
+    </li>
+  </ol>
+
+  <h3>3. Avvia lo scraping</h3>
+  <ol>
+    <li>Nella sitemap importata, seleziona il selettore <strong>player_row</strong> dalla lista e clicca <strong>"Scrape"</strong>.</li>
+    <li>Imposta <em>Request interval</em>: <strong>4000 ms</strong> e <em>Page load delay</em>: <strong>3000 ms</strong> (rispetta il rate limit fbref).</li>
+    <li>Clicca <strong>"Start scraping"</strong> — si apre una finestra Chrome automatizzata. <strong>Non chiuderla e non minimizzarla.</strong></li>
+    <li>Attendi il completamento. Stima: ~7 sec per partita × 380 partite ≈ <strong>45 min per stagione</strong> (per tutte e 14 le stagioni: ~10 ore).</li>
+    <li>Quando finisce, clicca <strong>"Export data as CSV"</strong> e salva il file.</li>
+  </ol>
+
+  <h3>4. Converti il CSV</h3>
+  <p>Il CSV di Web Scraper non è nel formato dell'admin. Converti con lo script:</p>
+  <pre>
+# Windows PowerShell
+$env:PYTHONPATH = "."
+python -m backend.scrapers.convert_webscraper `
+  --input webscraper_export.csv `
+  --season 2005-2006 `
+  --output fbref_2005-2006.csv
+
+# Linux / Mac
+PYTHONPATH=. python -m backend.scrapers.convert_webscraper \
+  --input webscraper_export.csv \
+  --season 2005-2006 \
+  --output fbref_2005-2006.csv</pre>
+
+  <h3>5. Importa i dati</h3>
+  <p>Carica il CSV convertito tramite l'admin: <strong>POST /admin/historic/import</strong>.</p>
+
+  <h2>Link stagioni (punto di partenza sitemap-all-seasons)</h2>
+  <p>Ogni link porta alla pagina fixtures di fbref.</p>
   <ul>
     <li><a href="https://fbref.com/en/comps/11/2000-2001/schedule/2000-2001-Serie-A-Scores-and-Fixtures">2000-2001</a></li>
     <li><a href="https://fbref.com/en/comps/11/2001-2002/schedule/2001-2002-Serie-A-Scores-and-Fixtures">2001-2002</a></li>
