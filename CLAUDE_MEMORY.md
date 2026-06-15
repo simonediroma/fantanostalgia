@@ -1,7 +1,7 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-06-12
+**Ultima sessione:** 2026-06-15
 **Branch attivo:** `main`
 **PR in corso:** nessuna
 
@@ -11,15 +11,33 @@
 
 ## Prossima sessione — inizia da qui
 
-1. Esegui lo scraper understat in locale (fbref bloccato da Cloudflare):
+### Scraping dati storici (priorità)
+
+**Stagioni 2014-15 in poi** — usa understat (niente Cloudflare):
+```powershell
+pip install -r backend/requirements-scraper.txt
+$env:PYTHONPATH = "."
+python -m backend.scrapers.understat --season 2015-2016 --export-csv out.csv
+```
+Poi importa il CSV via admin: `POST /admin/historic/import`
+
+**Stagioni pre-2014** — usa Web Scraper Chrome su fbref:
+1. Apri `https://<cloud-run-url>/webscraper/` (o `seasons.html` localmente)
+2. Scarica `sitemap-all-seasons.json` (copre 2000-01 → 2013-14)
+3. Sostituisci `SOSTITUISCI_CON_URL_FILE_LOCALE` con l'URL della pagina `/webscraper/seasons.html`
+4. Importa la sitemap in Web Scraper Chrome, avvia scraping da `player_row`
+5. Esporta CSV, converti con:
+   ```powershell
+   python -m backend.scrapers.convert_webscraper --input export.csv --season 2005-2006 --output out.csv
    ```
-   pip install -r backend/requirements-scraper.txt
-   $env:PYTHONPATH = "."   # PowerShell Windows
-   python -m backend.scrapers.understat --season 2015-2016 --export-csv out.csv
-   ```
-2. Importa il CSV via admin: `POST /admin/historic/import`
-3. Per cambiare i pesi senza riscrappare: `python -m backend.engine.recalculate --dump-weights pesi.json` → edita → `python -m backend.engine.recalculate --season 2023-2024 --weights-file pesi.json`
-4. Per stagioni pre-2014 (non coperte da understat): valutare Web Scraper Chrome su fbref o fonte alternativa (worldfootball.net)
+6. Importa tramite admin
+
+**Ricalcolo pesi (senza riscrappare):**
+```powershell
+python -m backend.engine.recalculate --dump-weights pesi.json
+# edita pesi.json
+python -m backend.engine.recalculate --season 2023-2024 --weights-file pesi.json
+```
 
 Ogni task ha un prompt dedicato in `prompts/`.
 Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/architecture.md`.
@@ -50,6 +68,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **12** — DevOps (Docker + GH Actions + Cloud Run) → `prompts/utilities/12-devops.md` (branch: `claude/task-12-pl3qh8`)
 - [ ] **13** — Scraper fantagiaveno.it → `prompts/utilities/13-scraper-fantagiaveno.md` *(deprioritizzato: sostituito da approccio fbref+algoritmo)*
 - [x] **14** — Scraper fbref + motore sintetico → branch `claude/data-scraping-approach-jksb5l` (PR #31)
+- [x] **14b** — Web Scraper Chrome sitemaps + seasons.html + /webscraper/ route → branch `task/fbref-webscraper-sitemap` (PR #34)
 - [x] **15** — Adattamento formato Excel reale → (branch: `claude/gifted-faraday-brf0xr`)
 - [x] **16** — Redesign estetica 8-bit Sensible Soccer → `prompts/utilities/16-redesign-8bit.md` (branch: `claude/prossimo-task-hyg0j4`)
 
@@ -100,3 +119,4 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [#17](https://github.com/simonediroma/fantanostalgia/pull/17) — prompt task 16 aggiunto (`claude/8bit-aesthetic-redesign-459mxp`) ✓ mergiata
 - [#31](https://github.com/simonediroma/fantanostalgia/pull/31) — scraper fbref + RatingWeights + CSV export/import + understat (`claude/data-scraping-approach-jksb5l`) ✓ mergiata
 - [#32](https://github.com/simonediroma/fantanostalgia/pull/32) — requirements-scraper.txt (`task/requirements-scraper`) ✓ mergiata
+- [#34](https://github.com/simonediroma/fantanostalgia/pull/34) — Web Scraper sitemaps + seasons.html + /webscraper/ route + Dockerfile fix (`task/fbref-webscraper-sitemap`) ✓ mergiata
