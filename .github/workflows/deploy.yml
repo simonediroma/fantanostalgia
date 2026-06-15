@@ -8,7 +8,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/fantanostalgia/fantanostalgia-api:${{ github.sha }}
+      IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/cloud-run-source-deploy/fantanostalgia-api:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
