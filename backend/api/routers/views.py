@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
+from backend.engine.scoring import _formula
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
 templates = Jinja2Templates(directory=_templates_dir)
@@ -86,6 +87,26 @@ def classifica(request: Request, league_id: int):
             (last_matchday, league_id),
         ).fetchall()
 
+        all_draw_rows = conn.execute(
+            """SELECT matchday_current, matchday_historic, drawn_at
+               FROM matchday_draw WHERE league_id = ? ORDER BY matchday_current DESC""",
+            (league_id,),
+        ).fetchall()
+
+    all_draws = []
+    for r in all_draw_rows:
+        drawn_at_fmt = ""
+        if r["drawn_at"]:
+            try:
+                drawn_at_fmt = datetime.strptime(r["drawn_at"][:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+            except ValueError:
+                drawn_at_fmt = r["drawn_at"][:10]
+        all_draws.append({
+            "matchday_current": r["matchday_current"],
+            "matchday_historic": r["matchday_historic"],
+            "drawn_at_fmt": drawn_at_fmt,
+        })
+
     normal = sorted(
         [{"rank": r["rank_normal"], "manager": r["manager"],
           "total": r["total_normal"], "last_matchday": r["last_normal"]} for r in rows],
@@ -103,6 +124,7 @@ def classifica(request: Request, league_id: int):
         "last_draw": last_draw,
         "normal": normal,
         "nostalgia": nostalgia,
+        "all_draws": all_draws,
     })
 
 
@@ -130,6 +152,145 @@ def coach_rosa(request: Request, league_id: int):
     if os.path.isfile(p):
         return FileResponse(p, media_type="text/html")
     return Response("Coach rosa not available", status_code=404)
+
+
+@router.get("/coach/lega/{league_id}/punteggi", include_in_schema=False)
+def coach_punteggi(request: Request, league_id: int):
+    p = os.path.join(_coach_dir, "punteggi.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach punteggi not available", status_code=404)
+
+
+@router.get("/lega/{league_id}/giornata/{matchday}")
+def giornata(request: Request, league_id: int, matchday: int):
+    with get_db() as conn:
+        league_row = conn.execute(
+            "SELECT id, name, season_current, season_historic FROM league WHERE id = ?",
+            (league_id,),
+        ).fetchone()
+        if league_row is None:
+            return templates.TemplateResponse(
+                "home.html",
+                {"request": request, "leagues": [], "error": "Lega non trovata"},
+                status_code=404,
+            )
+
+        draw_row = conn.execute(
+            "SELECT matchday_current, matchday_historic, drawn_at FROM matchday_draw"
+            " WHERE league_id = ? AND matchday_current = ?",
+            (league_id, matchday),
+        ).fetchone()
+        if draw_row is None:
+            return templates.TemplateResponse(
+                "home.html",
+                {"request": request, "leagues": [], "error": "Giornata non trovata"},
+                status_code=404,
+            )
+
+        drawn_at_fmt = ""
+        if draw_row["drawn_at"]:
+            try:
+                drawn_at_fmt = datetime.strptime(
+                    draw_row["drawn_at"][:10], "%Y-%m-%d"
+                ).strftime("%d/%m/%Y")
+            except ValueError:
+                drawn_at_fmt = draw_row["drawn_at"][:10]
+
+        matchday_historic = draw_row["matchday_historic"]
+
+        score_rows = conn.execute(
+            """SELECT m.name AS manager_name, ms.score_normal, ms.score_nostalgia
+               FROM matchday_score ms
+               JOIN manager m ON m.id = ms.manager_id
+               WHERE ms.league_id = ? AND ms.matchday = ?
+               ORDER BY ms.score_nostalgia DESC""",
+            (league_id, matchday),
+        ).fetchall()
+        scores = [dict(r) for r in score_rows]
+
+        lineup_rows = conn.execute(
+            """
+            SELECT m.name AS manager_name, pc.name AS player_name, pc.role,
+                   pc.team AS current_team, l.is_starter,
+                   ph.name AS alter_ego_name, ph.team AS alter_ego_team,
+                   hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
+                   hr.own_goals, hr.penalties_missed, hr.goals_conceded,
+                   hr.penalties_saved, hr.minutes, hr.source
+            FROM lineup l
+            JOIN player_current pc ON pc.id = l.player_current_id
+            JOIN manager m ON m.id = l.manager_id
+            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id
+            LEFT JOIN player_historic ph ON ph.id = ae.player_historic_id
+            LEFT JOIN historic_rating hr
+                ON hr.player_historic_id = ae.player_historic_id AND hr.matchday = ?
+            WHERE l.league_id = ? AND l.matchday = ?
+            ORDER BY m.name, l.is_starter DESC,
+                     CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                     pc.name
+            """,
+            (matchday_historic, league_id, matchday),
+        ).fetchall()
+
+        all_draw_rows = conn.execute(
+            "SELECT matchday_current FROM matchday_draw WHERE league_id = ? ORDER BY matchday_current",
+            (league_id,),
+        ).fetchall()
+
+    mgr_map: dict[str, dict] = {}
+    for r in lineup_rows:
+        key = r["manager_name"]
+        if key not in mgr_map:
+            mgr_map[key] = {"starters": [], "bench": []}
+        # compute individual nostalgia score
+        ns_score = None
+        if r["rating"] is not None:
+            if r["source"] == "archive":
+                ns_score = float(r["rating"])
+            else:
+                ns_score = _formula(
+                    rating=r["rating"],
+                    role=r["role"],
+                    goals=r["goals"] or 0,
+                    assists=r["assists"] or 0,
+                    yellow_cards=r["yellow_cards"] or 0,
+                    red_cards=r["red_cards"] or 0,
+                    own_goals=r["own_goals"] or 0,
+                    penalties_missed=r["penalties_missed"] or 0,
+                    goals_conceded=r["goals_conceded"] or 0,
+                    minutes_ge_60=(r["minutes"] or 0) >= 60,
+                    apply_bonus=True,
+                )
+        elif r["alter_ego_name"]:
+            ns_score = 6.0  # sv o non trovato
+
+        entry = {
+            "player_name": r["player_name"],
+            "role": r["role"],
+            "current_team": r["current_team"],
+            "alter_ego_name": r["alter_ego_name"],
+            "alter_ego_team": r["alter_ego_team"],
+            "rating": r["rating"],
+            "ns_score": round(ns_score, 1) if ns_score is not None else None,
+        }
+        if r["is_starter"]:
+            mgr_map[key]["starters"].append(entry)
+        else:
+            mgr_map[key]["bench"].append(entry)
+
+    managers = [{"name": k, **v} for k, v in mgr_map.items()]
+    all_matchdays = [r["matchday_current"] for r in all_draw_rows]
+
+    return templates.TemplateResponse("giornata.html", {
+        "request": request,
+        "league": dict(league_row),
+        "matchday": matchday,
+        "matchday_historic": matchday_historic,
+        "drawn_at_fmt": drawn_at_fmt,
+        "scores": scores,
+        "managers": managers,
+        "all_matchdays": all_matchdays,
+    })
 
 
 @router.get("/lega/{league_id}/mapping")

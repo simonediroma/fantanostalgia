@@ -178,6 +178,53 @@ def assign_player(
     return {"detail": "Associazione aggiornata"}
 
 
+@router.get("/league/{league_id}/punteggi")
+def get_punteggi(league_id: int, user: dict = Depends(get_current_user)):
+    with get_db() as conn:
+        mgr = _get_manager_for_user(conn, league_id, user["id"])
+        manager_id = mgr["id"]
+
+        rows = conn.execute(
+            """
+            SELECT md.matchday_current, md.matchday_historic,
+                   ms.score_normal, ms.score_nostalgia
+            FROM matchday_score ms
+            JOIN matchday_draw md
+                ON md.league_id        = ms.league_id
+               AND md.matchday_current = ms.matchday
+            WHERE ms.league_id = ? AND ms.manager_id = ?
+            ORDER BY ms.matchday
+            """,
+            (league_id, manager_id),
+        ).fetchall()
+
+        standings = conn.execute(
+            "SELECT total_score_normal, total_score_nostalgia, rank_normal, rank_nostalgia"
+            " FROM standings WHERE league_id = ? AND manager_id = ?",
+            (league_id, manager_id),
+        ).fetchone()
+
+    return {
+        "manager": {"id": mgr["id"], "name": mgr["name"]},
+        "league": {"id": mgr["league_id"], "name": mgr["league_name"]},
+        "matchdays": [
+            {
+                "matchday_current": r["matchday_current"],
+                "matchday_historic": r["matchday_historic"],
+                "score_normal": r["score_normal"],
+                "score_nostalgia": r["score_nostalgia"],
+            }
+            for r in rows
+        ],
+        "totals": {
+            "score_normal": standings["total_score_normal"] if standings else 0.0,
+            "score_nostalgia": standings["total_score_nostalgia"] if standings else 0.0,
+            "rank_normal": standings["rank_normal"] if standings else None,
+            "rank_nostalgia": standings["rank_nostalgia"] if standings else None,
+        },
+    }
+
+
 @router.post("/league/{league_id}/lock")
 def lock_assignments(league_id: int, user: dict = Depends(get_current_user)):
     with get_db() as conn:

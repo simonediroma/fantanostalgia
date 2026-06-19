@@ -68,7 +68,12 @@ async function init() {
             <div class="league-name">${esc(l.league_name)} ${locked}${closed}</div>
             <div class="league-team">Squadra: ${esc(l.team_name)}</div>
           </div>
-          <button style="font-size:0.5rem">Gestisci →</button>
+          <div style="display:flex;gap:0.5rem">
+            <button style="font-size:0.5rem">Rosa →</button>
+            <a href="/coach/lega/${l.league_id}/punteggi" style="text-decoration:none" onclick="event.stopPropagation()">
+              <button class="secondary" style="font-size:0.5rem">Punteggi</button>
+            </a>
+          </div>
         </div>
       </a>
     `;
