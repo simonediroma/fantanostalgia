@@ -376,6 +376,39 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .mt-sm { margin-top: 0.5rem; }
 .mt-md { margin-top: 1rem; }
 
+/* ── Modal ─────────────────────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  box-shadow: 4px 4px 0 #000;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 90%;
+}
+.modal-box h3 { font-family: var(--font-pixel); font-size: 0.7rem; color: var(--accent); margin-bottom: 0.75rem; }
+.modal-url {
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  color: var(--accent2);
+  word-break: break-all;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+.modal-actions { display: flex; gap: 0.5rem; }
+
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   aside { display: none; }

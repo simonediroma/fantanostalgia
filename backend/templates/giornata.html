@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Giornata {{ matchday }} — {{ league.name }}{% endblock %}
+{% block og_title %}{{ league.name }} — Giornata {{ matchday }}{% endblock %}
+{% block og_description %}Punteggi giornata {{ matchday }} di {{ league.name }}, stagione storica {{ league.season_historic }}{% endblock %}
+
+{% block nav %}
+<a href="/">Home</a>
+<a href="/lega/{{ league.id }}/classifica">Classifica</a>
+<a href="/lega/{{ league.id }}/mapping">Alter Ego</a>
+{% endblock %}
+
+{% block content %}
+<h1>Giornata {{ matchday }}</h1>
+<p class="subtitle">
+  {{ league.name }} &nbsp;·&nbsp;
+  Stagione {{ league.season_current }}
+  &nbsp;·&nbsp; Storica: G{{ matchday_historic }} ({{ league.season_historic }})
+  {% if drawn_at_fmt %}&nbsp;·&nbsp; {{ drawn_at_fmt }}{% endif %}
+</p>
+
+{% if all_matchdays|length > 1 %}
+<div class="matchday-nav">
+  {% set prev = namespace(val=none) %}
+  {% set nxt = namespace(val=none) %}
+  {% for md in all_matchdays %}
+    {% if md < matchday %}{% set prev.val = md %}{% endif %}
+    {% if md > matchday and nxt.val is none %}{% set nxt.val = md %}{% endif %}
+  {% endfor %}
+  {% if prev.val is not none %}
+  <a href="/lega/{{ league.id }}/giornata/{{ prev.val }}" class="btn-link">← G{{ prev.val }}</a>
+  {% endif %}
+  <span class="matchday-nav-label">G{{ matchday }}</span>
+  {% if nxt.val is not none %}
+  <a href="/lega/{{ league.id }}/giornata/{{ nxt.val }}" class="btn-link">G{{ nxt.val }} →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if scores %}
+<h2 style="margin-top:1.5rem">Punteggi</h2>
+<div class="table-wrap" style="margin-bottom:2rem">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Manager</th>
+        <th>FantaNostalgia</th>
+        <th>Normale</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in scores %}
+      <tr>
+        <td class="rank">{{ loop.index }}</td>
+        <td>{{ s.manager_name }}</td>
+        <td class="score">{{ '%.1f'|format(s.score_nostalgia or 0) }}</td>
+        <td class="score">
+          {% if s.score_normal is not none %}{{ '%.1f'|format(s.score_normal) }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty">Punteggi non ancora calcolati.</div>
+{% endif %}
+
+{% if managers %}
+<h2>Formazioni e Alter Ego</h2>
+<div class="tabs" style="margin-top:1rem">
+  {% for mgr in managers %}
+  <button class="tab-btn {% if loop.first %}active{% endif %}"
+          onclick="switchTab('mgr{{ loop.index }}', this)">{{ mgr.name }}</button>
+  {% endfor %}
+</div>
+
+{% for mgr in managers %}
+<div id="tab-mgr{{ loop.index }}" class="tab-panel {% if loop.first %}active{% endif %}">
+  {% if mgr.starters %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ruolo</th>
+          <th>Giocatore</th>
+          <th>Alter Ego</th>
+          <th>Voto storico</th>
+          <th>Punteggio</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in mgr.starters %}
+        <tr>
+          <td><span class="role-badge">{{ p.role }}</span></td>
+          <td>
+            {{ p.player_name }}
+            <span style="color:var(--muted);font-size:0.8rem"> {{ p.current_team }}</span>
+          </td>
+          <td class="historic-name" style="text-align:left">
+            {% if p.alter_ego_name %}
+              {{ p.alter_ego_name }}
+              <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ p.alter_ego_team }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="score">
+            {% if p.rating is not none %}{{ '%.1f'|format(p.rating) }}{% else %}sv{% endif %}
+          </td>
+          <td class="score">
+            {% if p.ns_score is not none %}{{ '%.1f'|format(p.ns_score) }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if mgr.bench %}
+  <details style="margin-top:0.75rem">
+    <summary style="cursor:pointer;color:var(--muted);font-family:var(--font-pixel);font-size:0.55rem;text-transform:uppercase;padding:0.35rem 0">
+      Panchina ({{ mgr.bench|length }})
+    </summary>
+    <div class="table-wrap" style="margin-top:0.5rem">
+      <table>
+        <thead>
+          <tr><th>Ruolo</th><th>Giocatore</th><th>Alter Ego</th></tr>
+        </thead>
+        <tbody>
+          {% for p in mgr.bench %}
+          <tr>
+            <td><span class="role-badge">{{ p.role }}</span></td>
+            <td>{{ p.player_name }}</td>
+            <td class="historic-name" style="text-align:left">
+              {% if p.alter_ego_name %}{{ p.alter_ego_name }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<script>
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}

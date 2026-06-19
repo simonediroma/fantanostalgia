@@ -1,6 +1,9 @@
+import csv
+import io
 import sqlite3
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from backend.api.db import get_db
 
@@ -134,6 +137,46 @@ def get_manager_standings(league_id: int, manager_name: str):
         "rank_normal": standings["rank_normal"] if standings else None,
         "rank_nostalgia": standings["rank_nostalgia"] if standings else None,
     }
+
+
+@router.get("/league/{league_id}/classifica/export.csv")
+def export_classifica_csv(league_id: int):
+    with get_db() as conn:
+        league = _require_league(conn, league_id)
+        rows = conn.execute(
+            """
+            SELECT m.name AS manager,
+                   s.rank_nostalgia, s.total_score_nostalgia,
+                   s.rank_normal,    s.total_score_normal
+            FROM standings s
+            JOIN manager m ON m.id = s.manager_id
+            WHERE s.league_id = ?
+            ORDER BY s.rank_nostalgia, m.name
+            """,
+            (league_id,),
+        ).fetchall()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Pos FantaNostalgia", "Manager", "Totale FantaNostalgia",
+        "Pos Normale", "Totale Normale",
+    ])
+    for r in rows:
+        writer.writerow([
+            r["rank_nostalgia"] or "",
+            r["manager"],
+            f"{r['total_score_nostalgia']:.1f}" if r["total_score_nostalgia"] is not None else "",
+            r["rank_normal"] or "",
+            f"{r['total_score_normal']:.1f}" if r["total_score_normal"] is not None else "",
+        ])
+
+    filename = f"classifica_{league['name'].replace(' ', '_')}_{league['season_current']}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/league/{league_id}/last-draw")

@@ -17,6 +17,7 @@
   </div>
   <div class="row-gap">
     <span id="statusBadge"></span>
+    <a id="punteggiLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Punteggi</a>
     <button class="secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
 </div>
@@ -54,6 +55,8 @@ const leagueId = (() => {
 if (!leagueId) {
   window.location.href = '/coach/';
 }
+
+document.getElementById('punteggiLink').href = `/coach/lega/${leagueId}/punteggi`;
 
 let _data = null;
 

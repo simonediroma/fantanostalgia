@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FantaNostalgia — I miei punteggi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/coach/css/coach.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="row-gap">
+    <a href="/coach/" style="color:var(--muted);font-size:0.7rem;text-decoration:none">← Leghe</a>
+    <span class="logo" id="pageTitle">I miei punteggi</span>
+  </div>
+  <div class="row-gap">
+    <a id="rosaLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Rosa</a>
+    <button class="secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
+  </div>
+</div>
+
+<div class="content">
+  <div id="msgBox"></div>
+  <div id="main" style="display:none">
+    <div class="panel" style="margin-bottom:1.5rem">
+      <div style="display:flex;gap:2rem;flex-wrap:wrap">
+        <div>
+          <div style="color:var(--muted);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase;margin-bottom:0.3rem">FantaNostalgia</div>
+          <div style="font-family:var(--font-pixel);font-size:1rem;color:var(--accent)" id="totalNostalgia">—</div>
+          <div style="color:var(--muted);font-size:0.78rem;margin-top:0.2rem" id="rankNostalgia"></div>
+        </div>
+        <div>
+          <div style="color:var(--muted);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase;margin-bottom:0.3rem">Normale</div>
+          <div style="font-family:var(--font-pixel);font-size:1rem;color:var(--accent2)" id="totalNormal">—</div>
+          <div style="color:var(--muted);font-size:0.78rem;margin-top:0.2rem" id="rankNormal"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="matchdayTable"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const leagueId = (() => {
+  const m = location.pathname.match(/\/coach\/lega\/(\d+)/);
+  return m ? parseInt(m[1]) : null;
+})();
+
+if (!leagueId) window.location.href = '/coach/';
+
+document.getElementById('rosaLink').href = `/coach/lega/${leagueId}`;
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+function showMsg(msg, isErr = false) {
+  const el = document.getElementById('msgBox');
+  el.textContent = msg;
+  el.style.cssText = `padding:0.6rem 1rem;margin-bottom:1rem;border:1px solid ${isErr ? 'var(--red)' : 'var(--green)'};color:${isErr ? 'var(--red)' : 'var(--green)'};font-size:0.82rem`;
+  setTimeout(() => { el.textContent = ''; el.style.cssText = ''; }, 4000);
+}
+
+function getToken() {
+  return localStorage.getItem('fn_coach_token');
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('fn_coach_token');
+  window.location.href = '/coach/login';
+});
+
+async function apiFetch(path, opts = {}) {
+  const token = getToken();
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { window.location.href = '/coach/login'; throw new Error('Non autorizzato'); }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+async function load() {
+  if (!getToken()) { window.location.href = '/coach/login'; return; }
+  try {
+    const data = await apiFetch(`/coach/league/${leagueId}/punteggi`);
+    document.getElementById('pageTitle').textContent = `${esc(data.manager.name)} — Punteggi`;
+    document.title = `FantaNostalgia — ${data.manager.name}`;
+
+    const t = data.totals;
+    document.getElementById('totalNostalgia').textContent = t.score_nostalgia != null ? t.score_nostalgia.toFixed(1) : '—';
+    document.getElementById('totalNormal').textContent = t.score_normal != null ? t.score_normal.toFixed(1) : '—';
+    document.getElementById('rankNostalgia').textContent = t.rank_nostalgia != null ? `#${t.rank_nostalgia} in classifica` : '';
+    document.getElementById('rankNormal').textContent = t.rank_normal != null ? `#${t.rank_normal} in classifica` : '';
+
+    const el = document.getElementById('matchdayTable');
+    if (!data.matchdays.length) {
+      el.innerHTML = '<div class="empty">Nessuna giornata disputata ancora.</div>';
+    } else {
+      el.innerHTML = `
+        <table>
+          <thead><tr>
+            <th>Giornata</th>
+            <th>Storica</th>
+            <th>FantaNostalgia</th>
+            <th>Normale</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${data.matchdays.map(md => `<tr>
+              <td style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent2)">G${md.matchday_current}</td>
+              <td style="color:var(--muted)">G${md.matchday_historic}</td>
+              <td style="color:var(--green);font-family:var(--font-data)">${md.score_nostalgia != null ? md.score_nostalgia.toFixed(1) : '—'}</td>
+              <td style="color:var(--accent2);font-family:var(--font-data)">${md.score_normal != null ? md.score_normal.toFixed(1) : '—'}</td>
+              <td><a href="/lega/${leagueId}/giornata/${md.matchday_current}" style="color:var(--accent);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase">Dettaglio →</a></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    document.getElementById('main').style.display = 'block';
+  } catch (err) {
+    showMsg(err.message, true);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

@@ -760,7 +760,7 @@ async function refreshCoachStatus() {
           const url = inv.join_url;
           btn.textContent = 'Copiato!';
           await navigator.clipboard.writeText(url).catch(() => {});
-          prompt('Link invito (copia manualmente se necessario):', url);
+          window.showInviteModal(url);
           setTimeout(() => { btn.textContent = 'Genera link'; }, 2000);
         } catch (err) {
           showMsg('mappingMsg', err.message, true);
@@ -947,6 +947,46 @@ function setupDropZone(zoneId, inputId, textId) {
   } else {
     showLoginPage();
   }
+})();
+</script>
+
+<!-- ── Modal link invito ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="inviteModal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <h3>Link invito allenatore</h3>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Condividi questo link con l'allenatore per farlo registrare direttamente nella lega.</p>
+    <code class="modal-url" id="inviteUrl"></code>
+    <div class="modal-actions">
+      <button id="inviteCopyBtn">Copia link</button>
+      <button class="secondary" id="inviteCloseBtn">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const overlay = document.getElementById('inviteModal');
+  const urlEl   = document.getElementById('inviteUrl');
+  const copyBtn = document.getElementById('inviteCopyBtn');
+  const closeBtn = document.getElementById('inviteCloseBtn');
+
+  window.showInviteModal = function(url) {
+    urlEl.textContent = url;
+    copyBtn.textContent = 'Copia link';
+    overlay.classList.add('open');
+  };
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(urlEl.textContent);
+      copyBtn.textContent = '✓ Copiato!';
+    } catch {
+      copyBtn.textContent = 'Errore copia';
+    }
+  });
+
+  closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
 })();
 </script>
 </body>

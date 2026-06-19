@@ -7,6 +7,7 @@
 {% block nav %}
 <a href="/">Home</a>
 <a href="/lega/{{ league.id }}/mapping">Alter Ego</a>
+<a href="/league/{{ league.id }}/classifica/export.csv">↓ CSV</a>
 {% endblock %}
 
 {% block content %}
@@ -93,6 +94,32 @@
   Ultima giornata: G{{ last_draw.matchday_current }} corrente → G{{ last_draw.matchday_historic }} storica
   (sorteggiata il {{ last_draw.drawn_at_fmt }})
 </p>
+{% endif %}
+
+{% if all_draws %}
+<h2 style="margin-top:2rem">Archivio giornate</h2>
+<div class="table-wrap" style="margin-top:0.75rem">
+  <table>
+    <thead>
+      <tr>
+        <th>Giornata</th>
+        <th>Storica</th>
+        <th>Data sorteggio</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in all_draws %}
+      <tr>
+        <td class="rank">G{{ d.matchday_current }}</td>
+        <td style="color:var(--muted)">G{{ d.matchday_historic }} — {{ league.season_historic }}</td>
+        <td style="color:var(--muted)">{{ d.drawn_at_fmt or '—' }}</td>
+        <td><a href="/lega/{{ league.id }}/giornata/{{ d.matchday_current }}" class="btn-link">Dettaglio</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 
 <script>
