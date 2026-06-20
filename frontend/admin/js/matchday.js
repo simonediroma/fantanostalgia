@@ -21,3 +21,22 @@ async function apiListDraws(leagueId) {
 async function apiGetScores(leagueId, matchday) {
   return apiFetch(`/league/${leagueId}/scores/${matchday}`);
 }
+
+// ── Gran Premi ────────────────────────────────────────────────────────────────
+
+async function apiListFreeHistoric(leagueId, role) {
+  const q = role ? `?role=${encodeURIComponent(role)}` : '';
+  return apiFetch(`/admin/league/${leagueId}/granpremio/free-players${q}`);
+}
+
+async function apiCreateGranPremio(leagueId, body) {
+  return jsonPost(`/admin/league/${leagueId}/granpremio`, body);
+}
+
+async function apiResolveGranPremio(leagueId, gpId) {
+  return apiFetch(`/admin/league/${leagueId}/granpremio/${gpId}/resolve`, { method: 'POST' });
+}
+
+async function apiListGranPremi(leagueId) {
+  return apiFetch(`/league/${leagueId}/granpremio`);
+}

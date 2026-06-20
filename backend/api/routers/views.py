@@ -15,6 +15,13 @@ _coach_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend
 
 router = APIRouter(tags=["views"], default_response_class=HTMLResponse)
 
+_GP_CRITERIA_LABELS = {
+    "best_score": "Miglior punteggio",
+    "worst_defense": "Peggior difesa",
+    "best_player": "Miglior giocatore",
+    "worst_player": "Peggior giocatore",
+}
+
 
 @router.get("/")
 def home(request: Request):
@@ -216,7 +223,7 @@ def giornata(request: Request, league_id: int, matchday: int):
                    ph.name AS alter_ego_name, ph.team AS alter_ego_team,
                    hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
                    hr.own_goals, hr.penalties_missed, hr.goals_conceded,
-                   hr.penalties_saved, hr.minutes, hr.source
+                   hr.minutes, hr.source
             FROM lineup l
             JOIN player_current pc ON pc.id = l.player_current_id
             JOIN manager m ON m.id = l.manager_id
@@ -236,6 +243,29 @@ def giornata(request: Request, league_id: int, matchday: int):
             "SELECT matchday_current FROM matchday_draw WHERE league_id = ? ORDER BY matchday_current",
             (league_id,),
         ).fetchall()
+
+        gp_rows = conn.execute(
+            """
+            SELECT gp.criterion, gp.status,
+                   ph.name AS prize_name, ph.role AS prize_role, ph.team AS prize_team,
+                   m.name AS winner_name
+            FROM gran_premio gp
+            JOIN player_historic ph ON ph.id = gp.prize_player_historic_id
+            LEFT JOIN manager m ON m.id = gp.winner_manager_id
+            WHERE gp.league_id = ? AND gp.matchday = ?
+            ORDER BY gp.id
+            """,
+            (league_id, matchday),
+        ).fetchall()
+
+    gran_premi = [{
+        "criterion_label": _GP_CRITERIA_LABELS.get(r["criterion"], r["criterion"]),
+        "status": r["status"],
+        "prize_name": r["prize_name"],
+        "prize_role": r["prize_role"],
+        "prize_team": r["prize_team"],
+        "winner_name": r["winner_name"],
+    } for r in gp_rows]
 
     mgr_map: dict[str, dict] = {}
     for r in lineup_rows:
@@ -289,6 +319,7 @@ def giornata(request: Request, league_id: int, matchday: int):
         "drawn_at_fmt": drawn_at_fmt,
         "scores": scores,
         "managers": managers,
+        "gran_premi": gran_premi,
         "all_matchdays": all_matchdays,
     })
 

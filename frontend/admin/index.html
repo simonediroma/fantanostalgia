@@ -247,6 +247,46 @@
 
           <div id="giornataResult"></div>
 
+          <!-- Gran Premi -->
+          <div class="panel">
+            <h4>Gran Premi di giornata</h4>
+            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
+              Massimo 2 a giornata. Scegli un criterio e il giocatore storico in palio (dal pool dei liberi).
+              Dopo aver calcolato i punteggi, risolvi per assegnare il giocatore al vincitore.
+            </p>
+            <div class="col-gap mt-sm" style="max-width:540px">
+              <label>Giornata</label>
+              <input type="number" id="gpGiornata" min="1" placeholder="es. 1" style="width:120px">
+              <label>Criterio</label>
+              <select id="gpCriterion"
+                style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem">
+                <option value="best_score">Miglior punteggio di giornata</option>
+                <option value="worst_defense">Peggior difesa</option>
+                <option value="best_player">Miglior giocatore</option>
+                <option value="worst_player">Peggior giocatore</option>
+              </select>
+              <label>Giocatore in palio</label>
+              <div class="row-gap">
+                <select id="gpRole"
+                  style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem;width:90px">
+                  <option value="">Tutti</option>
+                  <option value="P">P</option>
+                  <option value="D">D</option>
+                  <option value="C">C</option>
+                  <option value="A">A</option>
+                </select>
+                <select id="gpPrize"
+                  style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem;flex:1;min-width:180px"></select>
+                <button class="secondary" id="gpRefreshPrizeBtn" style="font-size:0.72rem" title="Aggiorna liberi">↻</button>
+              </div>
+              <div class="row-gap">
+                <button id="gpCreateBtn">Crea Gran Premio</button>
+                <button class="secondary" id="gpRefreshBtn">↻ Aggiorna lista</button>
+              </div>
+            </div>
+            <div id="gpList" class="mt-md"></div>
+          </div>
+
           <div class="mt-md">
             <a id="standingsLink" href="#" target="_blank"
                style="color:var(--accent);font-size:0.875rem;text-decoration:none">
@@ -501,6 +541,10 @@ async function loadManagePage() {
 
     // Pre-load coach status (async, don't block)
     refreshCoachStatus().catch(() => {});
+
+    // Pre-load Gran Premi data (async, don't block)
+    loadGpPrizeOptions().catch(() => {});
+    loadGpList().catch(() => {});
   } catch (err) {
     showMsg('dashMsg', 'Errore caricamento lega: ' + err.message, true);
     showPage('pg-dashboard');
@@ -866,6 +910,7 @@ document.getElementById('uploadFormazioniBtn').addEventListener('click', async (
     if (res.warnings?.length) msg += ` Avvisi: ${res.warnings.length}.`;
     showMsg('giornataMsg', msg);
     document.getElementById('sorteggioGiornata').value = matchday;
+    document.getElementById('gpGiornata').value = matchday;
   } catch (err) {
     showMsg('giornataMsg', err.message, true);
   }
@@ -910,6 +955,91 @@ document.getElementById('scoresBtn').addEventListener('click', async () => {
         </table></div>
       </div>`;
     showMsg('giornataMsg', 'Punteggi calcolati.');
+  } catch (err) {
+    showMsg('giornataMsg', err.message, true);
+  }
+});
+
+// ── Gran Premi ────────────────────────────────────────────────────────────────
+const GP_CRITERIA_LABELS = {
+  best_score: 'Miglior punteggio',
+  worst_defense: 'Peggior difesa',
+  best_player: 'Miglior giocatore',
+  worst_player: 'Peggior giocatore',
+};
+
+async function loadGpPrizeOptions() {
+  if (!currentLeagueId) return;
+  const role = document.getElementById('gpRole').value;
+  const sel = document.getElementById('gpPrize');
+  try {
+    const players = await apiListFreeHistoric(currentLeagueId, role);
+    sel.innerHTML = players.length
+      ? players.map(p =>
+          `<option value="${p.id}">${esc(p.name)} (${p.role}) — ${esc(p.team)} ${esc(p.season)}</option>`
+        ).join('')
+      : '<option value="">— nessun giocatore libero —</option>';
+  } catch (err) {
+    showMsg('giornataMsg', err.message, true);
+  }
+}
+
+async function loadGpList() {
+  if (!currentLeagueId) return;
+  const el = document.getElementById('gpList');
+  try {
+    const all = await apiListGranPremi(currentLeagueId);
+    if (!all.length) { el.innerHTML = '<div class="empty">Nessun Gran Premio creato.</div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>G</th><th>Criterio</th><th>In palio</th><th>Stato</th><th>Vincitore</th><th></th></tr></thead>
+      <tbody>${all.map(gp => {
+        const resolved = gp.status === 'resolved';
+        return `<tr>
+          <td style="font-family:monospace">${gp.matchday}</td>
+          <td>${esc(GP_CRITERIA_LABELS[gp.criterion] || gp.criterion)}</td>
+          <td>${esc(gp.prize_name)} (${gp.prize_role})</td>
+          <td>${resolved ? '<span style="color:var(--green)">Risolto</span>' : '<span style="color:var(--muted)">Attivo</span>'}</td>
+          <td>${gp.winner_name ? esc(gp.winner_name) : '—'}</td>
+          <td>${resolved ? '' : `<button class="gp-resolve" data-gid="${gp.id}" style="font-size:0.7rem;padding:2px 8px">Risolvi</button>`}</td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+
+    el.querySelectorAll('.gp-resolve').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          const res = await apiResolveGranPremio(currentLeagueId, parseInt(btn.dataset.gid));
+          showMsg('giornataMsg', `Gran Premio risolto — vincitore: ${res.winner}.`);
+          await loadGpList();
+          await loadGpPrizeOptions();
+        } catch (err) {
+          showMsg('giornataMsg', err.message, true);
+        }
+      });
+    });
+  } catch (err) {
+    showMsg('giornataMsg', err.message, true);
+  }
+}
+
+document.getElementById('gpRole').addEventListener('change', loadGpPrizeOptions);
+document.getElementById('gpRefreshPrizeBtn').addEventListener('click', loadGpPrizeOptions);
+document.getElementById('gpRefreshBtn').addEventListener('click', loadGpList);
+
+document.getElementById('gpCreateBtn').addEventListener('click', async () => {
+  const matchday = parseInt(
+    document.getElementById('gpGiornata').value || document.getElementById('sorteggioGiornata').value
+  );
+  const criterion = document.getElementById('gpCriterion').value;
+  const prize = parseInt(document.getElementById('gpPrize').value);
+  if (!matchday) { showMsg('giornataMsg', 'Inserisci la giornata.', true); return; }
+  if (!prize) { showMsg('giornataMsg', 'Seleziona un giocatore in palio.', true); return; }
+  try {
+    await apiCreateGranPremio(currentLeagueId, {
+      matchday, criterion, prize_player_historic_id: prize,
+    });
+    showMsg('giornataMsg', 'Gran Premio creato.');
+    await loadGpList();
+    await loadGpPrizeOptions();
   } catch (err) {
     showMsg('giornataMsg', err.message, true);
   }
