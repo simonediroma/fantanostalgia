@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Statistiche — {{ league.name }}{% endblock %}
+{% block og_title %}{{ league.name }} — Statistiche{% endblock %}
+{% block og_description %}Statistiche giocatori della lega {{ league.name }}, stagione storica {{ league.season_historic }}{% endblock %}
+
+{% block nav %}
+<a href="/">Home</a>
+<a href="/lega/{{ league.id }}/classifica">Classifica</a>
+<a href="/lega/{{ league.id }}/mapping">Alter Ego</a>
+{% endblock %}
+
+{% block content %}
+<h1>{{ league.name }}</h1>
+<p class="subtitle">
+  Stagione {{ league.season_current }} &nbsp;·&nbsp;
+  Storica: {{ league.season_historic }} &nbsp;·&nbsp;
+  Statistiche giocatori
+</p>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('voti', this)">Voti</button>
+  <button class="tab-btn" onclick="switchTab('marcatori', this)">Marcatori</button>
+  <button class="tab-btn" onclick="switchTab('archivio', this)">Archivio stagione</button>
+</div>
+
+{# ── Tab Voti ───────────────────────────────────────────────── #}
+<div id="tab-voti" class="tab-panel active">
+  <p style="color:var(--muted);font-size:0.7rem;margin:0.5rem 0 1rem">
+    Classifica per media voto storico — solo titolari, giornate giocate.
+  </p>
+  {% if by_rating %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Manager</th>
+          <th>Giocatore</th>
+          <th>Alter Ego</th>
+          <th title="Giornate giocate come titolare">G.te</th>
+          <th>Media voto</th>
+          <th title="Punteggio FantaNostalgia totale">NS tot</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in by_rating %}
+        <tr>
+          <td class="rank">{{ loop.index }}</td>
+          <td style="color:var(--muted)">{{ p.manager_name }}</td>
+          <td>
+            {{ p.player_name }}
+            <span class="role-badge" style="margin-left:0.3rem">{{ p.role }}</span>
+          </td>
+          <td class="historic-name" style="text-align:left">
+            {% if p.alter_ego_name %}
+              {{ p.alter_ego_name }}
+              <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ p.alter_ego_team }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="color:var(--muted)">{{ p.n }}</td>
+          <td class="score">
+            {% if p.avg_rating is not none %}{{ '%.2f'|format(p.avg_rating) }}{% else %}—{% endif %}
+          </td>
+          <td class="total">{{ '%.1f'|format(p.total_ns) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Nessun dato disponibile — calcola prima i punteggi di almeno una giornata.</div>
+  {% endif %}
+</div>
+
+{# ── Tab Marcatori ──────────────────────────────────────────── #}
+<div id="tab-marcatori" class="tab-panel">
+  <p style="color:var(--muted);font-size:0.7rem;margin:0.5rem 0 1rem">
+    Classifica per goal e assist degli alter ego storici — solo giornate giocate come titolare.
+  </p>
+  {% if by_goals %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Manager</th>
+          <th>Giocatore</th>
+          <th>Alter Ego</th>
+          <th>Goal</th>
+          <th>Assist</th>
+          <th title="Ammonizioni">GG</th>
+          <th title="Espulsioni">RR</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in by_goals %}
+        <tr>
+          <td class="rank">{{ loop.index }}</td>
+          <td style="color:var(--muted)">{{ p.manager_name }}</td>
+          <td>
+            {{ p.player_name }}
+            <span class="role-badge" style="margin-left:0.3rem">{{ p.role }}</span>
+          </td>
+          <td class="historic-name" style="text-align:left">
+            {% if p.alter_ego_name %}
+              {{ p.alter_ego_name }}
+              <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ p.alter_ego_team }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="score">{{ p.goals }}</td>
+          <td style="color:var(--accent2)">{{ p.assists }}</td>
+          <td style="color:var(--accent)">{{ p.yellows if p.yellows else '—' }}</td>
+          <td style="color:var(--red)">{{ p.reds if p.reds else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Nessun dato disponibile.</div>
+  {% endif %}
+</div>
+
+{# ── Tab Archivio stagione ──────────────────────────────────── #}
+<div id="tab-archivio" class="tab-panel">
+  <p style="color:var(--muted);font-size:0.7rem;margin:0.5rem 0 1rem">
+    Top 50 giocatori della stagione storica {{ league.season_historic }} nel database (min. 5 presenze).
+    Non filtrato per assegnazione in lega.
+  </p>
+  {% if archivio %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Giocatore</th>
+          <th>Ruolo</th>
+          <th>Squadra</th>
+          <th title="Presenze nel database">G.te</th>
+          <th>Media voto</th>
+          <th>Goal</th>
+          <th>Assist</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in archivio %}
+        <tr>
+          <td class="rank">{{ loop.index }}</td>
+          <td class="historic-name" style="text-align:left">{{ p.name }}</td>
+          <td><span class="role-badge">{{ p.role }}</span></td>
+          <td style="color:var(--muted)">{{ p.team }}</td>
+          <td style="color:var(--muted)">{{ p.n }}</td>
+          <td class="score">{{ '%.2f'|format(p.avg_rating) }}</td>
+          <td class="score">{{ p.goals or '—' }}</td>
+          <td style="color:var(--accent2)">{{ p.assists or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Nessun dato storico disponibile per la stagione {{ league.season_historic }}.</div>
+  {% endif %}
+</div>
+
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}
