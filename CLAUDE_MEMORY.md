@@ -1,9 +1,9 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-06-19
-**Branch attivo:** `main`
-**PR in corso:** nessuna
+**Ultima sessione:** 2026-06-20
+**Branch attivo:** `claude/project-analysis-features-4c2s9i`
+**PR in corso:** nessuna (feature Gran Premi pronta, push effettuato — PR non ancora richiesta)
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -88,6 +88,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **20** — Fix CI/CD: switch su Artifact Registry per Cloud Run deploy → (branch: `task/fix-artifact-registry`, PR #36)
 - [x] **21** — Guida step-by-step seasons.html per multi-season scraping → (branch: `task/seasons-html-links`, PR #38)
 - [x] **22** — Scraper calcio-seriea.net con ruoli reali (fonte alternativa, no Cloudflare) → (branch: `claude/upbeat-fermat-98un5f`, PR #39)
+- [x] **23** — Gran Premi di giornata: il presidente attiva max 2 GP/giornata (criterio: best_score/worst_defense/best_player/worst_player) con uno storico libero in palio; alla risoluzione il vincitore riceve lo storico come slot extra nel pool nostalgia e riapre l'associazione (coach) → (branch: `claude/project-analysis-features-4c2s9i`). Backend: `backend/engine/granpremio.py`, router `backend/api/routers/granpremio.py`, tabella `gran_premio` in `db.py`, helper `compute_player_breakdown` in `scoring.py`. Frontend: pannello Step 4 admin + avviso coach in `rosa.html`. Test: `backend/tests/test_granpremio.py`.
 
 ---
 

@@ -39,6 +39,58 @@ def _formula(
     return score
 
 
+def _nostalgia_score(
+    p: dict,
+    alter_ego_map: dict[int, int],
+    rating_map: dict[int, dict],
+    real_map: dict[str, dict],
+) -> float:
+    """Nostalgia score for a single starter (alter ego historic rating, or real
+    rating without bonus if the player has no alter ego)."""
+    pcid = p["player_current_id"]
+    role = p["role"]
+    name_key = p["name"].strip().lower()
+
+    hist_id = alter_ego_map.get(pcid)
+    if hist_id is not None:
+        hr = rating_map.get(hist_id)
+        if hr is None or hr["rating"] is None:
+            # Alter ego not available or sv → 6.0
+            return 6.0
+        if hr["source"] == "archive":
+            # Archive vote already includes bonus/malus
+            return float(hr["rating"])
+        return _formula(
+            rating=hr["rating"],
+            role=hr["role"],
+            goals=hr["goals"] or 0,
+            assists=hr["assists"] or 0,
+            yellow_cards=hr["yellow_cards"] or 0,
+            red_cards=hr["red_cards"] or 0,
+            own_goals=hr["own_goals"] or 0,
+            penalties_missed=hr["penalties_missed"] or 0,
+            goals_conceded=hr["goals_conceded"] or 0,
+            minutes_ge_60=hr["rating"] >= 6.0,
+            apply_bonus=True,
+        )
+
+    rr = real_map.get(name_key)
+    if rr is None:
+        return 6.0
+    return _formula(
+        rating=rr["rating"],
+        role=role,
+        goals=rr.get("goals", 0),
+        assists=rr.get("assists", 0),
+        yellow_cards=rr.get("yellow_cards", 0),
+        red_cards=rr.get("red_cards", 0),
+        own_goals=rr.get("own_goals", 0),
+        penalties_missed=rr.get("penalties_missed", 0),
+        goals_conceded=rr.get("goals_conceded", 0),
+        apply_bonus=False,
+    )
+
+
 @dataclass
 class ManagerScore:
     manager_id: int
@@ -125,51 +177,11 @@ def calculate_scores(
         total_nostalgia = 0.0
 
         for p in players:
-            pcid = p["player_current_id"]
             role = p["role"]
             name_key = p["name"].strip().lower()
 
             # Nostalgia score
-            hist_id = alter_ego_map.get(pcid)
-            if hist_id is not None:
-                hr = rating_map.get(hist_id)
-                if hr is None or hr["rating"] is None:
-                    # Alter ego not available or sv → 6.0
-                    ns = 6.0
-                elif hr["source"] == "archive":
-                    # Archive vote already includes bonus/malus
-                    ns = float(hr["rating"])
-                else:
-                    ns = _formula(
-                        rating=hr["rating"],
-                        role=hr["role"],
-                        goals=hr["goals"] or 0,
-                        assists=hr["assists"] or 0,
-                        yellow_cards=hr["yellow_cards"] or 0,
-                        red_cards=hr["red_cards"] or 0,
-                        own_goals=hr["own_goals"] or 0,
-                        penalties_missed=hr["penalties_missed"] or 0,
-                        goals_conceded=hr["goals_conceded"] or 0,
-                        minutes_ge_60=hr["rating"] >= 6.0,
-                        apply_bonus=True,
-                    )
-            else:
-                rr = real_map.get(name_key)
-                if rr is None:
-                    ns = 6.0
-                else:
-                    ns = _formula(
-                        rating=rr["rating"],
-                        role=role,
-                        goals=rr.get("goals", 0),
-                        assists=rr.get("assists", 0),
-                        yellow_cards=rr.get("yellow_cards", 0),
-                        red_cards=rr.get("red_cards", 0),
-                        own_goals=rr.get("own_goals", 0),
-                        penalties_missed=rr.get("penalties_missed", 0),
-                        goals_conceded=rr.get("goals_conceded", 0),
-                        apply_bonus=False,
-                    )
+            ns = _nostalgia_score(p, alter_ego_map, rating_map, real_map)
             total_nostalgia += ns
 
             # Normal score
@@ -208,6 +220,71 @@ def calculate_scores(
         matchday_historic=matchday_historic,
         scores=results,
     )
+
+
+def compute_player_breakdown(
+    conn: sqlite3.Connection, league_id: int, matchday_current: int
+) -> list[dict]:
+    """Per-starter nostalgia scores for a matchday, recomputed deterministically
+    from persisted data (alter_ego + historic_rating). Returns one dict per
+    starter: {manager_id, player_current_id, role, name, ns}.
+
+    Real ratings are not persisted, so players without an alter ego fall back to
+    6.0 (matching scoring without real_ratings)."""
+    draw = conn.execute(
+        "SELECT matchday_historic FROM matchday_draw"
+        " WHERE league_id = ? AND matchday_current = ?",
+        (league_id, matchday_current),
+    ).fetchone()
+    if draw is None:
+        raise ValueError(f"Sorteggio non trovato per giornata {matchday_current}")
+    matchday_historic = draw["matchday_historic"]
+
+    lineups = conn.execute(
+        """
+        SELECT l.manager_id, l.player_current_id, pc.name, pc.role
+        FROM lineup l
+        JOIN player_current pc ON pc.id = l.player_current_id
+        WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
+        """,
+        (league_id, matchday_current),
+    ).fetchall()
+
+    alter_egos = conn.execute(
+        "SELECT player_current_id, player_historic_id FROM alter_ego WHERE league_id = ?",
+        (league_id,),
+    ).fetchall()
+    alter_ego_map = {r["player_current_id"]: r["player_historic_id"] for r in alter_egos}
+
+    historic_ids = list(alter_ego_map.values())
+    rating_map: dict[int, dict] = {}
+    if historic_ids:
+        ph = ",".join("?" * len(historic_ids))
+        rows = conn.execute(
+            f"""
+            SELECT hr.player_historic_id, hr.rating, hr.source,
+                   hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
+                   hr.own_goals, hr.penalties_missed, hr.goals_conceded,
+                   ph.role
+            FROM historic_rating hr
+            JOIN player_historic ph ON ph.id = hr.player_historic_id
+            WHERE hr.player_historic_id IN ({ph}) AND hr.matchday = ?
+            """,
+            (*historic_ids, matchday_historic),
+        ).fetchall()
+        rating_map = {r["player_historic_id"]: dict(r) for r in rows}
+
+    breakdown: list[dict] = []
+    for row in lineups:
+        p = dict(row)
+        breakdown.append({
+            "manager_id": p["manager_id"],
+            "player_current_id": p["player_current_id"],
+            "role": p["role"],
+            "name": p["name"],
+            "ns": round(_nostalgia_score(p, alter_ego_map, rating_map, {}), 1),
+        })
+    return breakdown
 
 
 def _persist_scores(

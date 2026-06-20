@@ -115,6 +115,18 @@ def init_db() -> None:
                 assigned_player_current_id INTEGER REFERENCES player_current(id),
                 UNIQUE(manager_id, player_historic_id)
             );
+            CREATE TABLE IF NOT EXISTS gran_premio (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER REFERENCES league(id),
+                matchday INTEGER NOT NULL,
+                criterion TEXT NOT NULL CHECK(criterion IN
+                    ('best_score', 'worst_defense', 'best_player', 'worst_player')),
+                prize_player_historic_id INTEGER REFERENCES player_historic(id),
+                status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'resolved')),
+                winner_manager_id INTEGER REFERENCES manager(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP
+            );
         """)
         conn.commit()
 

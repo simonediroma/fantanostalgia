@@ -24,6 +24,7 @@
 
 <div class="content">
   <div id="msgBox"></div>
+  <div id="gpBanner"></div>
   <div id="poolEmpty" style="display:none">
     <div class="panel">
       <p style="color:var(--muted)">Il pool di giocatori nostalgia non è ancora stato assegnato dall'amministratore. Riprova più tardi.</p>
@@ -59,6 +60,7 @@ if (!leagueId) {
 document.getElementById('punteggiLink').href = `/coach/lega/${leagueId}/punteggi`;
 
 let _data = null;
+let _gpWon = [];
 
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -125,6 +127,17 @@ function render() {
     badge.innerHTML = '<span class="badge badge-red">Periodo chiuso</span>';
   } else {
     badge.innerHTML = '<span class="badge">In corso</span>';
+  }
+
+  // Gran Premio won banner (only while the rosa is still editable)
+  const banner = document.getElementById('gpBanner');
+  if (!readOnly && _gpWon.length) {
+    const names = _gpWon.map(g => `${esc(g.prize_name)} (${g.prize_role})`).join(', ');
+    banner.innerHTML = `<div class="panel" style="border-color:var(--accent)">
+      <strong>🏆 Hai vinto un Gran Premio!</strong><br>
+      Giocatori vinti: ${names}. Associali nella tua rosa qui sotto, poi ri-blocca.</div>`;
+  } else {
+    banner.innerHTML = '';
   }
 
   if (_data.nostalgia_pool.length === 0) {
@@ -290,6 +303,12 @@ async function loadData() {
     return;
   }
   _data = await res.json();
+  try {
+    const gps = await (await fetch(`/league/${leagueId}/granpremio`)).json();
+    _gpWon = Array.isArray(gps)
+      ? gps.filter(g => g.status === 'resolved' && g.winner_name === _data.manager.name)
+      : [];
+  } catch { _gpWon = []; }
   render();
 }
 
