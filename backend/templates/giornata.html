@@ -67,6 +67,35 @@
 <div class="empty">Punteggi non ancora calcolati.</div>
 {% endif %}
 
+{% if gran_premi %}
+<h2 style="margin-top:1.5rem">🏆 Gran Premi</h2>
+<div class="table-wrap" style="margin-bottom:2rem">
+  <table>
+    <thead>
+      <tr>
+        <th>Criterio</th>
+        <th>In palio</th>
+        <th>Stato</th>
+        <th>Vincitore</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for gp in gran_premi %}
+      <tr>
+        <td>{{ gp.criterion_label }}</td>
+        <td class="historic-name" style="text-align:left">
+          {{ gp.prize_name }} <span class="role-badge">{{ gp.prize_role }}</span>
+          <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ gp.prize_team }}</span>
+        </td>
+        <td>{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
+        <td>{% if gp.winner_name %}{{ gp.winner_name }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 {% if managers %}
 <h2>Formazioni e Alter Ego</h2>
 <div class="tabs" style="margin-top:1rem">

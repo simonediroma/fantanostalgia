@@ -323,6 +323,24 @@ def test_list_gran_premi_public(client):
     assert data[0]["prize_name"] == "PrizeGuy"
 
 
+def test_giornata_page_shows_gran_premio(client):
+    ctx = _setup_scored_league(client)
+    league_id = ctx["league_id"]
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    gp_id = r.json()["id"]
+    client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
+
+    r = client.get(f"/lega/{league_id}/giornata/1")
+    assert r.status_code == 200, r.text
+    body = r.text
+    assert "Gran Premi" in body
+    assert "PrizeGuy" in body
+    assert "Miglior punteggio" in body
+    assert "M2" in body  # winner
+
+
 def test_free_players_endpoint_requires_auth(client):
     ctx = _setup_scored_league(client)
     client.post("/auth/logout")
