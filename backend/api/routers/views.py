@@ -324,6 +324,120 @@ def giornata(request: Request, league_id: int, matchday: int):
     })
 
 
+@router.get("/lega/{league_id}/statistiche")
+def statistiche(request: Request, league_id: int):
+    with get_db() as conn:
+        league_row = conn.execute(
+            "SELECT id, name, season_current, season_historic FROM league WHERE id = ?",
+            (league_id,),
+        ).fetchone()
+        if league_row is None:
+            return templates.TemplateResponse(
+                "home.html",
+                {"request": request, "leagues": [], "error": "Lega non trovata"},
+                status_code=404,
+            )
+
+        flat_rows = conn.execute(
+            """
+            SELECT
+                pc.id AS pc_id, pc.name AS player_name, pc.role, pc.team AS current_team,
+                m.name AS manager_name,
+                ph.name AS alter_ego_name, ph.team AS alter_ego_team,
+                hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
+                hr.own_goals, hr.penalties_missed, hr.goals_conceded, hr.minutes, hr.source
+            FROM player_current pc
+            JOIN manager m ON m.id = pc.manager_id
+            JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = ?
+            JOIN player_historic ph ON ph.id = ae.player_historic_id
+            JOIN lineup l ON l.player_current_id = pc.id AND l.league_id = ? AND l.is_starter = 1
+            JOIN matchday_draw md ON md.league_id = ? AND md.matchday_current = l.matchday
+            JOIN historic_rating hr ON hr.player_historic_id = ph.id AND hr.matchday = md.matchday_historic
+            WHERE pc.league_id = ?
+            ORDER BY pc.id
+            """,
+            (league_id, league_id, league_id, league_id),
+        ).fetchall()
+
+        archivio_rows = conn.execute(
+            """
+            SELECT ph.name, ph.role, ph.team,
+                   COUNT(hr.matchday) AS n,
+                   ROUND(AVG(hr.rating), 2) AS avg_rating,
+                   SUM(hr.goals) AS goals,
+                   SUM(hr.assists) AS assists
+            FROM player_historic ph
+            JOIN historic_rating hr ON hr.player_historic_id = ph.id
+            WHERE ph.season = ?
+            GROUP BY ph.id
+            HAVING n >= 5
+            ORDER BY avg_rating DESC
+            LIMIT 50
+            """,
+            (league_row["season_historic"],),
+        ).fetchall()
+
+    player_stats: dict[int, dict] = {}
+    for r in flat_rows:
+        pid = r["pc_id"]
+        if pid not in player_stats:
+            player_stats[pid] = {
+                "player_name": r["player_name"],
+                "role": r["role"],
+                "current_team": r["current_team"],
+                "manager_name": r["manager_name"],
+                "alter_ego_name": r["alter_ego_name"],
+                "alter_ego_team": r["alter_ego_team"],
+                "n": 0, "sum_rating": 0.0, "total_ns": 0.0,
+                "goals": 0, "assists": 0, "yellows": 0, "reds": 0,
+            }
+        s = player_stats[pid]
+        if r["rating"] is not None:
+            s["n"] += 1
+            s["sum_rating"] += r["rating"]
+            if r["source"] == "archive":
+                ns = float(r["rating"])
+            else:
+                ns = _formula(
+                    rating=r["rating"],
+                    role=r["role"],
+                    goals=r["goals"] or 0,
+                    assists=r["assists"] or 0,
+                    yellow_cards=r["yellow_cards"] or 0,
+                    red_cards=r["red_cards"] or 0,
+                    own_goals=r["own_goals"] or 0,
+                    penalties_missed=r["penalties_missed"] or 0,
+                    goals_conceded=r["goals_conceded"] or 0,
+                    minutes_ge_60=(r["minutes"] or 0) >= 60,
+                    apply_bonus=True,
+                )
+            s["total_ns"] += ns
+            s["goals"] += r["goals"] or 0
+            s["assists"] += r["assists"] or 0
+            s["yellows"] += r["yellow_cards"] or 0
+            s["reds"] += r["red_cards"] or 0
+
+    players_list = []
+    for s in player_stats.values():
+        players_list.append({
+            **s,
+            "avg_rating": round(s["sum_rating"] / s["n"], 2) if s["n"] > 0 else None,
+            "total_ns": round(s["total_ns"], 1),
+        })
+
+    by_rating = sorted(players_list, key=lambda x: x["avg_rating"] or 0, reverse=True)
+    by_goals = sorted(players_list, key=lambda x: (x["goals"], x["assists"]), reverse=True)
+    archivio = [dict(r) for r in archivio_rows]
+
+    return templates.TemplateResponse("statistiche.html", {
+        "request": request,
+        "league": dict(league_row),
+        "by_rating": by_rating,
+        "by_goals": by_goals,
+        "archivio": archivio,
+    })
+
+
 @router.get("/lega/{league_id}/mapping")
 def mapping(request: Request, league_id: int):
     with get_db() as conn:
