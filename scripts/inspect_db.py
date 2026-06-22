@@ -31,10 +31,38 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 # HTTP helper
 # ---------------------------------------------------------------------------
 
-def _post(path: str, token: str) -> dict:
+def _get_session_cookie(username: str, password: str) -> str:
+    """Login con credenziali admin e restituisce il cookie di sessione."""
+    url = BASE_URL.rstrip("/") + "/auth/login"
+    body = json.dumps({"username": username, "password": password}).encode()
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+    try:
+        with opener.open(req, timeout=10) as resp:
+            # Estrae il valore del cookie 'session' dall'header Set-Cookie
+            set_cookie = resp.headers.get("Set-Cookie", "")
+            for part in set_cookie.split(";"):
+                part = part.strip()
+                if part.startswith("session="):
+                    return part[len("session="):]
+            print("[LOGIN FALLITO] Cookie di sessione non trovato nella risposta.", file=sys.stderr)
+            sys.exit(1)
+    except urllib.error.HTTPError as e:
+        body_resp = e.read().decode()
+        try:
+            detail = json.loads(body_resp).get("detail", body_resp)
+        except Exception:
+            detail = body_resp
+        print(f"[LOGIN FALLITO {e.code}] {detail}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _post(path: str, cookie: str) -> dict:
+    """Esegue una POST autenticata con cookie di sessione."""
     url = BASE_URL.rstrip("/") + path
     req = urllib.request.Request(url, data=b"", method="POST")
-    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Cookie", f"session={cookie}")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read())
@@ -48,24 +76,6 @@ def _post(path: str, token: str) -> dict:
         sys.exit(1)
     except urllib.error.URLError as e:
         print(f"[CONNESSIONE FALLITA] {url}\n{e.reason}", file=sys.stderr)
-        sys.exit(1)
-
-
-def _get_token(username: str, password: str) -> str:
-    url = BASE_URL.rstrip("/") + "/auth/token"
-    data = urllib.parse.urlencode({"username": username, "password": password}).encode()
-    req = urllib.request.Request(url, data=data, method="POST")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read())["access_token"]
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        try:
-            detail = json.loads(body).get("detail", body)
-        except Exception:
-            detail = body
-        print(f"[LOGIN FALLITO {e.code}] {detail}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -303,7 +313,7 @@ def cmd_flush(args) -> None:
         print("  Operazione annullata.")
         return
 
-    token = _get_token(args.user, args.password)
+    token = _get_session_cookie(args.user, args.password)
 
     path = "/admin/historic/flush"
     if args.season:
@@ -318,7 +328,7 @@ def cmd_normalize(args) -> None:
     """Bonifica il DB convertendo tutte le stagioni al formato canonico YYYY/YY."""
     print(f"\n  Connessione a {BASE_URL}...")
     print("  Login admin in corso...")
-    token = _get_token(args.user, args.password)
+    token = _get_session_cookie(args.user, args.password)
     print("  Avvio bonifica — attendere...")
     data = _post("/admin/historic/normalize-seasons", token)
 
