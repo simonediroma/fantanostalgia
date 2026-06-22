@@ -195,8 +195,8 @@ def _get_roles_map(session: requests.Session, season: str) -> dict[int, str]:
 # ---------------------------------------------------------------------------
 
 def _season_to_year(season: str) -> int:
-    """'2016-2017' → 2016"""
-    return int(season.split("-")[0])
+    """'2016-2017' or '2016/17' → 2016"""
+    return int(season.replace("/", "-").split("-")[0])
 
 
 def _get_matchday_urls(session: requests.Session, season: str) -> list[tuple[int, str]]:
