@@ -610,12 +610,8 @@ def _collect_season(
 # ---------------------------------------------------------------------------
 
 def _normalize_season(season: str) -> str:
-    """Convert YYYY-YYYY (scraper CLI format) to YYYY/YY (app format)."""
-    if "-" in season and "/" not in season:
-        parts = season.split("-")
-        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
-            return f"{parts[0]}/{parts[1][2:]}"
-    return season
+    from backend.api.routers.historic import normalize_season
+    return normalize_season(season)
 
 
 def scrape_season(

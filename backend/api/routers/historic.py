@@ -247,3 +247,53 @@ def normalize_seasons_in_db(_admin=Depends(get_current_admin)):
             f"{len(leagues_updated)} leghe aggiornate."
         ),
     }
+
+
+@router.post("/flush")
+def flush_historic_db(
+    season: str | None = None,
+    _admin=Depends(get_current_admin),
+):
+    """
+    Cancella i dati storici dal DB per reimportarli da zero.
+
+    - Senza parametri: cancella TUTTI i dati di player_historic e historic_rating.
+    - Con ?season=YYYY/YY: cancella solo quella stagione (tutti i formati accettati).
+
+    Le righe di historic_rating vengono eliminate in cascade.
+    Le associazioni alter_ego e manager_nostalgia_pool che puntano ai giocatori
+    cancellati vengono eliminate anch'esse (ON DELETE CASCADE nel DB).
+    """
+    with get_db() as conn:
+        if season:
+            canonical = normalize_season(season)
+            # Cancella anche eventuali varianti di formato della stessa stagione
+            variants = {canonical}
+            parts = canonical.split("/")
+            if len(parts) == 2:
+                variants.add(f"{parts[0]}-{parts[1]}")               # YYYY-YY
+                variants.add(f"{parts[0]}-{parts[0][:2]}{parts[1]}") # YYYY-YYYY
+
+            deleted_players = 0
+            for v in variants:
+                cur = conn.execute("DELETE FROM player_historic WHERE season = ?", (v,))
+                deleted_players += cur.rowcount
+
+            return {
+                "scope": "season",
+                "season": canonical,
+                "players_deleted": deleted_players,
+                "message": f"Stagione {canonical} rimossa ({deleted_players} giocatori eliminati).",
+            }
+        else:
+            cur_r = conn.execute("DELETE FROM historic_rating")
+            cur_p = conn.execute("DELETE FROM player_historic")
+            return {
+                "scope": "all",
+                "players_deleted": cur_p.rowcount,
+                "ratings_deleted": cur_r.rowcount,
+                "message": (
+                    f"DB storico svuotato: {cur_p.rowcount} giocatori e "
+                    f"{cur_r.rowcount} voti eliminati."
+                ),
+            }

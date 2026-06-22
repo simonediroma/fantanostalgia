@@ -290,6 +290,30 @@ def cmd_search(args) -> None:
         print("\n  Usa `player <id>` per vedere il dettaglio completo.")
 
 
+def cmd_flush(args) -> None:
+    """Svuota i dati storici dal DB (totale o per singola stagione)."""
+    if args.season:
+        scope_msg = f"la stagione {args.season}"
+    else:
+        scope_msg = "TUTTI i dati storici"
+
+    print(f"\n  ⚠  Stai per cancellare {scope_msg} dal DB.")
+    confirm = input("  Digita 'SI' per confermare: ").strip()
+    if confirm != "SI":
+        print("  Operazione annullata.")
+        return
+
+    token = _get_token(args.user, args.password)
+
+    path = "/admin/historic/flush"
+    if args.season:
+        path += f"?season={urllib.parse.quote(args.season)}"
+
+    data = _post(path, token)
+    _section("Flush completato")
+    print(f"  {data['message']}")
+
+
 def cmd_normalize(args) -> None:
     """Bonifica il DB convertendo tutte le stagioni al formato canonico YYYY/YY."""
     print(f"\n  Connessione a {BASE_URL}...")
@@ -343,6 +367,8 @@ esempi:
   python scripts/inspect_db.py search Totti
   python scripts/inspect_db.py search Dybala --season 2016-17
   python scripts/inspect_db.py teams 2016-17
+  python scripts/inspect_db.py flush --password <pwd>
+  python scripts/inspect_db.py flush --season 2000-01 --password <pwd>
   python scripts/inspect_db.py normalize --password <pwd>
 
 variabili d'ambiente:
@@ -388,6 +414,11 @@ variabili d'ambiente:
     sr.add_argument("name", help="Nome (parziale) del giocatore")
     sr.add_argument("--season", help="Limita la ricerca a una stagione (YYYY-YY)")
 
+    fl = sub.add_parser("flush", help="Cancella dati storici dal DB per reimportarli")
+    fl.add_argument("--season", help="Stagione da cancellare (es. 2000-01). Ometti per cancellare tutto.")
+    fl.add_argument("--user", default="admin", help="Username admin (default: admin)")
+    fl.add_argument("--password", required=True, help="Password admin")
+
     nrm = sub.add_parser("normalize", help="Bonifica il DB: converte stagioni al formato YYYY/YY")
     nrm.add_argument("--user", default="admin", help="Username admin (default: admin)")
     nrm.add_argument("--password", required=True, help="Password admin")
@@ -408,6 +439,7 @@ def main() -> None:
         "matchday": cmd_matchday,
         "teams": cmd_teams,
         "search": cmd_search,
+        "flush": cmd_flush,
         "normalize": cmd_normalize,
     }
     dispatch[args.command](args)
