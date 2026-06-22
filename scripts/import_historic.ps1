@@ -54,25 +54,28 @@ Invoke-RestMethod -Method POST `
     -SessionVariable session | Out-Null
 Write-Host "Login OK."
 
-# Estrai il cookie di sessione dalla WebRequestSession
+# Trasferisci i cookie nella WebRequestSession in un CookieContainer per HttpClient.
+# In .NET Framework "Cookie" è un header restricted: non si può impostare via
+# DefaultRequestHeaders — va passato tramite HttpClientHandler.CookieContainer.
 $uri = [System.Uri]$Url
-$cookieHeader = ""
+$cookieContainer = New-Object System.Net.CookieContainer
 foreach ($cookie in $session.Cookies.GetCookies($uri)) {
-    $cookieHeader += "$($cookie.Name)=$($cookie.Value); "
+    $cookieContainer.Add($uri, $cookie)
 }
-if (-not $cookieHeader) {
+if ($cookieContainer.Count -eq 0) {
     Write-Error "Nessun cookie ricevuto dopo il login. Verifica credenziali e URL."
     exit 1
 }
-Write-Host "Cookie sessione acquisito."
+Write-Host "Cookie sessione acquisito ($($cookieContainer.Count) cookie)."
 
 # 2. Upload CSV con HttpClient (gestisce multipart correttamente)
 Write-Host "Upload CSV in corso..."
 
 Add-Type -AssemblyName System.Net.Http
 
-$httpClient = New-Object System.Net.Http.HttpClient
-$httpClient.DefaultRequestHeaders.Add("Cookie", $cookieHeader.TrimEnd("; "))
+$handler = New-Object System.Net.Http.HttpClientHandler
+$handler.CookieContainer = $cookieContainer
+$httpClient = New-Object System.Net.Http.HttpClient($handler)
 
 $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
 $fileContent = New-Object System.Net.Http.ByteArrayContent(,$fileBytes)
