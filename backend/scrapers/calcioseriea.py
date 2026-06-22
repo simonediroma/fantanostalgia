@@ -68,10 +68,13 @@ def _build_session() -> requests.Session:
 
 
 def _fetch(session: requests.Session, url: str) -> BeautifulSoup:
+    log.debug("  GET %s", url)
     time.sleep(1.5)
     resp = session.get(url, timeout=30)
     resp.raise_for_status()
     resp.encoding = "utf-8"
+    if resp.url != url:
+        log.debug("  → redirect: %s", resp.url)
     return BeautifulSoup(resp.text, "lxml")
 
 
@@ -91,10 +94,14 @@ def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
     Segue eventuali redirect (es. /rose/1999/ → /rose/1999/1633/) e cerca
     i link squadra come sotto-percorsi dell'URL finale.
     """
+    index_url = f"{BASE}/rose/{year}/"
+    log.info("  GET rose index: %s", index_url)
     time.sleep(1.5)
-    resp = session.get(f"{BASE}/rose/{year}/", timeout=30)
+    resp = session.get(index_url, timeout=30)
     resp.raise_for_status()
     resp.encoding = "utf-8"
+    if resp.url != index_url:
+        log.info("  → redirect: %s", resp.url)
     final_path = resp.url.replace(BASE, "").rstrip("/") + "/"
     soup = BeautifulSoup(resp.text, "lxml")
     pattern = re.compile(re.escape(final_path) + r"\d+/")
@@ -104,6 +111,9 @@ def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
         url = href if href.startswith("http") else BASE + href
         if url not in urls:
             urls.append(url)
+    log.info("  %d URL squadre trovate.", len(urls))
+    for u in urls:
+        log.info("    %s", u)
     return urls
 
 
@@ -112,6 +122,7 @@ def _scrape_rose(session: requests.Session, url: str) -> dict[int, str]:
     Scarica la pagina rosa di una squadra e restituisce {player_id: role}.
     Ruoli da sezioni SubTitle: PORTIERI/DIFENSORI/CENTROCAMPISTI/ATTACCANTI.
     """
+    log.info("    GET rosa squadra: %s", url)
     soup = _fetch(session, url)
     roles: dict[int, str] = {}
     current_role = "C"  # fallback
@@ -133,6 +144,7 @@ def _scrape_rose(session: requests.Session, url: str) -> dict[int, str]:
             if pid is not None:
                 roles[pid] = current_role
 
+    log.info("      → %d giocatori con ruolo estratti.", len(roles))
     return roles
 
 
@@ -548,6 +560,10 @@ def _collect_season(
 
         for match in matches:
             try:
+                log.info(
+                    "  Tabellino: %s vs %s → %s",
+                    match["home"], match["away"], match["tabellino_url"],
+                )
                 match_records = _scrape_tabellino(
                     session, match, season, matchday_num, roles_map, weights
                 )
