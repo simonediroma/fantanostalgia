@@ -11,6 +11,7 @@ POST /admin/historic/normalize-seasons
 
 import csv
 import io
+import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
@@ -51,6 +52,36 @@ def normalize_season(season: str) -> str:
 
 # alias privato usato internamente
 _normalize_season = normalize_season
+
+
+def _season_variants(canonical: str) -> list[str]:
+    """Restituisce tutte le rappresentazioni possibili di una stagione.
+
+    Es. "1999/00" → ["1999/00", "1999-00", "1999-2000"]
+        "2016/17" → ["2016/17", "2016-17", "2016-2017"]
+    """
+    parts = canonical.split("/")
+    if len(parts) != 2:
+        return [canonical]
+    y1 = int(parts[0])
+    yy = parts[1]          # es. "00" o "17"
+    y2 = y1 + 1            # anno intero successivo: 2000 o 2017
+    return [
+        canonical,                          # YYYY/YY
+        f"{y1}-{yy}",                       # YYYY-YY
+        f"{y1}-{y2:04d}",                   # YYYY-YYYY (corretto per cambio secolo)
+    ]
+
+
+def _safe_exec(conn, sql: str, params=None):
+    """Esegue SQL ignorando l'errore se la tabella non esiste (schema vecchio)."""
+    try:
+        conn.execute(sql, params or [])
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e) or "no such column" in str(e):
+            pass  # tabella aggiunta in migrazione successiva, ignorabile
+        else:
+            raise
 
 
 def _parse_csv(content: bytes) -> list[dict]:
@@ -119,15 +150,7 @@ async def import_historic_csv(
     season = rows[0]["season"]
 
     # Pulisce eventuali righe precedentemente importate con formati non canonici
-    raw_season_parts = season.split("/")
-    old_formats = []
-    if len(raw_season_parts) == 2 and len(raw_season_parts[0]) == 4 and len(raw_season_parts[1]) == 2:
-        yy = raw_season_parts[1]
-        y1 = raw_season_parts[0]
-        old_formats = [
-            f"{y1}-{y1[:2]}{yy}",   # YYYY-YYYY
-            f"{y1}-{yy}",            # YYYY-YY
-        ]
+    old_formats = [v for v in _season_variants(season) if v != season]
 
     with get_db() as conn:
         for old_fmt in old_formats:
@@ -264,52 +287,51 @@ def flush_historic_db(
     Le associazioni alter_ego e manager_nostalgia_pool che puntano ai giocatori
     cancellati vengono eliminate anch'esse (ON DELETE CASCADE nel DB).
     """
-    with get_db() as conn:
-        if season:
-            canonical = normalize_season(season)
-            # Includi tutte le varianti di formato per la stessa stagione
-            parts = canonical.split("/")
-            variants = [canonical]
-            if len(parts) == 2:
-                variants.append(f"{parts[0]}-{parts[1]}")                # YYYY-YY
-                variants.append(f"{parts[0]}-{parts[0][:2]}{parts[1]}") # YYYY-YYYY
+    try:
+        with get_db() as conn:
+            # Disabilita temporaneamente i FK per gestire manualmente l'ordine
+            conn.execute("PRAGMA foreign_keys = OFF")
 
-            placeholders = ",".join("?" * len(variants))
+            if season:
+                canonical = normalize_season(season)
+                variants = _season_variants(canonical)
 
-            # Recupera gli id dei giocatori da eliminare
-            ids = [
-                r["id"] for r in conn.execute(
-                    f"SELECT id FROM player_historic WHERE season IN ({placeholders})",
-                    variants,
-                ).fetchall()
-            ]
+                placeholders = ",".join("?" * len(variants))
+                ids = [
+                    r["id"] for r in conn.execute(
+                        f"SELECT id FROM player_historic WHERE season IN ({placeholders})",
+                        variants,
+                    ).fetchall()
+                ]
 
-            deleted_players = 0
-            if ids:
-                id_ph = ",".join("?" * len(ids))
-                # Elimina le tabelle figlie prima del parent (no CASCADE nel DB)
-                conn.execute(f"DELETE FROM historic_rating WHERE player_historic_id IN ({id_ph})", ids)
-                conn.execute(f"DELETE FROM alter_ego WHERE player_historic_id IN ({id_ph})", ids)
-                conn.execute(f"DELETE FROM manager_nostalgia_pool WHERE player_historic_id IN ({id_ph})", ids)
-                conn.execute(f"UPDATE gran_premio SET prize_player_historic_id = NULL WHERE prize_player_historic_id IN ({id_ph})", ids)
-                cur = conn.execute(f"DELETE FROM player_historic WHERE id IN ({id_ph})", ids)
-                deleted_players = cur.rowcount
+                deleted_players = 0
+                if ids:
+                    id_ph = ",".join("?" * len(ids))
+                    conn.execute(f"DELETE FROM historic_rating WHERE player_historic_id IN ({id_ph})", ids)
+                    conn.execute(f"DELETE FROM alter_ego WHERE player_historic_id IN ({id_ph})", ids)
+                    _safe_exec(conn, f"DELETE FROM manager_nostalgia_pool WHERE player_historic_id IN ({id_ph})", ids)
+                    _safe_exec(conn, f"UPDATE gran_premio SET prize_player_historic_id = NULL WHERE prize_player_historic_id IN ({id_ph})", ids)
+                    cur = conn.execute(f"DELETE FROM player_historic WHERE id IN ({id_ph})", ids)
+                    deleted_players = cur.rowcount
 
-            return {
-                "scope": "season",
-                "season": canonical,
-                "players_deleted": deleted_players,
-                "message": f"Stagione {canonical} rimossa ({deleted_players} giocatori eliminati).",
-            }
-        else:
-            # Flush totale: elimina in ordine per rispettare le FK
-            conn.execute("DELETE FROM historic_rating")
-            conn.execute("DELETE FROM alter_ego")
-            conn.execute("DELETE FROM manager_nostalgia_pool")
-            conn.execute("UPDATE gran_premio SET prize_player_historic_id = NULL")
-            cur_p = conn.execute("DELETE FROM player_historic")
-            return {
-                "scope": "all",
-                "players_deleted": cur_p.rowcount,
-                "message": f"DB storico svuotato: {cur_p.rowcount} giocatori eliminati.",
-            }
+                conn.execute("PRAGMA foreign_keys = ON")
+                return {
+                    "scope": "season",
+                    "season": canonical,
+                    "players_deleted": deleted_players,
+                    "message": f"Stagione {canonical} rimossa ({deleted_players} giocatori eliminati).",
+                }
+            else:
+                conn.execute("DELETE FROM historic_rating")
+                conn.execute("DELETE FROM alter_ego")
+                _safe_exec(conn, "DELETE FROM manager_nostalgia_pool")
+                _safe_exec(conn, "UPDATE gran_premio SET prize_player_historic_id = NULL")
+                cur_p = conn.execute("DELETE FROM player_historic")
+                conn.execute("PRAGMA foreign_keys = ON")
+                return {
+                    "scope": "all",
+                    "players_deleted": cur_p.rowcount,
+                    "message": f"DB storico svuotato: {cur_p.rowcount} giocatori eliminati.",
+                }
+    except sqlite3.Error as e:
+        raise HTTPException(500, f"Errore DB: {e}")
