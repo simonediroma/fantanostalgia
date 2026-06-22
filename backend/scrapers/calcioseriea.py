@@ -609,9 +609,7 @@ def _collect_season(
 # Entry points
 # ---------------------------------------------------------------------------
 
-def _normalize_season(season: str) -> str:
-    from backend.api.routers.historic import normalize_season
-    return normalize_season(season)
+from backend.utils.season import normalize_season as _normalize_season
 
 
 def scrape_season(
