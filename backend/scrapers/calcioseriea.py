@@ -683,12 +683,7 @@ def upload_to_server(
     )
     resp.raise_for_status()
     result = resp.json()
-    log.info(
-        "Importazione completata: %d righe, %d voti inseriti (stagione %s).",
-        result.get("rows_processed", 0),
-        result.get("ratings_imported", 0),
-        result.get("season", season),
-    )
+    log.info("%s", result.get("message", "Import completato."))
 
 
 def export_csv(
