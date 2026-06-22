@@ -166,14 +166,18 @@ def get_db():
     conn = sqlite3.connect(_get_db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    changed = False
     try:
         yield conn
         changed = conn.total_changes > 0
         conn.commit()
-        if ENV != "development" and changed:
-            _upload_db_to_gcs()
     except Exception:
         conn.rollback()
         raise
     finally:
         conn.close()
+    if ENV != "development" and changed:
+        try:
+            _upload_db_to_gcs()
+        except Exception:
+            pass  # dati committati localmente; la cache TTL garantisce coerenza
