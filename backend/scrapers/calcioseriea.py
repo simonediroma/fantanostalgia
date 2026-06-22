@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import csv
+import io
 import logging
 import re
 import sqlite3
@@ -641,6 +642,49 @@ def scrape_season(
             _upload_db_to_gcs()
 
 
+def upload_to_server(
+    season: str,
+    server_url: str,
+    username: str,
+    password: str,
+    weights: RatingWeights | None = None,
+) -> None:
+    """Scrapa la stagione e invia i dati direttamente all'endpoint di import."""
+    records = _collect_season(season, weights or RatingWeights())
+    log.info("Totale record raccolti: %d. Upload su %s...", len(records), server_url)
+
+    # Serializza in CSV in memoria
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=CSV_FIELDS)
+    writer.writeheader()
+    writer.writerows(records)
+    csv_bytes = buf.getvalue().encode("utf-8")
+
+    s = requests.Session()
+    s.headers.update(_HEADERS)
+
+    # Login
+    resp = s.post(f"{server_url}/auth/login", json={"username": username, "password": password}, timeout=30)
+    resp.raise_for_status()
+    log.info("Login OK.")
+
+    # Upload
+    filename = f"{season}.csv"
+    resp = s.post(
+        f"{server_url}/admin/historic/import",
+        files={"file": (filename, csv_bytes, "text/csv")},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    result = resp.json()
+    log.info(
+        "Importazione completata: %d righe, %d voti inseriti (stagione %s).",
+        result.get("rows_processed", 0),
+        result.get("ratings_imported", 0),
+        result.get("season", season),
+    )
+
+
 def export_csv(
     season: str,
     output_path: str,
@@ -659,12 +703,23 @@ if __name__ == "__main__":
     parser.add_argument("--season", required=True, help="Stagione es. 2016-2017")
     parser.add_argument("--force", action="store_true", help="Riscrappa anche se già presente nel DB")
     parser.add_argument("--export-csv", metavar="FILE", help="Esporta CSV invece di scrivere su DB")
+    parser.add_argument("--upload-to", metavar="URL", help="URL server a cui fare upload (es. https://...run.app)")
+    parser.add_argument("--admin-username", default="admin", help="Username admin per --upload-to")
+    parser.add_argument("--admin-password", default="changeme", help="Password admin per --upload-to")
     parser.add_argument("--weights-file", metavar="FILE", help="JSON con i pesi del rating")
     args = parser.parse_args()
 
     weights = RatingWeights.from_json(args.weights_file) if args.weights_file else RatingWeights()
 
-    if args.export_csv:
+    if args.upload_to:
+        upload_to_server(
+            args.season,
+            server_url=args.upload_to,
+            username=args.admin_username,
+            password=args.admin_password,
+            weights=weights,
+        )
+    elif args.export_csv:
         export_csv(args.season, args.export_csv, weights)
     else:
         scrape_season(args.season, force=args.force, weights=weights)
