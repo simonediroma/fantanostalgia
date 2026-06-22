@@ -609,13 +609,7 @@ def _collect_season(
 # Entry points
 # ---------------------------------------------------------------------------
 
-def _normalize_season(season: str) -> str:
-    """Convert YYYY-YYYY (scraper CLI format) to YYYY/YY (app format)."""
-    if "-" in season and "/" not in season:
-        parts = season.split("-")
-        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
-            return f"{parts[0]}/{parts[1][2:]}"
-    return season
+from backend.utils.season import normalize_season as _normalize_season
 
 
 def scrape_season(

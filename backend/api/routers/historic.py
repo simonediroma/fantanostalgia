@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from backend.api.db import get_db
 from backend.api.routers.auth import get_current_admin
+from backend.utils.season import normalize_season
 
 router = APIRouter(prefix="/admin/historic", tags=["historic"])
 
@@ -24,14 +25,7 @@ _REQUIRED_FIELDS = {
 
 _VALID_ROLES = {"P", "D", "C", "A"}
 
-
-def _normalize_season(season: str) -> str:
-    """Convert YYYY-YYYY (scraper format) to YYYY/YY (app format)."""
-    if "-" in season and "/" not in season:
-        parts = season.split("-")
-        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
-            return f"{parts[0]}/{parts[1][2:]}"
-    return season
+_normalize_season = normalize_season
 
 
 def _parse_csv(content: bytes) -> list[dict]:
