@@ -4,6 +4,9 @@ Admin endpoint per importare dati storici da CSV generato da backend/scrapers/fb
 POST /admin/historic/import
   Accetta il CSV esportato dallo scraper e popola player_historic + historic_rating.
   Idempotente: righe già presenti vengono saltate (INSERT OR IGNORE).
+
+POST /admin/historic/normalize-seasons
+  Bonifica il DB convertendo tutti i valori di season al formato canonico YYYY/YY.
 """
 
 import csv
@@ -25,13 +28,29 @@ _REQUIRED_FIELDS = {
 _VALID_ROLES = {"P", "D", "C", "A"}
 
 
-def _normalize_season(season: str) -> str:
-    """Convert YYYY-YYYY (scraper format) to YYYY/YY (app format)."""
-    if "-" in season and "/" not in season:
-        parts = season.split("-")
-        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
-            return f"{parts[0]}/{parts[1][2:]}"
-    return season
+def normalize_season(season: str) -> str:
+    """Normalizza qualsiasi formato stagione al formato canonico YYYY/YY.
+
+    Accetta:
+        YYYY-YYYY  (es. 2000-2001) → 2000/01
+        YYYY-YY    (es. 2000-01)   → 2000/01
+        YYYY/YY    (es. 2000/01)   → 2000/01  (già corretto, pass-through)
+    """
+    s = season.strip()
+    if "/" in s:
+        return s  # già canonico
+    if "-" in s:
+        parts = s.split("-")
+        if len(parts) == 2 and len(parts[0]) == 4:
+            if len(parts[1]) == 4:
+                return f"{parts[0]}/{parts[1][2:]}"   # YYYY-YYYY → YYYY/YY
+            if len(parts[1]) == 2:
+                return f"{parts[0]}/{parts[1]}"        # YYYY-YY   → YYYY/YY
+    return s
+
+
+# alias privato usato internamente
+_normalize_season = normalize_season
 
 
 def _parse_csv(content: bytes) -> list[dict]:
@@ -52,7 +71,7 @@ def _parse_csv(content: bytes) -> list[dict]:
                 "player_name": row["player_name"].strip(),
                 "role": role,
                 "team": row["team"].strip(),
-                "season": _normalize_season(row["season"].strip()),
+                "season": normalize_season(row["season"].strip()),
                 "matchday": int(row["matchday"]),
                 "rating": float(row["rating"]),
                 "goals": int(row["goals"]),
@@ -99,18 +118,20 @@ async def import_historic_csv(
     ratings_inserted = 0
     season = rows[0]["season"]
 
-    # Build the raw (un-normalized) season string so we can delete any rows
-    # that were previously imported with the old YYYY-YYYY format.
+    # Pulisce eventuali righe precedentemente importate con formati non canonici
     raw_season_parts = season.split("/")
-    old_format_season = None
+    old_formats = []
     if len(raw_season_parts) == 2 and len(raw_season_parts[0]) == 4 and len(raw_season_parts[1]) == 2:
-        old_format_season = f"{raw_season_parts[0]}-{raw_season_parts[0][:2]}{raw_season_parts[1]}"
+        yy = raw_season_parts[1]
+        y1 = raw_season_parts[0]
+        old_formats = [
+            f"{y1}-{y1[:2]}{yy}",   # YYYY-YYYY
+            f"{y1}-{yy}",            # YYYY-YY
+        ]
 
     with get_db() as conn:
-        if old_format_season:
-            conn.execute(
-                "DELETE FROM player_historic WHERE season = ?", (old_format_season,)
-            )
+        for old_fmt in old_formats:
+            conn.execute("DELETE FROM player_historic WHERE season = ?", (old_fmt,))
 
         for row in rows:
             pid = _upsert_player(
@@ -148,4 +169,81 @@ async def import_historic_csv(
         "rows_processed": len(rows),
         "ratings_imported": ratings_inserted,
         "message": f"Importazione completata — {ratings_inserted} voti inseriti per stagione {season}",
+    }
+
+
+@router.post("/normalize-seasons")
+def normalize_seasons_in_db(_admin=Depends(get_current_admin)):
+    """
+    Bonifica il DB convertendo tutti i valori di player_historic.season
+    al formato canonico YYYY/YY (es. '2000-01' → '2000/01').
+
+    Operazione idempotente e sicura:
+    - Se la forma canonica esiste già, segnala il conflitto senza toccare nulla.
+    - Aggiorna anche league.season_historic se non canonico.
+    - Restituisce un report completo delle modifiche effettuate.
+    """
+    with get_db() as conn:
+        # --- player_historic ---
+        all_seasons = conn.execute(
+            "SELECT DISTINCT season FROM player_historic"
+        ).fetchall()
+
+        updated = []
+        skipped_conflicts = []
+
+        for row in all_seasons:
+            raw = row["season"]
+            canonical = normalize_season(raw)
+            if raw == canonical:
+                continue  # già nel formato giusto
+
+            # Controlla se la forma canonica esiste già nel DB
+            conflict = conn.execute(
+                "SELECT COUNT(*) FROM player_historic WHERE season = ?",
+                (canonical,),
+            ).fetchone()[0]
+
+            if conflict:
+                skipped_conflicts.append({
+                    "raw": raw,
+                    "canonical": canonical,
+                    "reason": "stagione canonica già presente — merge non automatico",
+                })
+                continue
+
+            conn.execute(
+                "UPDATE player_historic SET season = ? WHERE season = ?",
+                (canonical, raw),
+            )
+            updated.append({"from": raw, "to": canonical})
+
+        # --- league.season_historic ---
+        leagues = conn.execute(
+            "SELECT id, season_historic FROM league WHERE season_historic IS NOT NULL"
+        ).fetchall()
+
+        leagues_updated = []
+        for lg in leagues:
+            raw = lg["season_historic"]
+            canonical = normalize_season(raw)
+            if raw != canonical:
+                conn.execute(
+                    "UPDATE league SET season_historic = ? WHERE id = ?",
+                    (canonical, lg["id"]),
+                )
+                leagues_updated.append({"league_id": lg["id"], "from": raw, "to": canonical})
+
+    return {
+        "player_historic_updated": len(updated),
+        "player_historic_conflicts": len(skipped_conflicts),
+        "leagues_updated": len(leagues_updated),
+        "changes": updated,
+        "leagues_changes": leagues_updated,
+        "conflicts": skipped_conflicts,
+        "message": (
+            f"Bonifica completata: {len(updated)} stagioni aggiornate, "
+            f"{len(skipped_conflicts)} conflitti da risolvere manualmente, "
+            f"{len(leagues_updated)} leghe aggiornate."
+        ),
     }

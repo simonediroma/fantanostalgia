@@ -10,23 +10,14 @@ viene convertito nel formato DB YYYY/YY (es. 2016/17).
 
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.db import get_db
+from backend.api.routers.historic import normalize_season
 
 router = APIRouter(prefix="/inspect", tags=["inspect"])
 
 
 def _season_to_db(season_slug: str) -> str:
-    """Normalizza il formato stagione per le query al DB.
-    Il DB può contenere sia YYYY-YY (scraper) che YYYY/YY (formato canonico).
-    Accetta entrambi e li passa attraverso; converte solo YYYY-YYYY → YYYY-YY."""
-    if "-" in season_slug and "/" not in season_slug:
-        parts = season_slug.split("-")
-        # YYYY-YYYY → YYYY-YY  (es. 2000-2001 → 2000-01)
-        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
-            return f"{parts[0]}-{parts[1][2:]}"
-    # YYYY/YY → YYYY-YY  (es. 2000/01 → 2000-01)
-    if "/" in season_slug:
-        return season_slug.replace("/", "-")
-    return season_slug
+    """Converte qualsiasi formato stagione al canonico YYYY/YY per le query al DB."""
+    return normalize_season(season_slug)
 
 
 # ---------------------------------------------------------------------------

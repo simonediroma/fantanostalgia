@@ -93,7 +93,8 @@ if __name__ == "__main__":
         RatingWeights().to_json(args.dump_weights)
         log.info("Pesi di default esportati in %s", args.dump_weights)
     elif args.season:
+        from backend.api.routers.historic import normalize_season
         weights = RatingWeights.from_json(args.weights_file) if args.weights_file else RatingWeights()
-        recalculate_season(args.season, weights)
+        recalculate_season(normalize_season(args.season), weights)
     else:
         parser.error("Specifica --season oppure --dump-weights")
