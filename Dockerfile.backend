@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY database/schema.sql ./database/schema.sql
 COPY frontend/admin/ ./frontend/admin/
+COPY frontend/coach/ ./frontend/coach/
 COPY docs/webscraper/ ./docs/webscraper/
 
 ENV ENV=production
