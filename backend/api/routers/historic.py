@@ -267,17 +267,33 @@ def flush_historic_db(
     with get_db() as conn:
         if season:
             canonical = normalize_season(season)
-            # Cancella anche eventuali varianti di formato della stessa stagione
-            variants = {canonical}
+            # Includi tutte le varianti di formato per la stessa stagione
             parts = canonical.split("/")
+            variants = [canonical]
             if len(parts) == 2:
-                variants.add(f"{parts[0]}-{parts[1]}")               # YYYY-YY
-                variants.add(f"{parts[0]}-{parts[0][:2]}{parts[1]}") # YYYY-YYYY
+                variants.append(f"{parts[0]}-{parts[1]}")                # YYYY-YY
+                variants.append(f"{parts[0]}-{parts[0][:2]}{parts[1]}") # YYYY-YYYY
+
+            placeholders = ",".join("?" * len(variants))
+
+            # Recupera gli id dei giocatori da eliminare
+            ids = [
+                r["id"] for r in conn.execute(
+                    f"SELECT id FROM player_historic WHERE season IN ({placeholders})",
+                    variants,
+                ).fetchall()
+            ]
 
             deleted_players = 0
-            for v in variants:
-                cur = conn.execute("DELETE FROM player_historic WHERE season = ?", (v,))
-                deleted_players += cur.rowcount
+            if ids:
+                id_ph = ",".join("?" * len(ids))
+                # Elimina le tabelle figlie prima del parent (no CASCADE nel DB)
+                conn.execute(f"DELETE FROM historic_rating WHERE player_historic_id IN ({id_ph})", ids)
+                conn.execute(f"DELETE FROM alter_ego WHERE player_historic_id IN ({id_ph})", ids)
+                conn.execute(f"DELETE FROM manager_nostalgia_pool WHERE player_historic_id IN ({id_ph})", ids)
+                conn.execute(f"UPDATE gran_premio SET prize_player_historic_id = NULL WHERE prize_player_historic_id IN ({id_ph})", ids)
+                cur = conn.execute(f"DELETE FROM player_historic WHERE id IN ({id_ph})", ids)
+                deleted_players = cur.rowcount
 
             return {
                 "scope": "season",
@@ -286,14 +302,14 @@ def flush_historic_db(
                 "message": f"Stagione {canonical} rimossa ({deleted_players} giocatori eliminati).",
             }
         else:
-            cur_r = conn.execute("DELETE FROM historic_rating")
+            # Flush totale: elimina in ordine per rispettare le FK
+            conn.execute("DELETE FROM historic_rating")
+            conn.execute("DELETE FROM alter_ego")
+            conn.execute("DELETE FROM manager_nostalgia_pool")
+            conn.execute("UPDATE gran_premio SET prize_player_historic_id = NULL")
             cur_p = conn.execute("DELETE FROM player_historic")
             return {
                 "scope": "all",
                 "players_deleted": cur_p.rowcount,
-                "ratings_deleted": cur_r.rowcount,
-                "message": (
-                    f"DB storico svuotato: {cur_p.rowcount} giocatori e "
-                    f"{cur_r.rowcount} voti eliminati."
-                ),
+                "message": f"DB storico svuotato: {cur_p.rowcount} giocatori eliminati.",
             }
