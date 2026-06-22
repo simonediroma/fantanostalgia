@@ -151,6 +151,56 @@ def cmd_player(args) -> None:
     )
 
 
+def cmd_trend(args) -> None:
+    """Andamento di un giocatore con media mobile e indicatore di forma."""
+    params = {"window": args.window}
+    data = _get(f"/inspect/players/{args.player_id}/trend", params)
+    p = data["player"]
+
+    _section(f"Andamento: {p['name']}  ({p['role']}) — {p['team']} — {p['season']}")
+    print(f"  Media stagionale : {data['season_avg']}")
+    print(f"  Media ultimi {data['window']}   : {data['recent_avg']}  (forma: {_forma_label(data['forma_recente'])})")
+    print(f"  Migliore         : giornata {data['best_matchday']['matchday']} → {data['best_matchday']['rating']}")
+    print(f"  Peggiore         : giornata {data['worst_matchday']['matchday']} → {data['worst_matchday']['rating']}")
+
+    _section(f"Voti con media mobile (finestra {data['window']})")
+
+    for t in data["trend"]:
+        bar = _bar(t["rating"])
+        avg_marker = f"  ~{t['moving_avg']}" if t["moving_avg"] != t["rating"] else ""
+        delta_str = ""
+        if t["delta"] is not None:
+            arrow = "▲" if t["delta"] > 0 else ("▼" if t["delta"] < 0 else "─")
+            delta_str = f"  {arrow}{abs(t['delta']):.1f}"
+        extras = []
+        if t["goals"]:
+            extras.append(f"⚽×{t['goals']}")
+        if t["assists"]:
+            extras.append(f"🅰×{t['assists']}")
+        if t["yellow_cards"]:
+            extras.append("🟨")
+        if t["red_cards"]:
+            extras.append("🟥")
+        extra_str = "  " + " ".join(extras) if extras else ""
+        print(f"  G{t['matchday']:>2}  {t['rating']:.1f}  {bar}{avg_marker}{delta_str}{extra_str}")
+
+    print()
+    print(f"  Legenda media mobile: ~X = media ultime {data['window']} giornate")
+
+
+def _bar(rating: float) -> str:
+    filled = max(0, min(10, round((rating - 4) * 2)))
+    return "█" * filled + "░" * (10 - filled)
+
+
+def _forma_label(delta: float) -> str:
+    if delta >= 0.5:
+        return f"+{delta:.2f} ↑ in forma"
+    if delta <= -0.5:
+        return f"{delta:.2f} ↓ sotto media"
+    return f"{delta:+.2f} ─ nella norma"
+
+
 def cmd_matchday(args) -> None:
     """Voti di una singola giornata."""
     params = {
@@ -206,6 +256,8 @@ esempi:
   python scripts/inspect_db.py matchday 2016-17 10 --role P
   python scripts/inspect_db.py matchday 2016-17 10 --min-rating 7
   python scripts/inspect_db.py player 42
+  python scripts/inspect_db.py trend 42
+  python scripts/inspect_db.py trend 42 --window 3
   python scripts/inspect_db.py search Totti
   python scripts/inspect_db.py search Dybala --season 2016-17
   python scripts/inspect_db.py teams 2016-17
@@ -231,6 +283,10 @@ variabili d'ambiente:
 
     pd = sub.add_parser("player", help="Dettaglio voti di un giocatore")
     pd.add_argument("player_id", type=int, help="ID del giocatore (da 'players' o 'search')")
+
+    tr = sub.add_parser("trend", help="Andamento di un giocatore con media mobile")
+    tr.add_argument("player_id", type=int, help="ID del giocatore")
+    tr.add_argument("--window", type=int, default=5, help="Ampiezza media mobile (default 5)")
 
     md = sub.add_parser("matchday", help="Voti di una giornata")
     md.add_argument("season", help="Stagione in formato YYYY-YY")
@@ -258,6 +314,7 @@ def main() -> None:
         "season": cmd_season,
         "players": cmd_players,
         "player": cmd_player,
+        "trend": cmd_trend,
         "matchday": cmd_matchday,
         "teams": cmd_teams,
         "search": cmd_search,

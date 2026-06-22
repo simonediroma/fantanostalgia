@@ -358,6 +358,93 @@ def season_teams(season: str):
 
 
 # ---------------------------------------------------------------------------
+# /inspect/players/{player_id}/trend
+# ---------------------------------------------------------------------------
+
+@router.get("/players/{player_id}/trend")
+def player_trend(
+    player_id: int,
+    window: int = Query(5, ge=2, le=10, description="Ampiezza della media mobile (default 5)"),
+):
+    """
+    Andamento di un giocatore nel corso della stagione.
+
+    Restituisce per ogni giornata:
+    - voto della giornata
+    - media mobile sulle ultime `window` giornate
+    - delta rispetto alla giornata precedente
+    - forma (media delle ultime `window` giornate vs media stagionale)
+    """
+    with get_db() as conn:
+        player = conn.execute(
+            "SELECT * FROM player_historic WHERE id = ?", (player_id,)
+        ).fetchone()
+        if not player:
+            raise HTTPException(404, f"Giocatore id={player_id} non trovato")
+
+        raw = conn.execute(
+            """
+            SELECT matchday, rating, goals, assists,
+                   yellow_cards, red_cards, goals_conceded, team_won, minutes
+            FROM historic_rating
+            WHERE player_historic_id = ?
+            ORDER BY matchday
+            """,
+            (player_id,),
+        ).fetchall()
+
+    if not raw:
+        return {
+            "player": dict(player),
+            "window": window,
+            "season_avg": None,
+            "trend": [],
+        }
+
+    ratings = [r["rating"] for r in raw]
+    season_avg = round(sum(ratings) / len(ratings), 2)
+
+    trend = []
+    for i, r in enumerate(raw):
+        window_ratings = ratings[max(0, i - window + 1): i + 1]
+        moving_avg = round(sum(window_ratings) / len(window_ratings), 2)
+        delta = round(r["rating"] - raw[i - 1]["rating"], 2) if i > 0 else None
+        forma = round(moving_avg - season_avg, 2)
+
+        trend.append({
+            "matchday": r["matchday"],
+            "rating": r["rating"],
+            "moving_avg": moving_avg,
+            "delta": delta,
+            "forma": forma,
+            "goals": r["goals"],
+            "assists": r["assists"],
+            "yellow_cards": r["yellow_cards"],
+            "red_cards": r["red_cards"],
+            "goals_conceded": r["goals_conceded"],
+            "team_won": r["team_won"],
+            "minutes": r["minutes"],
+        })
+
+    played = [t for t in trend if t["minutes"] > 0]
+    best = max(trend, key=lambda t: t["rating"])
+    worst = min(played, key=lambda t: t["rating"]) if played else min(trend, key=lambda t: t["rating"])
+    last_n = trend[-window:]
+    recent_avg = round(sum(t["rating"] for t in last_n) / len(last_n), 2)
+
+    return {
+        "player": dict(player),
+        "window": window,
+        "season_avg": season_avg,
+        "recent_avg": recent_avg,
+        "forma_recente": round(recent_avg - season_avg, 2),
+        "best_matchday": {"matchday": best["matchday"], "rating": best["rating"]},
+        "worst_matchday": {"matchday": worst["matchday"], "rating": worst["rating"]},
+        "trend": trend,
+    }
+
+
+# ---------------------------------------------------------------------------
 # /inspect/search
 # ---------------------------------------------------------------------------
 
