@@ -122,6 +122,8 @@ async def import_historic_csv(
     # Pulisce eventuali righe precedentemente importate con formati non canonici
     old_formats = [v for v in _season_variants(season) if v != season]
 
+    already_present = 0
+
     with get_db() as conn:
         for old_fmt in old_formats:
             conn.execute("DELETE FROM player_historic WHERE season = ?", (old_fmt,))
@@ -156,12 +158,25 @@ async def import_historic_csv(
             )
             if cur.rowcount:
                 ratings_inserted += 1
+            else:
+                already_present += 1
+
+    if ratings_inserted == 0 and already_present > 0:
+        message = (
+            f"Stagione {season} già presente nel DB ({already_present} voti esistenti, nessuna modifica). "
+            "Usa /admin/historic/flush?season=... per reimportare da zero."
+        )
+    else:
+        message = f"Importazione completata — {ratings_inserted} voti inseriti per stagione {season}"
+        if already_present:
+            message += f" ({already_present} già presenti, saltati)"
 
     return {
         "season": season,
         "rows_processed": len(rows),
         "ratings_imported": ratings_inserted,
-        "message": f"Importazione completata — {ratings_inserted} voti inseriti per stagione {season}",
+        "already_present": already_present,
+        "message": message,
     }
 
 
