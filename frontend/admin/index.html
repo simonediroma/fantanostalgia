@@ -680,6 +680,7 @@ document.getElementById('uploadListoneBtn').addEventListener('click', async () =
   try {
     const res = await apiUploadListone(currentLeagueId, file);
     const br = res.by_role || {};
+    const created = res.teams_created || [];
     document.getElementById('listonPreview').innerHTML = `
       <div class="panel mt-md">
         <h4>Riepilogo importazione</h4>
@@ -687,12 +688,24 @@ document.getElementById('uploadListoneBtn').addEventListener('click', async () =
           Importati: <strong>${res.imported}</strong> giocatori &nbsp;—&nbsp;
           P: ${br.P || 0} &nbsp; D: ${br.D || 0} &nbsp; C: ${br.C || 0} &nbsp; A: ${br.A || 0}
         </p>
+        ${created.length ? `<p style="color:var(--accent);font-size:0.82rem;margin-top:0.5rem">
+          Squadre create automaticamente (${created.length}): ${created.map(esc).join(', ')}<br>
+          <span style="color:var(--muted)">Clicca "Modifica" su ogni squadra per impostare il nome del manager.</span>
+        </p>` : ''}
         ${res.warnings?.length ? `<p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">${res.warnings.map(esc).join('<br>')}</p>` : ''}
       </div>`;
+
+    // Reload manager list (teams may have been auto-created)
+    leagueManagers = await apiListManagers(currentLeagueId).catch(() => []);
+    renderManagerList();
+
     const players = await apiListPlayers(currentLeagueId);
     renderAssignTable(players);
     document.getElementById('assignPanel').style.display = 'block';
-    showMsg('listonMsg', `Listone caricato: ${res.imported} giocatori.`);
+    const msg = created.length
+      ? `Listone caricato: ${res.imported} giocatori, ${created.length} squadre create automaticamente.`
+      : `Listone caricato: ${res.imported} giocatori.`;
+    showMsg('listonMsg', msg);
   } catch (err) {
     showMsg('listonMsg', err.message, true);
   }
