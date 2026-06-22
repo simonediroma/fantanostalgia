@@ -88,11 +88,18 @@ def _player_id_from_href(href: str) -> int | None:
 def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
     """
     Scarica /rose/{year}/ e restituisce gli URL di tutte le squadre.
-    Le squadre sono elencate come icone con <a href="/rose/{year}/{id}/">.
+    Segue eventuali redirect (es. /rose/1999/ → /rose/1999/1633/) e cerca
+    i link squadra come sotto-percorsi dell'URL finale.
     """
-    soup = _fetch(session, f"{BASE}/rose/{year}/")
+    time.sleep(1.5)
+    resp = session.get(f"{BASE}/rose/{year}/", timeout=30)
+    resp.raise_for_status()
+    resp.encoding = "utf-8"
+    final_path = resp.url.replace(BASE, "").rstrip("/") + "/"
+    soup = BeautifulSoup(resp.text, "lxml")
+    pattern = re.compile(re.escape(final_path) + r"\d+/")
     urls: list[str] = []
-    for a in soup.find_all("a", href=re.compile(r"/rose/\d+/\d+/")):
+    for a in soup.find_all("a", href=pattern):
         href = a.get("href", "")
         url = href if href.startswith("http") else BASE + href
         if url not in urls:
