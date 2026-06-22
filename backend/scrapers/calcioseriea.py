@@ -107,8 +107,12 @@ def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
         return resp.url, BeautifulSoup(resp.text, "lxml")
 
     def _extract_urls(final_url: str, soup: BeautifulSoup) -> list[str]:
-        final_path = final_url.replace(BASE, "").rstrip("/") + "/"
-        pattern = re.compile(re.escape(final_path) + r"\d+/")
+        # Estrai l'anno dall'URL finale (può essere diverso da `year` se c'è redirect).
+        # I link squadra sono FRATELLI dell'URL finale, non figli:
+        #   final_url = /rose/1999/1163/  →  pattern = /rose/1999/\d+/
+        m = re.search(r"/rose/(\d+)/", final_url)
+        actual_year = m.group(1) if m else str(year)
+        pattern = re.compile(rf"/rose/{actual_year}/\d+/")
         found: list[str] = []
         for a in soup.find_all("a", href=pattern):
             href = a.get("href", "")
