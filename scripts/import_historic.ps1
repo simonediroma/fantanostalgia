@@ -15,8 +15,8 @@
     Password admin (default: changeme).
 
 .EXAMPLE
-    .\import_historic.ps1 -File ".\out_1999-2000.csv"
-    .\import_historic.ps1 -File ".\out.csv" -Password "miapassword"
+    .\scripts\import_historic.ps1 -File ".\out_1999-2000.csv"
+    .\scripts\import_historic.ps1 -File ".\out.csv" -Password "miapassword"
 #>
 
 param(
@@ -32,7 +32,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Verifica che il file esista
 if (-not (Test-Path $File)) {
     Write-Error "File non trovato: $File"
     exit 1
@@ -41,11 +40,11 @@ if (-not (Test-Path $File)) {
 $filePath = Resolve-Path $File
 $fileName = [System.IO.Path]::GetFileName($filePath)
 
-Write-Host "File: $filePath"
+Write-Host "File:   $filePath"
 Write-Host "Server: $Url"
 Write-Host ""
 
-# 1. Login
+# 1. Login con WebRequestSession per raccogliere il cookie
 Write-Host "Login in corso..."
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 Invoke-RestMethod -Method POST `
@@ -55,27 +54,37 @@ Invoke-RestMethod -Method POST `
     -SessionVariable session | Out-Null
 Write-Host "Login OK."
 
-# 2. Upload CSV con multipart/form-data
+# Estrai il cookie di sessione dalla WebRequestSession
+$cookieHeader = ""
+foreach ($cookie in $session.Cookies.GetCookies($Url)) {
+    $cookieHeader += "$($cookie.Name)=$($cookie.Value); "
+}
+
+# 2. Upload CSV con HttpClient (gestisce multipart correttamente)
 Write-Host "Upload CSV in corso..."
 
+Add-Type -AssemblyName System.Net.Http
+
+$httpClient = New-Object System.Net.Http.HttpClient
+$httpClient.DefaultRequestHeaders.Add("Cookie", $cookieHeader.TrimEnd("; "))
+
 $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-$boundary = [System.Guid]::NewGuid().ToString()
-$CRLF = "`r`n"
+$fileContent = New-Object System.Net.Http.ByteArrayContent(,$fileBytes)
+$fileContent.Headers.ContentType = `
+    [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("text/csv")
 
-$bodyLines = (
-    "--$boundary",
-    "Content-Disposition: form-data; name=`"file`"; filename=`"$fileName`"",
-    "Content-Type: text/csv",
-    "",
-    [System.Text.Encoding]::UTF8.GetString($fileBytes),
-    "--$boundary--"
-) -join $CRLF
+$multipart = New-Object System.Net.Http.MultipartFormDataContent
+$multipart.Add($fileContent, "file", $fileName)
 
-$result = Invoke-RestMethod -Method POST `
-    -Uri "$Url/admin/historic/import" `
-    -WebSession $session `
-    -ContentType "multipart/form-data; boundary=$boundary" `
-    -Body $bodyLines
+$response = $httpClient.PostAsync("$Url/admin/historic/import", $multipart).GetAwaiter().GetResult()
+$responseBody = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+
+if (-not $response.IsSuccessStatusCode) {
+    Write-Error "Errore server ($([int]$response.StatusCode)): $responseBody"
+    exit 1
+}
+
+$result = $responseBody | ConvertFrom-Json
 
 Write-Host ""
 Write-Host "Importazione completata!"
