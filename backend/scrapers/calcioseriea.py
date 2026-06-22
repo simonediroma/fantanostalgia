@@ -92,7 +92,7 @@ def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
     """
     soup = _fetch(session, f"{BASE}/rose/{year}/")
     urls: list[str] = []
-    for a in soup.find_all("a", href=re.compile(rf"/rose/{year}/\d+/")):
+    for a in soup.find_all("a", href=re.compile(r"/rose/\d+/\d+/")):
         href = a.get("href", "")
         url = href if href.startswith("http") else BASE + href
         if url not in urls:
