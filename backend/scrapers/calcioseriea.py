@@ -95,22 +95,38 @@ def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
     i link squadra come sotto-percorsi dell'URL finale.
     """
     index_url = f"{BASE}/rose/{year}/"
-    log.info("  GET rose index: %s", index_url)
-    time.sleep(1.5)
-    resp = session.get(index_url, timeout=30)
-    resp.raise_for_status()
-    resp.encoding = "utf-8"
-    if resp.url != index_url:
-        log.info("  → redirect: %s", resp.url)
-    final_path = resp.url.replace(BASE, "").rstrip("/") + "/"
-    soup = BeautifulSoup(resp.text, "lxml")
-    pattern = re.compile(re.escape(final_path) + r"\d+/")
-    urls: list[str] = []
-    for a in soup.find_all("a", href=pattern):
-        href = a.get("href", "")
-        url = href if href.startswith("http") else BASE + href
-        if url not in urls:
-            urls.append(url)
+
+    def _fetch_rose_index() -> tuple[str, BeautifulSoup]:
+        log.info("  GET rose index: %s", index_url)
+        time.sleep(1.5)
+        resp = session.get(index_url, timeout=30)
+        resp.raise_for_status()
+        resp.encoding = "utf-8"
+        if resp.url != index_url:
+            log.info("  → redirect: %s", resp.url)
+        return resp.url, BeautifulSoup(resp.text, "lxml")
+
+    def _extract_urls(final_url: str, soup: BeautifulSoup) -> list[str]:
+        final_path = final_url.replace(BASE, "").rstrip("/") + "/"
+        pattern = re.compile(re.escape(final_path) + r"\d+/")
+        found: list[str] = []
+        for a in soup.find_all("a", href=pattern):
+            href = a.get("href", "")
+            url = href if href.startswith("http") else BASE + href
+            if url not in found:
+                found.append(url)
+        return found
+
+    final_url, soup = _fetch_rose_index()
+    urls = _extract_urls(final_url, soup)
+
+    if not urls:
+        # Prima risposta vuota (cookie gate): il server ha impostato la sessione.
+        # Riprova: questa volta dovrebbe arrivare il 302 con la pagina corretta.
+        log.info("  Pagina rose vuota (cookie gate), retry...")
+        final_url, soup = _fetch_rose_index()
+        urls = _extract_urls(final_url, soup)
+
     log.info("  %d URL squadre trovate.", len(urls))
     for u in urls:
         log.info("    %s", u)
