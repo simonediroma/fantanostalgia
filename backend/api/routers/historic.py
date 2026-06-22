@@ -54,6 +54,25 @@ def normalize_season(season: str) -> str:
 _normalize_season = normalize_season
 
 
+def _season_variants(canonical: str) -> list[str]:
+    """Restituisce tutte le rappresentazioni possibili di una stagione.
+
+    Es. "1999/00" → ["1999/00", "1999-00", "1999-2000"]
+        "2016/17" → ["2016/17", "2016-17", "2016-2017"]
+    """
+    parts = canonical.split("/")
+    if len(parts) != 2:
+        return [canonical]
+    y1 = int(parts[0])
+    yy = parts[1]          # es. "00" o "17"
+    y2 = y1 + 1            # anno intero successivo: 2000 o 2017
+    return [
+        canonical,                          # YYYY/YY
+        f"{y1}-{yy}",                       # YYYY-YY
+        f"{y1}-{y2:04d}",                   # YYYY-YYYY (corretto per cambio secolo)
+    ]
+
+
 def _safe_exec(conn, sql: str, params=None):
     """Esegue SQL ignorando l'errore se la tabella non esiste (schema vecchio)."""
     try:
@@ -131,15 +150,7 @@ async def import_historic_csv(
     season = rows[0]["season"]
 
     # Pulisce eventuali righe precedentemente importate con formati non canonici
-    raw_season_parts = season.split("/")
-    old_formats = []
-    if len(raw_season_parts) == 2 and len(raw_season_parts[0]) == 4 and len(raw_season_parts[1]) == 2:
-        yy = raw_season_parts[1]
-        y1 = raw_season_parts[0]
-        old_formats = [
-            f"{y1}-{y1[:2]}{yy}",   # YYYY-YYYY
-            f"{y1}-{yy}",            # YYYY-YY
-        ]
+    old_formats = [v for v in _season_variants(season) if v != season]
 
     with get_db() as conn:
         for old_fmt in old_formats:
@@ -283,11 +294,7 @@ def flush_historic_db(
 
             if season:
                 canonical = normalize_season(season)
-                parts = canonical.split("/")
-                variants = [canonical]
-                if len(parts) == 2:
-                    variants.append(f"{parts[0]}-{parts[1]}")
-                    variants.append(f"{parts[0]}-{parts[0][:2]}{parts[1]}")
+                variants = _season_variants(canonical)
 
                 placeholders = ",".join("?" * len(variants))
                 ids = [
