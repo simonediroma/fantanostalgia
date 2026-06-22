@@ -609,6 +609,15 @@ def _collect_season(
 # Entry points
 # ---------------------------------------------------------------------------
 
+def _normalize_season(season: str) -> str:
+    """Convert YYYY-YYYY (scraper CLI format) to YYYY/YY (app format)."""
+    if "-" in season and "/" not in season:
+        parts = season.split("-")
+        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
+            return f"{parts[0]}/{parts[1][2:]}"
+    return season
+
+
 def scrape_season(
     season: str,
     *,
@@ -617,6 +626,8 @@ def scrape_season(
 ) -> None:
     if weights is None:
         weights = RatingWeights()
+
+    season = _normalize_season(season)
 
     if ENV != "development":
         _download_db_from_gcs()
@@ -650,6 +661,7 @@ def upload_to_server(
     weights: RatingWeights | None = None,
 ) -> None:
     """Scrapa la stagione e invia i dati direttamente all'endpoint di import."""
+    season = _normalize_season(season)
     records = _collect_season(season, weights or RatingWeights())
     log.info("Totale record raccolti: %d. Upload su %s...", len(records), server_url)
 
@@ -690,6 +702,7 @@ def export_csv(
     output_path: str,
     weights: RatingWeights | None = None,
 ) -> None:
+    season = _normalize_season(season)
     records = _collect_season(season, weights or RatingWeights())
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)

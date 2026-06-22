@@ -25,6 +25,15 @@ _REQUIRED_FIELDS = {
 _VALID_ROLES = {"P", "D", "C", "A"}
 
 
+def _normalize_season(season: str) -> str:
+    """Convert YYYY-YYYY (scraper format) to YYYY/YY (app format)."""
+    if "-" in season and "/" not in season:
+        parts = season.split("-")
+        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 4:
+            return f"{parts[0]}/{parts[1][2:]}"
+    return season
+
+
 def _parse_csv(content: bytes) -> list[dict]:
     text = content.decode("utf-8")
     reader = csv.DictReader(io.StringIO(text))
@@ -43,7 +52,7 @@ def _parse_csv(content: bytes) -> list[dict]:
                 "player_name": row["player_name"].strip(),
                 "role": role,
                 "team": row["team"].strip(),
-                "season": row["season"].strip(),
+                "season": _normalize_season(row["season"].strip()),
                 "matchday": int(row["matchday"]),
                 "rating": float(row["rating"]),
                 "goals": int(row["goals"]),
@@ -88,8 +97,21 @@ async def import_historic_csv(
         raise HTTPException(400, "CSV vuoto")
 
     ratings_inserted = 0
+    season = rows[0]["season"]
+
+    # Build the raw (un-normalized) season string so we can delete any rows
+    # that were previously imported with the old YYYY-YYYY format.
+    raw_season_parts = season.split("/")
+    old_format_season = None
+    if len(raw_season_parts) == 2 and len(raw_season_parts[0]) == 4 and len(raw_season_parts[1]) == 2:
+        old_format_season = f"{raw_season_parts[0]}-{raw_season_parts[0][:2]}{raw_season_parts[1]}"
 
     with get_db() as conn:
+        if old_format_season:
+            conn.execute(
+                "DELETE FROM player_historic WHERE season = ?", (old_format_season,)
+            )
+
         for row in rows:
             pid = _upsert_player(
                 conn,
@@ -121,7 +143,6 @@ async def import_historic_csv(
             if cur.rowcount:
                 ratings_inserted += 1
 
-    season = rows[0]["season"]
     return {
         "season": season,
         "rows_processed": len(rows),
