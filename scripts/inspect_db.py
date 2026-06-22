@@ -154,7 +154,21 @@ def cmd_player(args) -> None:
 def cmd_trend(args) -> None:
     """Andamento di un giocatore con media mobile e indicatore di forma."""
     params = {"window": args.window}
-    data = _get(f"/inspect/players/{args.player_id}/trend", params)
+    if args.player_id:
+        data = _get(f"/inspect/players/{args.player_id}/trend", params)
+    else:
+        if not args.season:
+            print("[ERRORE] --season è obbligatorio quando si usa --name (es. --season 2016-17)", file=sys.stderr)
+            sys.exit(1)
+        params["name"] = args.name
+        params["season"] = args.season
+        data = _get("/inspect/trend", params)
+
+    if data.get("ambiguous"):
+        print(f"\n  Trovati {len(data['candidates'])} giocatori con nome '{data['query']}' in {data['season']}:\n")
+        _table(data["candidates"])
+        print(f"\n  Usa: python scripts/inspect_db.py trend --id <id>  oppure un nome più preciso.")
+        return
     p = data["player"]
 
     _section(f"Andamento: {p['name']}  ({p['role']}) — {p['team']} — {p['season']}")
@@ -256,8 +270,9 @@ esempi:
   python scripts/inspect_db.py matchday 2016-17 10 --role P
   python scripts/inspect_db.py matchday 2016-17 10 --min-rating 7
   python scripts/inspect_db.py player 42
-  python scripts/inspect_db.py trend 42
-  python scripts/inspect_db.py trend 42 --window 3
+  python scripts/inspect_db.py trend --name Dybala --season 2016-17
+  python scripts/inspect_db.py trend --name Dybala --season 2016-17 --window 3
+  python scripts/inspect_db.py trend --id 42
   python scripts/inspect_db.py search Totti
   python scripts/inspect_db.py search Dybala --season 2016-17
   python scripts/inspect_db.py teams 2016-17
@@ -285,7 +300,10 @@ variabili d'ambiente:
     pd.add_argument("player_id", type=int, help="ID del giocatore (da 'players' o 'search')")
 
     tr = sub.add_parser("trend", help="Andamento di un giocatore con media mobile")
-    tr.add_argument("player_id", type=int, help="ID del giocatore")
+    tr_group = tr.add_mutually_exclusive_group(required=True)
+    tr_group.add_argument("--name", help="Nome (parziale) del giocatore")
+    tr_group.add_argument("--id", dest="player_id", type=int, help="ID del giocatore")
+    tr.add_argument("--season", help="Stagione YYYY-YY (obbligatoria con --name)")
     tr.add_argument("--window", type=int, default=5, help="Ampiezza media mobile (default 5)")
 
     md = sub.add_parser("matchday", help="Voti di una giornata")

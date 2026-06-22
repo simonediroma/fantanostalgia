@@ -358,23 +358,10 @@ def season_teams(season: str):
 
 
 # ---------------------------------------------------------------------------
-# /inspect/players/{player_id}/trend
+# Logica condivisa trend
 # ---------------------------------------------------------------------------
 
-@router.get("/players/{player_id}/trend")
-def player_trend(
-    player_id: int,
-    window: int = Query(5, ge=2, le=10, description="Ampiezza della media mobile (default 5)"),
-):
-    """
-    Andamento di un giocatore nel corso della stagione.
-
-    Restituisce per ogni giornata:
-    - voto della giornata
-    - media mobile sulle ultime `window` giornate
-    - delta rispetto alla giornata precedente
-    - forma (media delle ultime `window` giornate vs media stagionale)
-    """
+def _compute_trend(player_id: int, window: int) -> dict:
     with get_db() as conn:
         player = conn.execute(
             "SELECT * FROM player_historic WHERE id = ?", (player_id,)
@@ -394,12 +381,7 @@ def player_trend(
         ).fetchall()
 
     if not raw:
-        return {
-            "player": dict(player),
-            "window": window,
-            "season_avg": None,
-            "trend": [],
-        }
+        return {"player": dict(player), "window": window, "season_avg": None, "trend": []}
 
     ratings = [r["rating"] for r in raw]
     season_avg = round(sum(ratings) / len(ratings), 2)
@@ -409,14 +391,12 @@ def player_trend(
         window_ratings = ratings[max(0, i - window + 1): i + 1]
         moving_avg = round(sum(window_ratings) / len(window_ratings), 2)
         delta = round(r["rating"] - raw[i - 1]["rating"], 2) if i > 0 else None
-        forma = round(moving_avg - season_avg, 2)
-
         trend.append({
             "matchday": r["matchday"],
             "rating": r["rating"],
             "moving_avg": moving_avg,
             "delta": delta,
-            "forma": forma,
+            "forma": round(moving_avg - season_avg, 2),
             "goals": r["goals"],
             "assists": r["assists"],
             "yellow_cards": r["yellow_cards"],
@@ -442,6 +422,52 @@ def player_trend(
         "worst_matchday": {"matchday": worst["matchday"], "rating": worst["rating"]},
         "trend": trend,
     }
+
+
+# ---------------------------------------------------------------------------
+# /inspect/players/{player_id}/trend
+# /inspect/trend?name=...&season=...
+# ---------------------------------------------------------------------------
+
+@router.get("/trend")
+def player_trend_by_name(
+    name: str = Query(..., min_length=2, description="Nome (parziale) del giocatore"),
+    season: str = Query(..., description="Stagione in formato YYYY-YY (es. 2016-17)"),
+    window: int = Query(5, ge=2, le=10, description="Ampiezza della media mobile (default 5)"),
+):
+    """
+    Andamento di un giocatore cercato per nome e stagione.
+    Se il nome matcha più giocatori restituisce la lista di candidati invece del trend.
+    """
+    db_season = _season_to_db(season)
+    with get_db() as conn:
+        matches = conn.execute(
+            "SELECT id, name, role, team FROM player_historic WHERE name LIKE ? AND season = ? ORDER BY name",
+            (f"%{name}%", db_season),
+        ).fetchall()
+
+    if not matches:
+        raise HTTPException(404, f"Nessun giocatore trovato per nome '{name}' nella stagione {db_season}")
+
+    if len(matches) > 1:
+        return {
+            "ambiguous": True,
+            "query": name,
+            "season": db_season,
+            "candidates": [dict(m) for m in matches],
+            "hint": "Usa un nome più preciso oppure /inspect/players/{player_id}/trend con l'id esatto",
+        }
+
+    return _compute_trend(matches[0]["id"], window)
+
+
+@router.get("/players/{player_id}/trend")
+def player_trend(
+    player_id: int,
+    window: int = Query(5, ge=2, le=10, description="Ampiezza della media mobile (default 5)"),
+):
+    """Andamento di un giocatore per id. Vedi anche GET /inspect/trend?name=&season=."""
+    return _compute_trend(player_id, window)
 
 
 # ---------------------------------------------------------------------------
