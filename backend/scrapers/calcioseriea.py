@@ -115,7 +115,7 @@ def _get_team_rose_urls(session: requests.Session, year: int) -> list[str]:
         pattern = re.compile(rf"/rose/{actual_year}/\d+/")
         found: list[str] = []
         for a in soup.find_all("a", href=pattern):
-            href = a.get("href", "")
+            href = a.get("href", "").split("#")[0]
             url = href if href.startswith("http") else BASE + href
             if url not in found:
                 found.append(url)
