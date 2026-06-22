@@ -216,6 +216,8 @@ async def upload_listone(
     for r in rows:
         by_role[r["role"]] += 1
 
+    teams_created: list[str] = []
+
     with get_db() as conn:
         _require_league(conn, league_id)
 
@@ -226,16 +228,23 @@ async def upload_listone(
         fanta_team_map: dict[str, int] = {
             m["team_name"].strip().lower(): m["id"] for m in managers
         }
-        missing_teams: set[str] = set()
 
         conn.execute("DELETE FROM player_current WHERE league_id = ?", (league_id,))
         for r in rows:
             manager_id = None
             fanta_team = r.get("fanta_team")
             if fanta_team:
-                manager_id = fanta_team_map.get(fanta_team.strip().lower())
+                key = fanta_team.strip().lower()
+                manager_id = fanta_team_map.get(key)
                 if manager_id is None:
-                    missing_teams.add(fanta_team.strip())
+                    # Auto-create team from Excel; president can rename the manager later
+                    cur = conn.execute(
+                        "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+                        (league_id, fanta_team.strip(), fanta_team.strip()),
+                    )
+                    manager_id = cur.lastrowid
+                    fanta_team_map[key] = manager_id
+                    teams_created.append(fanta_team.strip())
             conn.execute(
                 "INSERT INTO player_current"
                 " (league_id, name, role, team, quotation, starts_current_season, manager_id)"
@@ -243,10 +252,12 @@ async def upload_listone(
                 (league_id, r["name"], r["role"], r["team"], r["quota"], r["starts"], manager_id),
             )
 
-        for t in sorted(missing_teams):
-            warnings.append(f"Squadra '{t}' non trovata tra i manager — giocatori non assegnati")
-
-    return {"imported": len(rows), "by_role": by_role, "warnings": warnings}
+    return {
+        "imported": len(rows),
+        "by_role": by_role,
+        "warnings": warnings,
+        "teams_created": sorted(teams_created),
+    }
 
 
 class AssignItem(BaseModel):
