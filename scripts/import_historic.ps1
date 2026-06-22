@@ -55,10 +55,16 @@ Invoke-RestMethod -Method POST `
 Write-Host "Login OK."
 
 # Estrai il cookie di sessione dalla WebRequestSession
+$uri = [System.Uri]$Url
 $cookieHeader = ""
-foreach ($cookie in $session.Cookies.GetCookies($Url)) {
+foreach ($cookie in $session.Cookies.GetCookies($uri)) {
     $cookieHeader += "$($cookie.Name)=$($cookie.Value); "
 }
+if (-not $cookieHeader) {
+    Write-Error "Nessun cookie ricevuto dopo il login. Verifica credenziali e URL."
+    exit 1
+}
+Write-Host "Cookie sessione acquisito."
 
 # 2. Upload CSV con HttpClient (gestisce multipart correttamente)
 Write-Host "Upload CSV in corso..."
