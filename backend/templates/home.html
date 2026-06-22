@@ -1,30 +1,409 @@
 {% extends "base.html" %}
 
-{% block title %}FantaNostalgia{% endblock %}
+{% block title %}FantaNostalgia — La storia incontra il presente{% endblock %}
 {% block og_title %}FantaNostalgia{% endblock %}
-{% block og_description %}Le leghe FantaNostalgia attive — la storia incontra il presente{% endblock %}
+{% block og_description %}Il fantacalcio che unisce i campioni di ieri ai giocatori di oggi.{% endblock %}
+
+{% block head %}
+<style>
+/* ── Homepage layout ─────────────────────────────────────── */
+.hero {
+  text-align: center;
+  padding: 2.5rem 0 2rem;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 2rem;
+}
+.hero-title {
+  font-family: var(--font-pixel);
+  font-size: clamp(1rem, 4vw, 1.6rem);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  text-shadow: 3px 3px 0 #000;
+}
+.hero-tagline {
+  font-family: var(--font-pixel);
+  font-size: clamp(0.5rem, 1.5vw, 0.7rem);
+  color: var(--accent2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.25rem;
+}
+.hero-desc {
+  color: var(--text);
+  font-size: 0.95rem;
+  max-width: 620px;
+  margin: 0 auto 0;
+  line-height: 1.7;
+}
+
+/* ── Two-col grid ─────────────────────────────────────────── */
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 700px) {
+  .home-grid { grid-template-columns: 1fr; }
+}
+
+/* ── How it works ─────────────────────────────────────────── */
+.how-section h2 { margin-bottom: 1rem; }
+
+.step-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.step {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  box-shadow: 3px 3px 0 #000;
+  padding: 0.85rem 1rem;
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+.step-num {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  color: var(--accent);
+  min-width: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.step-body strong {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  color: var(--accent2);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+}
+.step-body span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* ── Auth box ─────────────────────────────────────────────── */
+.auth-section h2 { margin-bottom: 1rem; }
+
+.auth-card {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  box-shadow: 4px 4px 0 #000;
+  padding: 1.25rem;
+}
+
+.auth-card .tabs {
+  margin-bottom: 1.25rem;
+}
+
+.auth-card label {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 0.45rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+  margin-top: 0.75rem;
+}
+.auth-card label:first-of-type { margin-top: 0; }
+
+.auth-card input[type="text"],
+.auth-card input[type="email"],
+.auth-card input[type="password"] {
+  display: block;
+  width: 100%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: 0.9rem;
+  padding: 0.4rem 0.6rem;
+  outline: none;
+}
+.auth-card input:focus { border-color: var(--accent); }
+
+.auth-card button[type="submit"] {
+  margin-top: 1rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-msg {
+  font-size: 0.78rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid;
+  margin-bottom: 0.75rem;
+  display: none;
+}
+.auth-msg.ok  { color: var(--green); border-color: var(--green); background: rgba(0,255,85,0.07); }
+.auth-msg.err { color: var(--red);   border-color: var(--red);   background: rgba(255,17,68,0.07); }
+.auth-msg.show { display: block; }
+
+.auth-hint {
+  margin-top: 0.85rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.auth-hint a { color: var(--accent2); text-decoration: none; }
+.auth-hint a:hover { color: var(--accent); }
+
+/* ── Leagues section ──────────────────────────────────────── */
+.leagues-section { margin-top: 0.5rem; }
+.leagues-section h2 { margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block nav %}
+<a href="/coach/">Area Allenatori</a>
+<a href="/admin/">Admin</a>
+{% endblock %}
 
 {% block content %}
-<h1>FantaNostalgia</h1>
-<p class="subtitle">Le leghe attive</p>
 
-{% if leagues %}
-<div class="league-list">
-  {% for league in leagues %}
-  <div class="league-card">
-    <h3>{{ league.name }}</h3>
-    <div class="seasons">
-      Stagione corrente: {{ league.season_current }} &nbsp;·&nbsp;
-      Stagione storica: {{ league.season_historic }}
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-title">⚽ FantaNostalgia</div>
+  <div class="hero-tagline">La storia incontra il presente</div>
+  <p class="hero-desc">
+    Il fantacalcio che abbina i tuoi calciatori attuali ai campioni di ieri.
+    Ogni stagione storica rivive attraverso il tuo team — stessa rosa, voti d'epoca.
+  </p>
+</section>
+
+<!-- ── Come funziona + Login/Register ──────────────────────── -->
+<div class="home-grid">
+
+  <!-- Come funziona -->
+  <section class="how-section">
+    <h2>Come funziona</h2>
+    <div class="step-list">
+      <div class="step">
+        <span class="step-num">01</span>
+        <div class="step-body">
+          <strong>Il Draft</strong>
+          <span>Il presidente crea la lega e ogni allenatore acquista all'asta i propri giocatori attuali.</span>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <div class="step-body">
+          <strong>L'Alter Ego</strong>
+          <span>L'algoritmo abbina ogni giocatore attuale a un campione storico della stagione scelta (es. Serie A 2006-07).</span>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <div class="step-body">
+          <strong>La Giornata</strong>
+          <span>Prima di ogni turno viene sorteggiata una giornata storica. I voti di quel giorno determinano il punteggio.</span>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">04</span>
+        <div class="step-body">
+          <strong>La Classifica</strong>
+          <span>I punti si accumulano stagione dopo stagione. Chi gestirà meglio il legame tra presente e passato?</span>
+        </div>
+      </div>
     </div>
-    <div class="card-actions">
-      <a href="/lega/{{ league.id }}/classifica" class="btn-link">Classifica</a>
-      <a href="/lega/{{ league.id }}/mapping" class="btn-link">Alter Ego</a>
+  </section>
+
+  <!-- Login / Register -->
+  <section class="auth-section">
+    <h2>Area Allenatori</h2>
+    <div class="auth-card">
+      <div id="authMsg" class="auth-msg"></div>
+
+      <div class="tabs" id="authTabs">
+        <button class="tab-btn active" data-tab="login">Accedi</button>
+        <button class="tab-btn" data-tab="register">Registrati</button>
+      </div>
+
+      <!-- Login -->
+      <div class="tab-panel active" id="tab-login">
+        <form id="loginForm" novalidate>
+          <label>Email</label>
+          <input type="email" id="loginEmail" required autocomplete="email" placeholder="allenatore@esempio.it">
+          <label>Password</label>
+          <input type="password" id="loginPass" required autocomplete="current-password" placeholder="••••••••">
+          <button type="submit">Accedi</button>
+        </form>
+      </div>
+
+      <!-- Register -->
+      <div class="tab-panel" id="tab-register">
+        <div id="noTokenMsg" class="auth-hint" style="display:none">
+          La registrazione richiede un <strong style="color:var(--accent)">link di invito</strong>
+          ricevuto dal presidente della tua lega.<br><br>
+          Se l'hai ricevuto, aprilo direttamente dal browser.
+        </div>
+        <form id="registerForm" novalidate style="display:none">
+          <input type="hidden" id="regToken">
+          <label>Nome</label>
+          <input type="text" id="regName" required placeholder="Il tuo nome">
+          <label>Email</label>
+          <input type="email" id="regEmail" required autocomplete="email" placeholder="allenatore@esempio.it">
+          <label>Password</label>
+          <input type="password" id="regPass" required autocomplete="new-password" placeholder="Scegli una password">
+          <button type="submit">Registrati e unisciti</button>
+        </form>
+      </div>
+
+      <div class="auth-hint">
+        <a href="/coach/">Vai all'area allenatori →</a>
+      </div>
     </div>
-  </div>
-  {% endfor %}
+  </section>
+
 </div>
-{% else %}
-<div class="empty">Nessuna lega disponibile.</div>
+
+<!-- ── Leghe attive ──────────────────────────────────────────── -->
+{% if leagues %}
+<section class="leagues-section">
+  <h2>Leghe attive</h2>
+  <div class="league-list">
+    {% for league in leagues %}
+    <div class="league-card">
+      <h3>{{ league.name }}</h3>
+      <div class="seasons">
+        Stagione corrente: {{ league.season_current }} &nbsp;·&nbsp;
+        Stagione storica: {{ league.season_historic }}
+      </div>
+      <div class="card-actions">
+        <a href="/lega/{{ league.id }}/classifica" class="btn-link">Classifica</a>
+        <a href="/lega/{{ league.id }}/mapping" class="btn-link">Alter Ego</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
 {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+'use strict';
+
+(function () {
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function showMsg(text, type) {
+    const el = document.getElementById('authMsg');
+    el.textContent = text;
+    el.className = 'auth-msg show ' + type;
+  }
+
+  function clearMsg() {
+    const el = document.getElementById('authMsg');
+    el.className = 'auth-msg';
+  }
+
+  // Parse invite token from URL
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+
+  function setupRegisterTab() {
+    const form = document.getElementById('registerForm');
+    const hint = document.getElementById('noTokenMsg');
+    if (token) {
+      document.getElementById('regToken').value = token;
+      form.style.display = 'block';
+      hint.style.display = 'none';
+    } else {
+      form.style.display = 'none';
+      hint.style.display = 'block';
+    }
+  }
+
+  // If token in URL, switch to register tab immediately
+  if (token) {
+    document.querySelector('[data-tab="register"]').click();
+  }
+
+  setupRegisterTab();
+
+  // Tab switching
+  document.querySelectorAll('#authTabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      clearMsg();
+      document.querySelectorAll('#authTabs .tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'register') setupRegisterTab();
+    });
+  });
+
+  // Login
+  document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    clearMsg();
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPass').value;
+    try {
+      const res = await fetch('/auth/user/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showMsg(err.detail || 'Credenziali non valide.', 'err');
+        return;
+      }
+      if (token) {
+        await fetch('/auth/user/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invite_token: token }),
+        });
+      }
+      window.location.href = '/coach/';
+    } catch (_) {
+      showMsg('Errore di rete. Riprova.', 'err');
+    }
+  });
+
+  // Register
+  document.getElementById('registerForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    clearMsg();
+    const name         = document.getElementById('regName').value.trim();
+    const email        = document.getElementById('regEmail').value.trim();
+    const password     = document.getElementById('regPass').value;
+    const invite_token = document.getElementById('regToken').value;
+
+    if (!invite_token) {
+      showMsg('Token invito mancante. Usa il link ricevuto dal presidente.', 'err');
+      return;
+    }
+    try {
+      const res = await fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, invite_token }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMsg(data.detail || 'Errore durante la registrazione.', 'err');
+        return;
+      }
+      showMsg('Registrazione completata! Reindirizzamento…', 'ok');
+      setTimeout(() => { window.location.href = '/coach/'; }, 1200);
+    } catch (_) {
+      showMsg('Errore di rete. Riprova.', 'err');
+    }
+  });
+}());
+</script>
 {% endblock %}
