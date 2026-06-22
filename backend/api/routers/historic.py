@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from backend.api.db import get_db
 from backend.api.routers.auth import get_current_admin
+from backend.utils.season import normalize_season
 
 router = APIRouter(prefix="/admin/historic", tags=["historic"])
 
@@ -29,48 +30,17 @@ _REQUIRED_FIELDS = {
 _VALID_ROLES = {"P", "D", "C", "A"}
 
 
-def normalize_season(season: str) -> str:
-    """Normalizza qualsiasi formato stagione al formato canonico YYYY/YY.
-
-    Accetta:
-        YYYY-YYYY  (es. 2000-2001) → 2000/01
-        YYYY-YY    (es. 2000-01)   → 2000/01
-        YYYY/YY    (es. 2000/01)   → 2000/01  (già corretto, pass-through)
-    """
-    s = season.strip()
-    if "/" in s:
-        return s  # già canonico
-    if "-" in s:
-        parts = s.split("-")
-        if len(parts) == 2 and len(parts[0]) == 4:
-            if len(parts[1]) == 4:
-                return f"{parts[0]}/{parts[1][2:]}"   # YYYY-YYYY → YYYY/YY
-            if len(parts[1]) == 2:
-                return f"{parts[0]}/{parts[1]}"        # YYYY-YY   → YYYY/YY
-    return s
-
-
-# alias privato usato internamente
 _normalize_season = normalize_season
 
 
 def _season_variants(canonical: str) -> list[str]:
-    """Restituisce tutte le rappresentazioni possibili di una stagione.
-
-    Es. "1999/00" → ["1999/00", "1999-00", "1999-2000"]
-        "2016/17" → ["2016/17", "2016-17", "2016-2017"]
-    """
     parts = canonical.split("/")
     if len(parts) != 2:
         return [canonical]
     y1 = int(parts[0])
-    yy = parts[1]          # es. "00" o "17"
-    y2 = y1 + 1            # anno intero successivo: 2000 o 2017
-    return [
-        canonical,                          # YYYY/YY
-        f"{y1}-{yy}",                       # YYYY-YY
-        f"{y1}-{y2:04d}",                   # YYYY-YYYY (corretto per cambio secolo)
-    ]
+    yy = parts[1]
+    y2 = y1 + 1
+    return [canonical, f"{y1}-{yy}", f"{y1}-{y2:04d}"]
 
 
 def _safe_exec(conn, sql: str, params=None):
@@ -79,7 +49,7 @@ def _safe_exec(conn, sql: str, params=None):
         conn.execute(sql, params or [])
     except sqlite3.OperationalError as e:
         if "no such table" in str(e) or "no such column" in str(e):
-            pass  # tabella aggiunta in migrazione successiva, ignorabile
+            pass
         else:
             raise
 
