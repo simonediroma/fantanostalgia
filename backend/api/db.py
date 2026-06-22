@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import tempfile
+import time
 from contextlib import contextmanager
 
 from dotenv import load_dotenv
@@ -13,6 +14,8 @@ GCS_BLOB = "fantanostalgia.db"
 DB_LOCAL_PATH = os.getenv("DB_LOCAL_PATH", "fantanostalgia.db")
 
 _tmp_db_path: str | None = None
+_last_gcs_download: float = 0.0
+_GCS_CACHE_TTL = 30.0  # seconds before re-downloading from GCS
 
 
 def _get_db_path() -> str:
@@ -34,15 +37,30 @@ def _gcs_blob():
 
 def _download_db_from_gcs() -> bool:
     """Returns True if the blob existed and was downloaded, False otherwise."""
+    global _last_gcs_download
     blob = _gcs_blob()
     if not blob.exists():
         return False
     blob.download_to_filename(_get_db_path())
+    _last_gcs_download = time.monotonic()
     return True
 
 
+def _download_db_from_gcs_if_stale() -> None:
+    """Download from GCS only when the local cache is absent or expired."""
+    db_path = _get_db_path()
+    cache_fresh = (
+        os.path.exists(db_path)
+        and (time.monotonic() - _last_gcs_download) < _GCS_CACHE_TTL
+    )
+    if not cache_fresh:
+        _download_db_from_gcs()
+
+
 def _upload_db_to_gcs() -> None:
+    global _last_gcs_download
     _gcs_blob().upload_from_filename(_get_db_path())
+    _last_gcs_download = time.monotonic()
 
 
 def init_db() -> None:
@@ -141,7 +159,7 @@ def init_db() -> None:
 def get_db():
     if ENV != "development":
         try:
-            _download_db_from_gcs()
+            _download_db_from_gcs_if_stale()
         except Exception:
             pass  # errore di rete: usa file locale
 
