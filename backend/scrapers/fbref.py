@@ -311,6 +311,9 @@ def scrape_season(season: str, *, force: bool = False, weights: RatingWeights | 
     Scarica e salva tutte le statistiche della stagione Serie A indicata.
     season formato: '2023-2024'
     """
+    from backend.api.routers.historic import normalize_season
+    season = normalize_season(season)
+
     if weights is None:
         weights = RatingWeights()
 
@@ -381,6 +384,8 @@ CSV_FIELDS = [
 
 def _collect_season(season: str, weights: RatingWeights) -> list[dict]:
     """Scrapa la stagione e restituisce tutti i record in memoria (senza toccare il DB)."""
+    from backend.api.routers.historic import normalize_season
+    season = normalize_season(season)
     session = _build_session()
     log.info("Carico fixtures stagione %s...", season)
     fixtures = _get_fixtures(session, season)
