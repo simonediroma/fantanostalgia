@@ -1,9 +1,9 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-06-20
-**Branch attivo:** `claude/project-analysis-features-4c2s9i`
-**PR in corso:** nessuna (feature Gran Premi pronta, push effettuato — PR non ancora richiesta)
+**Ultima sessione:** 2026-06-22
+**Branch attivo:** `claude/eager-brahmagupta-8w97ef`
+**PR in corso:** [#63](https://github.com/simonediroma/fantanostalgia/pull/63) — Auto-crea squadre dall'import listone
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
