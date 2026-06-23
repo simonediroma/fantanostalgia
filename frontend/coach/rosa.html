@@ -140,7 +140,7 @@ function render() {
     banner.innerHTML = '';
   }
 
-  if (_data.nostalgia_pool.length === 0) {
+  if (_data.nostalgia_pool.length === 0 && _data.current_players.length === 0) {
     document.getElementById('poolEmpty').style.display = 'block';
     document.getElementById('main').style.display = 'none';
     document.getElementById('lockBar').style.display = 'none';
@@ -163,7 +163,10 @@ function render() {
 
   for (const role of roleOrder) {
     const pool = _data.nostalgia_pool.filter(p => p.role === role);
-    if (pool.length === 0) continue;
+    const unassignedCurrent = _data.current_players.filter(
+      p => p.role === role && !assignedIds.has(p.id)
+    );
+    if (pool.length === 0 && unassignedCurrent.length === 0) continue;
 
     const section = document.createElement('div');
     section.className = 'role-section';
@@ -214,6 +217,27 @@ function render() {
       }
 
       row.innerHTML = nostCard + arrow + rightSide;
+      section.appendChild(row);
+    }
+
+    // Current players not linked to any nostalgia entry
+    for (const cp of unassignedCurrent) {
+      const row = document.createElement('div');
+      row.className = 'player-row';
+
+      const placeholder = `<div class="player-card" style="opacity:0.35;border-style:dashed">
+        <div class="player-name" style="color:var(--muted)">—</div>
+        <div class="player-meta">Nessun nostalgico</div>
+      </div>`;
+
+      const arrow = `<div class="arrow" style="opacity:0.35">→</div>`;
+
+      const currentCard = `<div class="player-card">
+        <div class="player-name">${esc(cp.name)}</div>
+        <div class="player-meta">${esc(cp.team || '')}</div>
+      </div>`;
+
+      row.innerHTML = placeholder + arrow + currentCard;
       section.appendChild(row);
     }
 
