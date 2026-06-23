@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
+from backend.api.routers.standings import _compute_h2h
 from backend.engine.scoring import _formula
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
@@ -100,6 +101,31 @@ def classifica(request: Request, league_id: int):
             (league_id,),
         ).fetchall()
 
+        h2h_matches = conn.execute(
+            """
+            SELECT h.matchday,
+                   mh.name AS home_manager,
+                   ma.name AS away_manager,
+                   ms_h.score_nostalgia AS home_score,
+                   ms_a.score_nostalgia AS away_score
+            FROM h2h_match h
+            JOIN manager mh ON mh.id = h.manager_home_id
+            JOIN manager ma ON ma.id = h.manager_away_id
+            LEFT JOIN matchday_score ms_h
+                ON ms_h.league_id = h.league_id
+               AND ms_h.matchday  = h.matchday
+               AND ms_h.manager_id = h.manager_home_id
+            LEFT JOIN matchday_score ms_a
+                ON ms_a.league_id = h.league_id
+               AND ms_a.matchday  = h.matchday
+               AND ms_a.manager_id = h.manager_away_id
+            WHERE h.league_id = ?
+            ORDER BY h.matchday
+            """,
+            (league_id,),
+        ).fetchall()
+        h2h = _compute_h2h([dict(m) for m in h2h_matches])
+
     all_draws = []
     for r in all_draw_rows:
         drawn_at_fmt = ""
@@ -131,6 +157,7 @@ def classifica(request: Request, league_id: int):
         "last_draw": last_draw,
         "normal": normal,
         "nostalgia": nostalgia,
+        "h2h": h2h,
         "all_draws": all_draws,
     })
 
