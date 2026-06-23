@@ -167,6 +167,28 @@ def calculate_scores(
     if real_ratings:
         for rr in real_ratings:
             real_map[rr["player_name"].strip().lower()] = rr
+    elif real_ratings is None:
+        # Fall back to votes stored in lineup (imported from Formazioni Excel)
+        stored = conn.execute(
+            """
+            SELECT pc.name, l.score_no_bonus, l.score_bonus
+            FROM lineup l
+            JOIN player_current pc ON pc.id = l.player_current_id
+            WHERE l.league_id = ? AND l.matchday = ? AND l.score_bonus IS NOT NULL
+            """,
+            (league_id, matchday_current),
+        ).fetchall()
+        if stored:
+            real_ratings = []  # mark as provided so score_normal is computed
+            for s in stored:
+                real_map[s["name"].strip().lower()] = {
+                    "player_name": s["name"],
+                    "rating": s["score_bonus"],
+                    "goals": 0, "assists": 0, "yellow_cards": 0,
+                    "red_cards": 0, "own_goals": 0,
+                    "penalties_missed": 0, "goals_conceded": 0,
+                    "penalties_saved": 0, "minutes": 90,
+                }
 
     results: list[ManagerScore] = []
     for mgr in managers:

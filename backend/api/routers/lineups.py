@@ -40,6 +40,16 @@ def _safe_int(val, default: int = 0) -> int:
         return default
 
 
+def _safe_float(val) -> float | None:
+    """Return float or None for '-' / empty (SV)."""
+    if val is None or str(val).strip() in ("", "-"):
+        return None
+    try:
+        return float(str(val).replace(",", "."))
+    except (ValueError, TypeError):
+        return None
+
+
 def _is_formazioni_format(all_rows: list) -> bool:
     """Detect the real Formazioni format: match header rows with score in col 5."""
     for row in all_rows:
@@ -99,7 +109,7 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[
         if right_val.lower().startswith("totale"):
             right_done = True
 
-        # Left player
+        # Left player (cols: 0=role, 1=name, 2=empty, 3=voto_no_bonus, 4=voto_con_bonus)
         if not left_done and left_val.lower() in _ROLE_SET:
             player_left = cells[1] if len(cells) > 1 else ""
             if player_left:
@@ -107,9 +117,11 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[
                     "manager": left_team,
                     "player": player_left,
                     "is_starter": 1 if left_starter else 0,
+                    "score_no_bonus": _safe_float(cells[3] if len(cells) > 3 else None),
+                    "score_bonus": _safe_float(cells[4] if len(cells) > 4 else None),
                 })
 
-        # Right player
+        # Right player (cols: 6=role, 7=name, 8=empty, 9=voto_no_bonus, 10=voto_con_bonus)
         if not right_done and right_val.lower() in _ROLE_SET:
             player_right = cells[7] if len(cells) > 7 else ""
             if player_right:
@@ -117,6 +129,8 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[
                     "manager": right_team,
                     "player": player_right,
                     "is_starter": 1 if right_starter else 0,
+                    "score_no_bonus": _safe_float(cells[9] if len(cells) > 9 else None),
+                    "score_bonus": _safe_float(cells[10] if len(cells) > 10 else None),
                 })
 
     return rows_out, [], pairings
@@ -254,12 +268,20 @@ async def upload_lineups(
                 )
                 continue
 
-            to_insert.append((league_id, manager_id, matchday, player_info["id"], row["is_starter"], locked_at))
+            to_insert.append((
+                league_id, manager_id, matchday, player_info["id"],
+                row["is_starter"],
+                row.get("score_no_bonus"),
+                row.get("score_bonus"),
+                locked_at,
+            ))
             managers_imported.add(manager_id)
 
         conn.executemany(
-            "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id, is_starter, locked_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO lineup"
+            " (league_id, manager_id, matchday, player_current_id, is_starter,"
+            "  score_no_bonus, score_bonus, locked_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             to_insert,
         )
 
