@@ -421,9 +421,14 @@ def _parse_player_rows(
             yellow = sum(1 for img in card_imgs if "ammonit" in (img.get("alt") or "").lower())
             red = sum(1 for img in card_imgs if "espuls" in (img.get("alt") or "").lower())
 
-            # Gol per nome normalizzato
+            # Gol per nome normalizzato — fallback su cognome (ultima parola)
+            # perché la sezione marcatori usa solo il cognome (es. "BATISTUTA")
+            # mentre il nome completo nei tabellini è "GABRIEL BATISTUTA".
             name_key = raw_name.upper()
             goals = goals_map.get(name_key, 0)
+            if goals == 0 and goals_map:
+                surname = name_key.split()[-1]
+                goals = goals_map.get(surname, 0)
 
             is_gk = role == "P"
             rating = compute_rating(
