@@ -57,22 +57,11 @@ def _nostalgia_score(
         if hr is None or hr["rating"] is None:
             # Alter ego not available or sv → 6.0
             return 6.0
-        if hr["source"] == "archive":
-            # Archive vote already includes bonus/malus
-            return float(hr["rating"])
-        return _formula(
-            rating=hr["rating"],
-            role=hr["role"],
-            goals=hr["goals"] or 0,
-            assists=hr["assists"] or 0,
-            yellow_cards=hr["yellow_cards"] or 0,
-            red_cards=hr["red_cards"] or 0,
-            own_goals=hr["own_goals"] or 0,
-            penalties_missed=hr["penalties_missed"] or 0,
-            goals_conceded=hr["goals_conceded"] or 0,
-            minutes_ge_60=hr["rating"] >= 6.0,
-            apply_bonus=True,
-        )
+        # Both archive and synthetic store hr.rating as the final computed score
+        # (archive: real fantacalcio vote with bonuses; synthetic: compute_rating()
+        # which already adds goal bonus, win bonus, card malus, etc.).
+        # Applying _formula() on top would double-count goals for synthetic data.
+        return float(hr["rating"])
 
     rr = real_map.get(name_key)
     if rr is None:

@@ -7,7 +7,6 @@ from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
 from backend.api.routers.standings import _compute_h2h, _score_to_goals
-from backend.engine.scoring import _formula
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
 templates = Jinja2Templates(directory=_templates_dir)
@@ -260,17 +259,7 @@ def calendario_dati(league_id: int, matchday: int):
             mgr_map[key] = {"starters": [], "bench": []}
         ns_score = None
         if r["rating"] is not None:
-            if r["source"] == "archive":
-                ns_score = float(r["rating"])
-            else:
-                ns_score = _formula(
-                    rating=r["rating"], role=r["role"],
-                    goals=r["goals"] or 0, assists=r["assists"] or 0,
-                    yellow_cards=r["yellow_cards"] or 0, red_cards=r["red_cards"] or 0,
-                    own_goals=r["own_goals"] or 0, penalties_missed=r["penalties_missed"] or 0,
-                    goals_conceded=r["goals_conceded"] or 0,
-                    minutes_ge_60=(r["minutes"] or 0) >= 60,
-                )
+            ns_score = float(r["rating"])
         elif r["alter_ego_name"]:
             ns_score = 6.0
         entry = {
@@ -415,25 +404,9 @@ def giornata(request: Request, league_id: int, matchday: int):
         key = r["manager_name"]
         if key not in mgr_map:
             mgr_map[key] = {"starters": [], "bench": []}
-        # compute individual nostalgia score
         ns_score = None
         if r["rating"] is not None:
-            if r["source"] == "archive":
-                ns_score = float(r["rating"])
-            else:
-                ns_score = _formula(
-                    rating=r["rating"],
-                    role=r["role"],
-                    goals=r["goals"] or 0,
-                    assists=r["assists"] or 0,
-                    yellow_cards=r["yellow_cards"] or 0,
-                    red_cards=r["red_cards"] or 0,
-                    own_goals=r["own_goals"] or 0,
-                    penalties_missed=r["penalties_missed"] or 0,
-                    goals_conceded=r["goals_conceded"] or 0,
-                    minutes_ge_60=(r["minutes"] or 0) >= 60,
-                    apply_bonus=True,
-                )
+            ns_score = float(r["rating"])
         elif r["alter_ego_name"]:
             ns_score = 6.0  # sv o non trovato
 
@@ -538,22 +511,9 @@ def statistiche(request: Request, league_id: int):
         if r["rating"] is not None:
             s["n"] += 1
             s["sum_rating"] += r["rating"]
-            if r["source"] == "archive":
-                ns = float(r["rating"])
-            else:
-                ns = _formula(
-                    rating=r["rating"],
-                    role=r["role"],
-                    goals=r["goals"] or 0,
-                    assists=r["assists"] or 0,
-                    yellow_cards=r["yellow_cards"] or 0,
-                    red_cards=r["red_cards"] or 0,
-                    own_goals=r["own_goals"] or 0,
-                    penalties_missed=r["penalties_missed"] or 0,
-                    goals_conceded=r["goals_conceded"] or 0,
-                    minutes_ge_60=(r["minutes"] or 0) >= 60,
-                    apply_bonus=True,
-                )
+            # hr.rating is always the final score (archive: real vote with bonuses;
+            # synthetic: compute_rating() already includes goal/win/card bonuses).
+            ns = float(r["rating"])
             s["total_ns"] += ns
             s["goals"] += r["goals"] or 0
             s["yellows"] += r["yellow_cards"] or 0
