@@ -180,10 +180,18 @@ def export_classifica_csv(league_id: int):
     )
 
 
+def _score_to_goals(score: float) -> int:
+    """Convert a nostalgia match score to goals. Base 66 pts = 0 goals, then +1 per 6 pts."""
+    if score < 66:
+        return 0
+    return int((score - 66) // 6)
+
+
 def _compute_h2h(matches: list) -> list[dict]:
     """Aggregate h2h match results into per-manager standings."""
     stats: dict[str, dict] = defaultdict(lambda: {
         "played": 0, "wins": 0, "draws": 0, "losses": 0, "pf": 0.0, "ps": 0.0,
+        "gf": 0, "gs": 0,
     })
     for m in matches:
         hm = m["home_manager"]
@@ -196,6 +204,10 @@ def _compute_h2h(matches: list) -> list[dict]:
         stats[hm]["ps"] += as_
         stats[am]["pf"] += as_
         stats[am]["ps"] += hs
+        stats[hm]["gf"] += _score_to_goals(hs)
+        stats[hm]["gs"] += _score_to_goals(as_)
+        stats[am]["gf"] += _score_to_goals(as_)
+        stats[am]["gs"] += _score_to_goals(hs)
         if hs > as_:
             stats[hm]["wins"] += 1
             stats[am]["losses"] += 1
@@ -209,7 +221,7 @@ def _compute_h2h(matches: list) -> list[dict]:
     rows = []
     for manager, s in stats.items():
         pts = s["wins"] * 3 + s["draws"]
-        dr = s["pf"] - s["ps"]
+        gdr = s["gf"] - s["gs"]
         rows.append({
             "manager": manager,
             "played": s["played"],
@@ -219,10 +231,13 @@ def _compute_h2h(matches: list) -> list[dict]:
             "points": pts,
             "pf": round(s["pf"], 1),
             "ps": round(s["ps"], 1),
-            "dr": round(dr, 1),
+            "dr": round(s["pf"] - s["ps"], 1),
+            "gf": s["gf"],
+            "gs": s["gs"],
+            "gdr": gdr,
         })
 
-    rows.sort(key=lambda x: (-x["points"], -x["dr"], -x["pf"]))
+    rows.sort(key=lambda x: (-x["points"], -x["gdr"], -x["gf"]))
     for i, row in enumerate(rows, 1):
         row["rank"] = i
     return rows

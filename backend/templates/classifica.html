@@ -20,9 +20,10 @@
 </p>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('nostalgia', this)">FantaNostalgia</button>
-  <button class="tab-btn" onclick="switchTab('normale', this)">Normale</button>
-  <button class="tab-btn" onclick="switchTab('h2h', this)">Scontri Diretti</button>
+  <button class="tab-btn active" onclick="switchTab('nostalgia', this)">Punti Totali FantaNostalgia</button>
+  <button class="tab-btn" onclick="switchTab('normale', this)">Classifica FantaCalcio</button>
+  <button class="tab-btn" onclick="switchTab('h2h', this)">Classifica FantaNostalgia</button>
+  <button class="tab-btn" onclick="switchTab('calendario', this); calInit()">Calendario</button>
 </div>
 
 <div id="tab-nostalgia" class="tab-panel active">
@@ -103,9 +104,9 @@
           <th title="Vittorie">V</th>
           <th title="Pareggi">P</th>
           <th title="Sconfitte">S</th>
-          <th title="Punti fatti (punteggio nostalgia totale)">PF</th>
-          <th title="Punti subiti">PS</th>
-          <th title="Differenza punti">DR</th>
+          <th title="Gol fatti (punteggio nostalgia convertito: base 66, +1 gol ogni 6 punti)">GF</th>
+          <th title="Gol subiti">GS</th>
+          <th title="Differenza reti">DR</th>
           <th title="Punti classifica (V×3 + P)">Pts</th>
         </tr>
       </thead>
@@ -118,9 +119,9 @@
           <td>{{ row.wins }}</td>
           <td>{{ row.draws }}</td>
           <td>{{ row.losses }}</td>
-          <td class="score">{{ '%.1f'|format(row.pf) }}</td>
-          <td class="score">{{ '%.1f'|format(row.ps) }}</td>
-          <td class="score">{{ '%+.1f'|format(row.dr) }}</td>
+          <td class="score">{{ row.gf }}</td>
+          <td class="score">{{ row.gs }}</td>
+          <td class="score">{{ '%+d'|format(row.gdr) }}</td>
           <td class="total">{{ row.points }}</td>
         </tr>
         {% endfor %}
@@ -167,12 +168,197 @@
 </div>
 {% endif %}
 
+<div id="tab-calendario" class="tab-panel">
+  <div class="cal-nav">
+    <button class="cal-arrow" id="cal-prev" onclick="calNav(-1)">◀</button>
+    <span id="cal-label"></span>
+    <button class="cal-arrow" id="cal-next" onclick="calNav(+1)">▶</button>
+  </div>
+  <div id="cal-matches"></div>
+</div>
+
+<style>
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 1rem;
+  color: var(--accent, #ff0);
+}
+.cal-arrow {
+  background: none;
+  border: 1px solid var(--accent, #ff0);
+  color: var(--accent, #ff0);
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.cal-arrow:disabled { opacity: 0.3; cursor: default; }
+.cal-match {
+  border: 1px solid var(--border, #333);
+  margin-bottom: 2rem;
+}
+.cal-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--header-bg, #111);
+  font-family: var(--font-mono, monospace);
+  font-weight: bold;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.cal-team-name { color: var(--accent, #ff0); font-size: 0.95rem; }
+.cal-score-box {
+  color: var(--text, #fff);
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.cal-score-pts {
+  font-size: 0.75rem;
+  color: var(--muted, #888);
+  text-align: center;
+  padding: 0.2rem 1rem;
+  font-family: var(--font-mono, monospace);
+}
+.cal-teams-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+@media (max-width: 700px) {
+  .cal-teams-grid { grid-template-columns: 1fr; }
+}
+.cal-team-col { padding: 0.5rem; }
+.cal-team-col:first-child { border-right: 1px solid var(--border, #333); }
+.cal-team-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-family: var(--font-mono, monospace); }
+.cal-team-table th {
+  text-align: left;
+  padding: 0.2rem 0.3rem;
+  color: var(--muted, #888);
+  border-bottom: 1px solid var(--border, #333);
+  font-weight: normal;
+  white-space: nowrap;
+}
+.cal-team-table td { padding: 0.2rem 0.3rem; vertical-align: top; }
+.cal-team-table tr.bench-row td { color: var(--muted, #888); font-style: italic; }
+.cal-role { color: var(--accent, #ff0); font-weight: bold; width: 1.2rem; }
+.cal-ns { color: var(--green, #0f0); text-align: right; width: 3rem; }
+.cal-fb { color: var(--muted, #888); text-align: right; width: 3rem; }
+.cal-alter { color: var(--muted, #888); font-size: 0.75em; }
+.cal-bench-sep td { color: var(--muted, #666); font-size: 0.7rem; padding-top: 0.4rem; letter-spacing: 0.05em; }
+.cal-empty { color: var(--muted, #888); font-family: var(--font-mono, monospace); padding: 1rem 0; }
+</style>
+
 <script>
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+}
+
+// all_draws is DESC from server; reverse to get chronological order for calendar nav
+const CAL_DRAWS = ({{ all_draws | tojson }}).slice().reverse();
+const CAL_MATCHDAYS = CAL_DRAWS.map(d => d.matchday_current);
+const CAL_LEAGUE_ID = {{ league.id }};
+let calIdx = CAL_MATCHDAYS.length - 1; // start at latest
+let calInitDone = false;
+
+function calInit() {
+  if (calInitDone || CAL_MATCHDAYS.length === 0) return;
+  calInitDone = true;
+  calLoad();
+}
+
+function calNav(dir) {
+  calIdx = Math.max(0, Math.min(CAL_MATCHDAYS.length - 1, calIdx + dir));
+  calLoad();
+}
+
+function calLoad() {
+  const md = CAL_MATCHDAYS[calIdx];
+  const draw = CAL_DRAWS[calIdx];
+  document.getElementById('cal-label').textContent =
+    'G' + md + '  →  storica G' + draw.matchday_historic;
+  document.getElementById('cal-prev').disabled = calIdx === 0;
+  document.getElementById('cal-next').disabled = calIdx === CAL_MATCHDAYS.length - 1;
+  document.getElementById('cal-matches').innerHTML = '<div class="cal-empty">Caricamento…</div>';
+
+  fetch('/api/lega/' + CAL_LEAGUE_ID + '/calendario/' + md)
+    .then(r => r.json())
+    .then(data => renderCalMatches(data))
+    .catch(() => {
+      document.getElementById('cal-matches').innerHTML = '<div class="cal-empty">Errore nel caricamento.</div>';
+    });
+}
+
+function fmtScore(v) { return v !== null && v !== undefined ? v.toFixed(1) : '—'; }
+
+function playerRows(players, side) {
+  let html = '';
+  // starters
+  players.starters.forEach(p => {
+    html += '<tr>';
+    html += '<td class="cal-role">' + p.role + '</td>';
+    html += '<td>' + esc(p.player_name) + (p.alter_ego_name ? '<br><span class="cal-alter">→ ' + esc(p.alter_ego_name) + (p.alter_ego_team ? ' (' + esc(p.alter_ego_team) + ')' : '') + '</span>' : '') + '</td>';
+    html += '<td class="cal-ns">' + fmtScore(p.ns_score) + '</td>';
+    html += '<td class="cal-fb">' + fmtScore(p.score_bonus) + '</td>';
+    html += '</tr>';
+  });
+  // bench separator
+  if (players.bench.length > 0) {
+    html += '<tr class="cal-bench-sep"><td colspan="4">— panchina —</td></tr>';
+    players.bench.forEach(p => {
+      html += '<tr class="bench-row">';
+      html += '<td class="cal-role">' + p.role + '</td>';
+      html += '<td>' + esc(p.player_name) + (p.alter_ego_name ? '<br><span class="cal-alter">→ ' + esc(p.alter_ego_name) + '</span>' : '') + '</td>';
+      html += '<td class="cal-ns">' + fmtScore(p.ns_score) + '</td>';
+      html += '<td class="cal-fb">' + fmtScore(p.score_bonus) + '</td>';
+      html += '</tr>';
+    });
+  }
+  return html;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderCalMatches(data) {
+  if (!data.matches || data.matches.length === 0) {
+    document.getElementById('cal-matches').innerHTML = '<div class="cal-empty">Nessuno scontro diretto per questa giornata.</div>';
+    return;
+  }
+  let html = '';
+  data.matches.forEach(m => {
+    const hg = m.home_goals, ag = m.away_goals;
+    html += '<div class="cal-match">';
+    html += '<div class="cal-match-header">';
+    html += '<span class="cal-team-name">' + esc(m.home_manager) + '</span>';
+    html += '<span class="cal-score-box">' + hg + ' &ndash; ' + ag + '</span>';
+    html += '<span class="cal-team-name">' + esc(m.away_manager) + '</span>';
+    html += '</div>';
+    html += '<div class="cal-score-pts">' + fmtScore(m.home_score) + ' pts &nbsp;&nbsp; vs &nbsp;&nbsp; ' + fmtScore(m.away_score) + ' pts</div>';
+    html += '<div class="cal-teams-grid">';
+    // home
+    html += '<div class="cal-team-col">';
+    html += '<table class="cal-team-table"><thead><tr><th></th><th>Giocatore / Alter Ego</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>';
+    html += playerRows(m.home_players, 'home');
+    html += '</tbody></table></div>';
+    // away
+    html += '<div class="cal-team-col">';
+    html += '<table class="cal-team-table"><thead><tr><th></th><th>Giocatore / Alter Ego</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>';
+    html += playerRows(m.away_players, 'away');
+    html += '</tbody></table></div>';
+    html += '</div></div>';
+  });
+  document.getElementById('cal-matches').innerHTML = html;
 }
 </script>
 {% endblock %}

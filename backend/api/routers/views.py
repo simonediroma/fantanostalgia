@@ -2,11 +2,11 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
-from backend.api.routers.standings import _compute_h2h
+from backend.api.routers.standings import _compute_h2h, _score_to_goals
 from backend.engine.scoring import _formula
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
@@ -194,6 +194,122 @@ def coach_punteggi(request: Request, league_id: int):
     if os.path.isfile(p):
         return FileResponse(p, media_type="text/html")
     return Response("Coach punteggi not available", status_code=404)
+
+
+@router.get("/api/lega/{league_id}/calendario/{matchday}")
+def calendario_dati(league_id: int, matchday: int):
+    """JSON endpoint: h2h matches for a matchday with per-player score breakdown."""
+    with get_db() as conn:
+        draw_row = conn.execute(
+            "SELECT matchday_current, matchday_historic FROM matchday_draw"
+            " WHERE league_id = ? AND matchday_current = ?",
+            (league_id, matchday),
+        ).fetchone()
+        if draw_row is None:
+            return JSONResponse({"error": "Giornata non trovata"}, status_code=404)
+
+        matchday_historic = draw_row["matchday_historic"]
+
+        h2h_rows = conn.execute(
+            """
+            SELECT mh.name AS home_manager, ma.name AS away_manager,
+                   ms_h.score_nostalgia AS home_score,
+                   ms_a.score_nostalgia AS away_score
+            FROM h2h_match h
+            JOIN manager mh ON mh.id = h.manager_home_id
+            JOIN manager ma ON ma.id = h.manager_away_id
+            LEFT JOIN matchday_score ms_h
+                ON ms_h.league_id = h.league_id AND ms_h.matchday = h.matchday
+               AND ms_h.manager_id = h.manager_home_id
+            LEFT JOIN matchday_score ms_a
+                ON ms_a.league_id = h.league_id AND ms_a.matchday = h.matchday
+               AND ms_a.manager_id = h.manager_away_id
+            WHERE h.league_id = ? AND h.matchday = ?
+            """,
+            (league_id, matchday),
+        ).fetchall()
+
+        lineup_rows = conn.execute(
+            """
+            SELECT m.name AS manager_name, pc.name AS player_name, pc.role,
+                   pc.team AS current_team, l.is_starter,
+                   l.score_no_bonus, l.score_bonus,
+                   ph.name AS alter_ego_name, ph.team AS alter_ego_team,
+                   hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
+                   hr.own_goals, hr.penalties_missed, hr.goals_conceded,
+                   hr.minutes, hr.source
+            FROM lineup l
+            JOIN player_current pc ON pc.id = l.player_current_id
+            JOIN manager m ON m.id = l.manager_id
+            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id
+            LEFT JOIN player_historic ph ON ph.id = ae.player_historic_id
+            LEFT JOIN historic_rating hr
+                ON hr.player_historic_id = ae.player_historic_id AND hr.matchday = ?
+            WHERE l.league_id = ? AND l.matchday = ?
+            ORDER BY m.name, l.is_starter DESC,
+                     CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                     pc.name
+            """,
+            (matchday_historic, league_id, matchday),
+        ).fetchall()
+
+    mgr_map: dict[str, dict] = {}
+    for r in lineup_rows:
+        key = r["manager_name"]
+        if key not in mgr_map:
+            mgr_map[key] = {"starters": [], "bench": []}
+        ns_score = None
+        if r["rating"] is not None:
+            if r["source"] == "archive":
+                ns_score = float(r["rating"])
+            else:
+                ns_score = _formula(
+                    rating=r["rating"], role=r["role"],
+                    goals=r["goals"] or 0, assists=r["assists"] or 0,
+                    yellow_cards=r["yellow_cards"] or 0, red_cards=r["red_cards"] or 0,
+                    own_goals=r["own_goals"] or 0, penalties_missed=r["penalties_missed"] or 0,
+                    goals_conceded=r["goals_conceded"] or 0,
+                    minutes_ge_60=(r["minutes"] or 0) >= 60,
+                )
+        elif r["alter_ego_name"]:
+            ns_score = 6.0
+        entry = {
+            "role": r["role"],
+            "player_name": r["player_name"],
+            "current_team": r["current_team"],
+            "alter_ego_name": r["alter_ego_name"],
+            "alter_ego_team": r["alter_ego_team"],
+            "score_no_bonus": r["score_no_bonus"],
+            "score_bonus": r["score_bonus"],
+            "ns_score": round(ns_score, 1) if ns_score is not None else None,
+        }
+        if r["is_starter"]:
+            mgr_map[key]["starters"].append(entry)
+        else:
+            mgr_map[key]["bench"].append(entry)
+
+    matches = []
+    for h in h2h_rows:
+        hm = h["home_manager"]
+        am = h["away_manager"]
+        hs = h["home_score"] or 0.0
+        as_ = h["away_score"] or 0.0
+        matches.append({
+            "home_manager": hm,
+            "away_manager": am,
+            "home_score": hs,
+            "away_score": as_,
+            "home_goals": _score_to_goals(hs),
+            "away_goals": _score_to_goals(as_),
+            "home_players": mgr_map.get(hm, {"starters": [], "bench": []}),
+            "away_players": mgr_map.get(am, {"starters": [], "bench": []}),
+        })
+
+    return JSONResponse({
+        "matchday": matchday,
+        "matchday_historic": matchday_historic,
+        "matches": matches,
+    })
 
 
 @router.get("/lega/{league_id}/giornata/{matchday}")
