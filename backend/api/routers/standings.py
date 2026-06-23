@@ -1,6 +1,7 @@
 import csv
 import io
 import sqlite3
+from collections import defaultdict
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -177,6 +178,93 @@ def export_classifica_csv(league_id: int):
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _compute_h2h(matches: list) -> list[dict]:
+    """Aggregate h2h match results into per-manager standings."""
+    stats: dict[str, dict] = defaultdict(lambda: {
+        "played": 0, "wins": 0, "draws": 0, "losses": 0, "pf": 0.0, "ps": 0.0,
+    })
+    for m in matches:
+        hm = m["home_manager"]
+        am = m["away_manager"]
+        hs = m["home_score"] or 0.0
+        as_ = m["away_score"] or 0.0
+        stats[hm]["played"] += 1
+        stats[am]["played"] += 1
+        stats[hm]["pf"] += hs
+        stats[hm]["ps"] += as_
+        stats[am]["pf"] += as_
+        stats[am]["ps"] += hs
+        if hs > as_:
+            stats[hm]["wins"] += 1
+            stats[am]["losses"] += 1
+        elif hs < as_:
+            stats[am]["wins"] += 1
+            stats[hm]["losses"] += 1
+        else:
+            stats[hm]["draws"] += 1
+            stats[am]["draws"] += 1
+
+    rows = []
+    for manager, s in stats.items():
+        pts = s["wins"] * 3 + s["draws"]
+        dr = s["pf"] - s["ps"]
+        rows.append({
+            "manager": manager,
+            "played": s["played"],
+            "wins": s["wins"],
+            "draws": s["draws"],
+            "losses": s["losses"],
+            "points": pts,
+            "pf": round(s["pf"], 1),
+            "ps": round(s["ps"], 1),
+            "dr": round(dr, 1),
+        })
+
+    rows.sort(key=lambda x: (-x["points"], -x["dr"], -x["pf"]))
+    for i, row in enumerate(rows, 1):
+        row["rank"] = i
+    return rows
+
+
+@router.get("/league/{league_id}/standings/h2h")
+def get_h2h_standings(league_id: int):
+    with get_db() as conn:
+        league = _require_league(conn, league_id)
+
+        matches = conn.execute(
+            """
+            SELECT h.matchday,
+                   mh.name AS home_manager,
+                   ma.name AS away_manager,
+                   ms_h.score_nostalgia AS home_score,
+                   ms_a.score_nostalgia AS away_score
+            FROM h2h_match h
+            JOIN manager mh ON mh.id = h.manager_home_id
+            JOIN manager ma ON ma.id = h.manager_away_id
+            LEFT JOIN matchday_score ms_h
+                ON ms_h.league_id = h.league_id
+               AND ms_h.matchday  = h.matchday
+               AND ms_h.manager_id = h.manager_home_id
+            LEFT JOIN matchday_score ms_a
+                ON ms_a.league_id = h.league_id
+               AND ms_a.matchday  = h.matchday
+               AND ms_a.manager_id = h.manager_away_id
+            WHERE h.league_id = ?
+            ORDER BY h.matchday
+            """,
+            (league_id,),
+        ).fetchall()
+
+    return {
+        "league": {
+            "name": league["name"],
+            "season_current": league["season_current"],
+            "season_historic": league["season_historic"],
+        },
+        "h2h": _compute_h2h([dict(m) for m in matches]),
+    }
 
 
 @router.get("/league/{league_id}/last-draw")

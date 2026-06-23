@@ -50,15 +50,17 @@ def _is_formazioni_format(all_rows: list) -> bool:
     return False
 
 
-def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str]]:
+def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
     """
     Parse the real Formazioni Excel format.
     Two matches side by side: left team cols 0-4, right team cols 6-10.
     Match header row: team_left in col 0, score in col 5, team_right in col 6.
     'Panchina' row separates starters from bench.
     'TOTALE:...' row marks end of each team's data.
+    Also returns pairings as list of (left_team, right_team).
     """
     rows_out = []
+    pairings: list[tuple[str, str]] = []
 
     left_team = right_team = None
     left_starter = right_starter = True
@@ -74,6 +76,7 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str]]:
         if len(cells) > 6 and cells[0] and cells[6] and _SCORE_RE.match(cells[5]):
             left_team = cells[0]
             right_team = cells[6]
+            pairings.append((left_team, right_team))
             left_starter = right_starter = True
             left_done = right_done = False
             continue
@@ -116,7 +119,7 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str]]:
                     "is_starter": 1 if right_starter else 0,
                 })
 
-    return rows_out, []
+    return rows_out, [], pairings
 
 
 def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
@@ -160,7 +163,7 @@ def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
     return rows_out, warnings
 
 
-def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
+def _parse_excel(data: bytes) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
     import openpyxl
 
     wb = openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True)
@@ -169,7 +172,8 @@ def _parse_excel(data: bytes) -> tuple[list[dict], list[str]]:
 
     if _is_formazioni_format(all_rows):
         return _parse_formazioni_rows(all_rows)
-    return _parse_flat_rows(all_rows)
+    rows, warnings = _parse_flat_rows(all_rows)
+    return rows, warnings, []
 
 
 def _require_league(conn, league_id: int):
@@ -189,7 +193,7 @@ async def upload_lineups(
 ):
     data = await file.read()
     try:
-        rows, warnings = _parse_excel(data)
+        rows, warnings, pairings = _parse_excel(data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
@@ -219,9 +223,13 @@ async def upload_lineups(
             manager_map[m["name"].strip().lower()] = m["id"]
             manager_map[m["team_name"].strip().lower()] = m["id"]
 
-        # Idempotent: cancella lineup esistente per questa giornata
+        # Idempotent: cancella lineup e pairings esistenti per questa giornata
         conn.execute(
             "DELETE FROM lineup WHERE league_id = ? AND matchday = ?",
+            (league_id, matchday),
+        )
+        conn.execute(
+            "DELETE FROM h2h_match WHERE league_id = ? AND matchday = ?",
             (league_id, matchday),
         )
 
@@ -254,6 +262,21 @@ async def upload_lineups(
             " VALUES (?, ?, ?, ?, ?, ?)",
             to_insert,
         )
+
+        # Salva scontri diretti (pairings)
+        for left_name, right_name in pairings:
+            home_id = manager_map.get(left_name.strip().lower())
+            away_id = manager_map.get(right_name.strip().lower())
+            if home_id is not None and away_id is not None:
+                conn.execute(
+                    "INSERT OR IGNORE INTO h2h_match (league_id, matchday, manager_home_id, manager_away_id)"
+                    " VALUES (?, ?, ?, ?)",
+                    (league_id, matchday, home_id, away_id),
+                )
+            else:
+                warnings.append(
+                    f"Scontro diretto '{left_name}' vs '{right_name}': manager non trovato — pairing saltato"
+                )
 
     return {
         "matchday": matchday,

@@ -22,6 +22,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('nostalgia', this)">FantaNostalgia</button>
   <button class="tab-btn" onclick="switchTab('normale', this)">Normale</button>
+  <button class="tab-btn" onclick="switchTab('h2h', this)">Scontri Diretti</button>
 </div>
 
 <div id="tab-nostalgia" class="tab-panel active">
@@ -87,6 +88,49 @@
   </div>
   {% else %}
   <div class="empty">Nessun dato disponibile.</div>
+  {% endif %}
+</div>
+
+<div id="tab-h2h" class="tab-panel">
+  {% if h2h %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Manager</th>
+          <th title="Partite giocate">G</th>
+          <th title="Vittorie">V</th>
+          <th title="Pareggi">P</th>
+          <th title="Sconfitte">S</th>
+          <th title="Punti fatti (punteggio nostalgia totale)">PF</th>
+          <th title="Punti subiti">PS</th>
+          <th title="Differenza punti">DR</th>
+          <th title="Punti classifica (V×3 + P)">Pts</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in h2h %}
+        <tr>
+          <td class="rank">{{ row.rank }}</td>
+          <td>{{ row.manager }}</td>
+          <td>{{ row.played }}</td>
+          <td>{{ row.wins }}</td>
+          <td>{{ row.draws }}</td>
+          <td>{{ row.losses }}</td>
+          <td class="score">{{ '%.1f'|format(row.pf) }}</td>
+          <td class="score">{{ '%.1f'|format(row.ps) }}</td>
+          <td class="score">{{ '%+.1f'|format(row.dr) }}</td>
+          <td class="total">{{ row.points }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Nessuno scontro diretto disponibile.<br>
+    <small>Importa le formazioni via Excel per popolare questa classifica.</small>
+  </div>
   {% endif %}
 </div>
 

@@ -109,6 +109,14 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass
         conn.executescript("""
+            CREATE TABLE IF NOT EXISTS h2h_match (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER REFERENCES league(id),
+                matchday INTEGER NOT NULL,
+                manager_home_id INTEGER REFERENCES manager(id),
+                manager_away_id INTEGER REFERENCES manager(id),
+                UNIQUE(league_id, matchday, manager_home_id)
+            );
             CREATE TABLE IF NOT EXISTS user (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT NOT NULL UNIQUE,
