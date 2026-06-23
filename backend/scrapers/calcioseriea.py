@@ -404,7 +404,7 @@ def _parse_player_rows(
                 minutes = sub_minute if (has_uscito and sub_minute is not None) else 90
             else:
                 has_entrato = any("entrato" in (img.get("alt") or "") for img in sub_imgs)
-                minutes = (90 - sub_minute) if (has_entrato and sub_minute is not None) else 0
+                minutes = max(1, 90 - sub_minute) if (has_entrato and sub_minute is not None) else 0
 
             if minutes == 0:
                 continue
