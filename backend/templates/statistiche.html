@@ -87,8 +87,8 @@
           <th>Manager</th>
           <th>Giocatore</th>
           <th>Alter Ego</th>
+          <th title="Presenze come titolare">P</th>
           <th>Goal</th>
-          <th>Assist</th>
           <th title="Ammonizioni">GG</th>
           <th title="Espulsioni">RR</th>
         </tr>
@@ -108,8 +108,8 @@
               <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ p.alter_ego_team }}</span>
             {% else %}—{% endif %}
           </td>
-          <td class="score">{{ p.goals }}</td>
-          <td style="color:var(--accent2)">{{ p.assists }}</td>
+          <td style="color:var(--muted)">{{ p.n if p.n else '—' }}</td>
+          <td class="score">{{ p.goals if p.goals else '—' }}</td>
           <td style="color:var(--accent)">{{ p.yellows if p.yellows else '—' }}</td>
           <td style="color:var(--red)">{{ p.reds if p.reds else '—' }}</td>
         </tr>

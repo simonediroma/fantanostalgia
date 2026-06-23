@@ -371,7 +371,7 @@ def statistiche(request: Request, league_id: int):
                 pc.id AS pc_id, pc.name AS player_name, pc.role, pc.team AS current_team,
                 m.name AS manager_name,
                 ph.name AS alter_ego_name, ph.team AS alter_ego_team,
-                hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
+                hr.rating, hr.goals, hr.yellow_cards, hr.red_cards,
                 hr.own_goals, hr.penalties_missed, hr.goals_conceded, hr.minutes, hr.source
             FROM player_current pc
             JOIN manager m ON m.id = pc.manager_id
@@ -416,7 +416,7 @@ def statistiche(request: Request, league_id: int):
                 "alter_ego_name": r["alter_ego_name"],
                 "alter_ego_team": r["alter_ego_team"],
                 "n": 0, "sum_rating": 0.0, "total_ns": 0.0,
-                "goals": 0, "assists": 0, "yellows": 0, "reds": 0,
+                "goals": 0, "yellows": 0, "reds": 0,
             }
         s = player_stats[pid]
         if r["rating"] is not None:
@@ -440,7 +440,6 @@ def statistiche(request: Request, league_id: int):
                 )
             s["total_ns"] += ns
             s["goals"] += r["goals"] or 0
-            s["assists"] += r["assists"] or 0
             s["yellows"] += r["yellow_cards"] or 0
             s["reds"] += r["red_cards"] or 0
 
@@ -453,7 +452,7 @@ def statistiche(request: Request, league_id: int):
         })
 
     by_rating = sorted(players_list, key=lambda x: x["avg_rating"] or 0, reverse=True)
-    by_goals = sorted(players_list, key=lambda x: (x["goals"], x["assists"]), reverse=True)
+    by_goals = sorted(players_list, key=lambda x: x["goals"], reverse=True)
     archivio = [dict(r) for r in archivio_rows]
 
     return templates.TemplateResponse("statistiche.html", {
