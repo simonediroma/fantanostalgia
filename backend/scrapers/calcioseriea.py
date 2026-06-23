@@ -284,18 +284,13 @@ def _extract_minute(td) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _parse_scorers(soup: BeautifulSoup) -> tuple[dict[int, int], dict[int, int]]:
+def _parse_scorers(soup: BeautifulSoup) -> tuple[dict[str, int], dict[str, int]]:
     """
     Estrae i marcatori dalla sezione gol del tabellino.
-    Usa player_id come chiave (da link scheda_giocatore nei TITOLARI).
-    Fallback: ritorna dict vuoti — i gol verranno assegnati 0.
-
-    Nota: la sezione marcatori usa nomi testuali, non link. Per abbinare
-    i gol ai giocatori usiamo i nomi nei tabellini come fallback (non affidabile
-    per nomi composti). Metodo più robusto: contare i gol dalla sezione testo
-    e assegnarli per nome normalizzato, poi risolvere via player_id nel parsing
-    righe giocatore.
-    Ritorna (home_goals_by_name, away_goals_by_name) — chiavi: nome uppercase strip.
+    Struttura riga marcatori (6 <td>, colspan usato per nome+minuto):
+      [0] home_name (colspan=3)  [1] home_min  [2] divR  [3] divL  [4] away_min  [5] away_name (colspan=3)
+    Ritorna (home_goals_by_name, away_goals_by_name) — chiavi: nome uppercase.
+    I gol in autogol ("(aut.)") sono ignorati: appartengono alla squadra avversaria.
     """
     home_goals: dict[str, int] = {}
     away_goals: dict[str, int] = {}
@@ -317,25 +312,23 @@ def _parse_scorers(soup: BeautifulSoup) -> tuple[dict[int, int], dict[int, int]]
             continue
 
         all_tds = row.find_all("td")
-        if len(all_tds) < 8:
+        if len(all_tds) < 6:
             continue
 
-        # Verifica che sia una riga marcatori (ha TableCellBorder)
         if not any("TableCellBorder" in (td.get("class") or []) for td in all_tds):
             continue
 
+        # Le righe gol hanno 6 td (colspan non genera td aggiuntivi in BS4)
         home_name = all_tds[0].get_text(strip=True).replace("\xa0", "").strip()
-        home_min = all_tds[3].get_text(strip=True).replace("\xa0", "").strip()
-        away_min = all_tds[5].get_text(strip=True).replace("\xa0", "").strip() if len(all_tds) > 5 else ""
-        away_name = all_tds[7].get_text(strip=True).replace("\xa0", "").strip() if len(all_tds) > 7 else ""
+        home_min  = all_tds[1].get_text(strip=True).replace("\xa0", "").strip()
+        away_min  = all_tds[4].get_text(strip=True).replace("\xa0", "").strip()
+        away_name = all_tds[5].get_text(strip=True).replace("\xa0", "").strip()
 
-        if home_name and home_min and home_min not in ("", "&nbsp;"):
-            key = home_name.upper()
-            home_goals[key] = home_goals.get(key, 0) + 1
+        if home_name and home_min and "(aut.)" not in home_name.lower():
+            home_goals[home_name.upper()] = home_goals.get(home_name.upper(), 0) + 1
 
-        if away_name and away_min and away_min not in ("", "&nbsp;"):
-            key = away_name.upper()
-            away_goals[key] = away_goals.get(key, 0) + 1
+        if away_name and away_min and "(aut.)" not in away_name.lower():
+            away_goals[away_name.upper()] = away_goals.get(away_name.upper(), 0) + 1
 
     return home_goals, away_goals
 
@@ -421,14 +414,9 @@ def _parse_player_rows(
             yellow = sum(1 for img in card_imgs if "ammonit" in (img.get("alt") or "").lower())
             red = sum(1 for img in card_imgs if "espuls" in (img.get("alt") or "").lower())
 
-            # Gol per nome normalizzato — fallback su cognome (ultima parola)
-            # perché la sezione marcatori usa solo il cognome (es. "BATISTUTA")
-            # mentre il nome completo nei tabellini è "GABRIEL BATISTUTA".
+            # Gol per nome normalizzato (stesso formato "Nome COGNOME" in entrambe le sezioni)
             name_key = raw_name.upper()
             goals = goals_map.get(name_key, 0)
-            if goals == 0 and goals_map:
-                surname = name_key.split()[-1]
-                goals = goals_map.get(surname, 0)
 
             is_gk = role == "P"
             rating = compute_rating(
