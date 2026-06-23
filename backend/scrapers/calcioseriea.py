@@ -470,6 +470,19 @@ def _scrape_tabellino(
 
     home_goals_map, away_goals_map = _parse_scorers(soup)
 
+    total_expected = match["home_goals"] + match["away_goals"]
+    total_found = sum(home_goals_map.values()) + sum(away_goals_map.values())
+    if total_expected > 0 and total_found == 0:
+        log.warning(
+            "  ⚠ Marcatori non trovati per %s vs %s (attesi %d gol) — struttura HTML diversa?",
+            match["home"], match["away"], total_expected,
+        )
+    elif total_found != total_expected:
+        log.warning(
+            "  ⚠ Marcatori parziali per %s vs %s: trovati %d su %d",
+            match["home"], match["away"], total_found, total_expected,
+        )
+
     players = _parse_player_rows(
         soup,
         home_team=match["home"],
@@ -700,16 +713,73 @@ def export_csv(
     log.info("CSV esportato: %s (%d righe)", output_path, len(records))
 
 
+def _test_tabellino(url: str) -> None:
+    """
+    Scarica un singolo tabellino e stampa cosa il parser trova:
+    sezione marcatori, gol per nome, righe giocatori, cartellini.
+    Utile per diagnosticare stagioni con struttura HTML diversa.
+    """
+    session = _build_session()
+    soup = _fetch(session, url)
+
+    print("\n=== SEZIONE MARCATORI ===")
+    home_goals_map, away_goals_map = _parse_scorers(soup)
+    if home_goals_map or away_goals_map:
+        print(f"  Home: {home_goals_map}")
+        print(f"  Away: {away_goals_map}")
+    else:
+        print("  ⚠ Nessun marcatore trovato — _parse_scorers ha restituito dict vuoti.")
+        print("  Sezioni MainTitle/SubTitle presenti nel DOM:")
+        for row in soup.find_all("tr"):
+            tds = row.find_all("td")
+            for td in tds:
+                cls = td.get("class") or []
+                if "MainTitle" in cls or "SubTitle" in cls:
+                    print(f"    [{' '.join(cls)}] {td.get_text(strip=True)[:80]}")
+
+    print("\n=== RIGHE GIOCATORI (prime 5) ===")
+    count = 0
+    for row in soup.find_all("tr"):
+        tds = row.find_all("td")
+        if len(tds) < 10:
+            continue
+        if not any("TableCellBorder" in (td.get("class") or []) for td in tds):
+            continue
+        name_link = tds[1].find("a") if len(tds) > 1 else None
+        card_imgs = tds[0].find_all("img") if tds else []
+        print(f"  tds={len(tds)} | nome={name_link.get_text(strip=True) if name_link else 'N/A'}"
+              f" | card_imgs={[img.get('alt') for img in card_imgs]}")
+        count += 1
+        if count >= 5:
+            break
+    if count == 0:
+        print("  ⚠ Nessuna riga trovata con ≥10 td e classe TableCellBorder.")
+        print("  Classi td trovate nel DOM:")
+        cls_seen: set[str] = set()
+        for td in soup.find_all("td"):
+            for c in (td.get("class") or []):
+                cls_seen.add(c)
+        print(f"    {sorted(cls_seen)}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scraper calcio-seriea.net — Serie A storica")
-    parser.add_argument("--season", required=True, help="Stagione es. 2016-2017")
+    parser.add_argument("--season", help="Stagione es. 2016-2017")
     parser.add_argument("--force", action="store_true", help="Riscrappa anche se già presente nel DB")
     parser.add_argument("--export-csv", metavar="FILE", help="Esporta CSV invece di scrivere su DB")
     parser.add_argument("--upload-to", metavar="URL", help="URL server a cui fare upload (es. https://...run.app)")
     parser.add_argument("--admin-username", default="admin", help="Username admin per --upload-to")
     parser.add_argument("--admin-password", default="changeme", help="Password admin per --upload-to")
     parser.add_argument("--weights-file", metavar="FILE", help="JSON con i pesi del rating")
+    parser.add_argument("--test-tabellino", metavar="URL", help="Testa parsing di un singolo URL tabellino e stampa debug")
     args = parser.parse_args()
+
+    if args.test_tabellino:
+        _test_tabellino(args.test_tabellino)
+        import sys; sys.exit(0)
+
+    if not args.season:
+        parser.error("--season è obbligatorio (tranne con --test-tabellino)")
 
     weights = RatingWeights.from_json(args.weights_file) if args.weights_file else RatingWeights()
 
