@@ -20,9 +20,9 @@
 </p>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('nostalgia', this)">FantaNostalgia</button>
-  <button class="tab-btn" onclick="switchTab('normale', this)">Normale</button>
-  <button class="tab-btn" onclick="switchTab('h2h', this)">Scontri Diretti</button>
+  <button class="tab-btn active" onclick="switchTab('nostalgia', this)">Punti Totali FantaNostalgia</button>
+  <button class="tab-btn" onclick="switchTab('normale', this)">Classifica FantaCalcio</button>
+  <button class="tab-btn" onclick="switchTab('h2h', this)">Classifica FantaNostalgia</button>
 </div>
 
 <div id="tab-nostalgia" class="tab-panel active">
@@ -103,9 +103,9 @@
           <th title="Vittorie">V</th>
           <th title="Pareggi">P</th>
           <th title="Sconfitte">S</th>
-          <th title="Punti fatti (punteggio nostalgia totale)">PF</th>
-          <th title="Punti subiti">PS</th>
-          <th title="Differenza punti">DR</th>
+          <th title="Gol fatti (punteggio nostalgia convertito: base 66, +1 gol ogni 6 punti)">GF</th>
+          <th title="Gol subiti">GS</th>
+          <th title="Differenza reti">DR</th>
           <th title="Punti classifica (V×3 + P)">Pts</th>
         </tr>
       </thead>
@@ -118,9 +118,9 @@
           <td>{{ row.wins }}</td>
           <td>{{ row.draws }}</td>
           <td>{{ row.losses }}</td>
-          <td class="score">{{ '%.1f'|format(row.pf) }}</td>
-          <td class="score">{{ '%.1f'|format(row.ps) }}</td>
-          <td class="score">{{ '%+.1f'|format(row.dr) }}</td>
+          <td class="score">{{ row.gf }}</td>
+          <td class="score">{{ row.gs }}</td>
+          <td class="score">{{ '%+d'|format(row.gdr) }}</td>
           <td class="total">{{ row.points }}</td>
         </tr>
         {% endfor %}
