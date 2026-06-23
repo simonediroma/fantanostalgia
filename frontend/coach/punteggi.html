@@ -68,31 +68,17 @@ function showMsg(msg, isErr = false) {
   setTimeout(() => { el.textContent = ''; el.style.cssText = ''; }, 4000);
 }
 
-function getToken() {
-  return localStorage.getItem('fn_coach_token');
-}
-
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('fn_coach_token');
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/auth/user/logout', { method: 'POST' });
   window.location.href = '/coach/login';
 });
 
-async function apiFetch(path, opts = {}) {
-  const token = getToken();
-  const res = await fetch(path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers || {}) },
-  });
-  if (res.status === 401) { window.location.href = '/coach/login'; throw new Error('Non autorizzato'); }
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || res.statusText);
-  return data;
-}
-
 async function load() {
-  if (!getToken()) { window.location.href = '/coach/login'; return; }
   try {
-    const data = await apiFetch(`/coach/league/${leagueId}/punteggi`);
+    const res = await fetch(`/coach/league/${leagueId}/punteggi`);
+    if (res.status === 401 || res.status === 403) { window.location.href = '/coach/login'; return; }
+    const data = await res.json();
+    if (!res.ok) { throw new Error(data.detail || res.statusText); }
     document.getElementById('pageTitle').textContent = `${esc(data.manager.name)} — Punteggi`;
     document.title = `FantaNostalgia — ${data.manager.name}`;
 
