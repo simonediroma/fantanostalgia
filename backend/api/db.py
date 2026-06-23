@@ -93,6 +93,14 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass
         for _col, _def in [
+            ("score_no_bonus", "REAL"),
+            ("score_bonus", "REAL"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE lineup ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
+        for _col, _def in [
             ("user_id", "INTEGER"),
             ("assignments_locked", "INTEGER DEFAULT 0"),
         ]:
