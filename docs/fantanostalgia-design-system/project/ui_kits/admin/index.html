@@ -1,0 +1,226 @@
+<!-- @dsCard group="Admin Panel" viewport="1200x720" name="Admin Panel" subtitle="Wizard completo — Listone, Mapping, Buste, Giornate" -->
+<!-- @startingPoint section="UI Kits" subtitle="Admin panel — gestione lega, wizard a 4 step" viewport="1200x720" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FantaNostalgia — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { Button, Badge, Panel, WizardSteps, HelpBox, DropZone, Message, Table, Modal, Input } = window.FantaNostalgiaDesignSystem_90de16;
+
+const SectionLabel = ({ children }) => (
+  <div style={{ color:'var(--muted)', fontFamily:'var(--font-pixel)', fontSize:'0.5rem', textTransform:'uppercase', letterSpacing:'0.1em', padding:'0.9rem 1.25rem 0.3rem' }}>{children}</div>
+);
+const NavLink = ({ active, onClick, children }) => (
+  <div onClick={onClick} style={{ fontFamily:'var(--font-pixel)', fontSize:'0.55rem', textTransform:'uppercase', color: active ? 'var(--bg)' : 'var(--muted)', padding:'0.6rem 1rem', background: active ? 'var(--accent)' : 'transparent', borderLeft: `3px solid ${active ? 'var(--accent2)' : 'transparent'}`, cursor:'pointer' }}>{children}</div>
+);
+
+/* ── Login ─────────────────── */
+function LoginPage({ onLogin }) {
+  const [user, setUser] = React.useState('');
+  const [pass, setPass] = React.useState('');
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ background:'var(--surface)', border:'2px solid var(--border)', boxShadow:'3px 3px 0 #000', padding:'2rem 2.5rem', width:'320px' }}>
+        <div style={{ fontFamily:'var(--font-pixel)', fontSize:'0.75rem', color:'var(--accent)', marginBottom:'0.25rem', textTransform:'uppercase' }}>⚽ FantaNostalgia</div>
+        <div style={{ color:'var(--muted)', fontFamily:'var(--font-pixel)', fontSize:'0.5rem', textTransform:'uppercase', marginBottom:'1.5rem' }}>Pannello Amministratore</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+          <Input label="Username" value={user} onChange={e => setUser(e.target.value)} placeholder="presidente" />
+          <Input label="Password" type="password" value={pass} onChange={e => setPass(e.target.value)} />
+          <div style={{ marginTop:'0.25rem' }}>
+            <Button fullWidth onClick={onLogin}>Accedi</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Wizard Steps ──────────── */
+function Step1({ onNext, setMsg }) {
+  const [file, setFile] = React.useState(null);
+  return (
+    <div>
+      <HelpBox title="Carica il Listone" variant="info">
+        Importa la rosa completa della lega da file Excel. Il foglio deve chiamarsi "TutteLeRose"
+        con due squadre affiancate (colonne A–D e F–I). Ogni blocco termina con "Crediti Residui: X".
+      </HelpBox>
+      <Panel title="Importa Rose (.xlsx)">
+        <DropZone accept=".xlsx,.xls" label="Trascina il file Excel qui" sublabel='Foglio "TutteLeRose" · ~10 squadre × 25 giocatori' fileName={file?.name} onFile={setFile} />
+        <div style={{ marginTop:'1rem', display:'flex', gap:'0.5rem' }}>
+          <Button disabled={!file} onClick={() => { setMsg({ type:'ok', text:'Listone importato — 250 giocatori caricati.' }); onNext(); }}>
+            Importa e continua →
+          </Button>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function Step2({ onNext }) {
+  const [mapped, setMapped] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const mapRows = [
+    ['Handanovic',   <Badge variant="cyan">P</Badge>, 'Inter', 'Peruzzi',   '2003/04'],
+    ['Theo Hernandez', <Badge variant="cyan">D</Badge>, 'Milan', 'Maldini', '2003/04'],
+    ['Barella',      <Badge variant="cyan">C</Badge>, 'Inter', 'Pirlo',     '2003/04'],
+    ['Vlahovic',     <Badge variant="cyan">A</Badge>, 'Juve',  'Trezeguet', '2003/04'],
+  ];
+  const mapCols = [{ label:'Giocatore attuale' }, { label:'R', align:'center' }, { label:'Squadra' }, { label:'Alter ego storico', color:'var(--accent)' }, { label:'Stagione' }];
+  return (
+    <div>
+      <HelpBox title="Mapping Alter Ego" variant="info">
+        Assegna a ogni giocatore un alter ego storico casuale per ruolo. Il mapping è completamente
+        random — nessun criterio di valore. Dopo questo step puoi invitare i coach.
+      </HelpBox>
+      {!mapped ? (
+        <Panel title="Genera Mapping">
+          <p style={{ fontFamily:'var(--font-data)', fontSize:'0.875rem', color:'var(--muted)', marginBottom:'1rem' }}>
+            250 giocatori pronti per il mapping storico (stagione 2003/04).
+          </p>
+          <Button onClick={() => setMapped(true)}>Esegui Mapping →</Button>
+        </Panel>
+      ) : (
+        <>
+          <Message variant="ok">Mapping completato — 250 alter ego assegnati.</Message>
+          <Panel title="Anteprima Mapping">
+            <Table columns={mapCols} rows={mapRows} />
+          </Panel>
+          <Panel title="Invita i Coach">
+            <p style={{ fontFamily:'var(--font-data)', fontSize:'0.85rem', color:'var(--muted)', marginBottom:'1rem' }}>
+              Genera un link invito per ogni allenatore e condividilo prima dell'apertura buste.
+            </p>
+            <Button variant="secondary" onClick={() => setModalOpen(true)}>Genera link invito</Button>
+          </Panel>
+          <div style={{ marginTop:'0.5rem' }}><Button onClick={onNext}>Continua al passo 3 →</Button></div>
+        </>
+      )}
+      <Modal open={modalOpen} title="Link Invito Coach" onClose={() => setModalOpen(false)}
+        actions={<><Button onClick={() => setModalOpen(false)}>Copia link</Button><Button variant="secondary" onClick={() => setModalOpen(false)}>Chiudi</Button></>}>
+        <div style={{ fontFamily:'var(--font-data)', fontSize:'0.78rem', color:'var(--accent2)', background:'var(--bg)', border:'1px solid var(--border)', padding:'0.5rem 0.75rem', wordBreak:'break-all' }}>
+          https://fantanostalgia.app/coach/join?token=a1b2c3d4e5
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function Step3({ onNext }) {
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [opened, setOpened] = React.useState(false);
+  return (
+    <div>
+      <HelpBox title="Apertura Buste" variant="warn">
+        Questa operazione è irreversibile: gli alter ego verranno rivelati a tutti i coach della lega.
+        Assicurati che tutti i coach abbiano completato l'associazione storico→attuale prima di procedere.
+      </HelpBox>
+      {!opened ? (
+        <Panel title="Rivela gli Alter Ego">
+          <p style={{ fontFamily:'var(--font-data)', fontSize:'0.875rem', color:'var(--muted)', marginBottom:'1rem' }}>
+            8/10 coach hanno completato le associazioni.
+          </p>
+          <Button variant="danger" onClick={() => setModalOpen(true)}>Apri Buste →</Button>
+        </Panel>
+      ) : (
+        <>
+          <Message variant="ok">Buste aperte! Gli alter ego sono ora visibili a tutti i coach.</Message>
+          <div style={{ marginTop:'0.5rem' }}><Button onClick={onNext}>Continua al passo 4 →</Button></div>
+        </>
+      )}
+      <Modal open={modalOpen} title="Conferma Apertura Buste" onClose={() => setModalOpen(false)}
+        actions={<><Button variant="danger" onClick={() => { setOpened(true); setModalOpen(false); }}>Conferma — apri le buste</Button><Button variant="secondary" onClick={() => setModalOpen(false)}>Annulla</Button></>}>
+        <p style={{ fontFamily:'var(--font-data)', fontSize:'0.875rem', color:'var(--muted)', lineHeight:1.6 }}>
+          Questa operazione è irreversibile: gli alter ego verranno rivelati a tutti i coach della lega Erculo Tuo 2024/25.
+        </p>
+      </Modal>
+    </div>
+  );
+}
+
+function Step4() {
+  const [file, setFile] = React.useState(null);
+  return (
+    <div>
+      <HelpBox title="Importa Formazioni" variant="info">
+        Carica il file delle formazioni settimanali in formato Excel. Ogni foglio corrisponde
+        a una giornata. Dopo l'import verrà calcolato il punteggio nostalgia per la giornata sorteggiata.
+      </HelpBox>
+      <Panel title="Importa Formazioni (.xlsx)">
+        <DropZone accept=".xlsx,.xls" label="Trascina il file formazioni qui" sublabel="Un foglio per giornata · colonne Ruolo | Calciatore | Voto" fileName={file?.name} onFile={setFile} />
+        <div style={{ marginTop:'1rem', display:'flex', gap:'0.5rem' }}>
+          <Button disabled={!file}>Importa Formazioni</Button>
+        </div>
+      </Panel>
+      <Panel title="Sorteggio Giornata Storica">
+        <p style={{ fontFamily:'var(--font-data)', fontSize:'0.875rem', color:'var(--muted)', marginBottom:'0.75rem' }}>
+          Ultima giornata sorteggiata: <span style={{ color:'var(--accent2)' }}>Giornata 22 · stagione 2003/04</span>
+        </p>
+        <Button variant="secondary">Sorteggia manualmente</Button>
+      </Panel>
+    </div>
+  );
+}
+
+/* ── App Shell ─────────────── */
+function App() {
+  const [loggedIn, setLoggedIn] = React.useState(false);
+  const [step, setStep] = React.useState(1);
+  const [msg, setMsg] = React.useState(null);
+
+  if (!loggedIn) return <LoginPage onLogin={() => setLoggedIn(true)} />;
+
+  const showMsg = (m) => { setMsg(m); if (m.type === 'ok') setTimeout(() => setMsg(null), 3500); };
+  const goStep  = (n) => { if (n < step) setStep(n); };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh' }}>
+      {/* Topbar */}
+      <div style={{ background:'var(--surface)', borderBottom:'2px solid var(--accent)', padding:'0.65rem 1.25rem', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
+        <span style={{ fontFamily:'var(--font-pixel)', fontSize:'0.75rem', color:'var(--accent)', textTransform:'uppercase' }}>⚽ FantaNostalgia <Badge variant="accent">admin</Badge></span>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+          <span style={{ fontFamily:'var(--font-data)', fontSize:'0.8rem', color:'var(--muted)' }}>presidente</span>
+          <Button variant="secondary" onClick={() => setLoggedIn(false)}>Esci</Button>
+        </div>
+      </div>
+      {/* Body */}
+      <div style={{ display:'flex', flex:1, minHeight:0 }}>
+        {/* Sidebar */}
+        <aside style={{ width:'200px', flexShrink:0, background:'var(--surface)', borderRight:'2px solid var(--border)', padding:'1rem 0', overflowY:'auto' }}>
+          <SectionLabel>Leghe</SectionLabel>
+          <NavLink active>Erculo Tuo 2024/25</NavLink>
+          <NavLink>+ Nuova lega</NavLink>
+          <SectionLabel>Pubblico</SectionLabel>
+          <NavLink>← Vai al sito</NavLink>
+        </aside>
+        {/* Content */}
+        <div style={{ flex:1, padding:'1.75rem 2rem', overflowY:'auto' }}>
+          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:'1.5rem' }}>
+            <h2 style={{ fontFamily:'var(--font-pixel)', fontSize:'0.85rem', color:'var(--accent)', textTransform:'uppercase' }}>Erculo Tuo 2024/25</h2>
+          </div>
+          <WizardSteps steps={['Listone','Mapping','Buste','Giornate']} current={step} onNavigate={goStep} />
+          {msg && <Message variant={msg.type} onDismiss={() => setMsg(null)}>{msg.text}</Message>}
+          {step === 1 && <Step1 onNext={() => setStep(2)} setMsg={showMsg} />}
+          {step === 2 && <Step2 onNext={() => setStep(3)} />}
+          {step === 3 && <Step3 onNext={() => setStep(4)} />}
+          {step === 4 && <Step4 />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

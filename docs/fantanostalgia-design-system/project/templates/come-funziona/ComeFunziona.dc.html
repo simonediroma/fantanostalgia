@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Come Funziona" description="Pagina esplicativa del meccanismo FantaNostalgia — step, regole, FAQ e CTA" -->
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="./ds-base.js"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    @keyframes fadeup { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+    @keyframes scanline {
+      0%   { background-position: 0 0; }
+      100% { background-position: 0 8px; }
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulse-border {
+      0%,100% { box-shadow: 3px 3px 0 var(--accent); }
+      50%     { box-shadow: 3px 3px 0 var(--accent), 0 0 18px rgba(255,230,0,0.25); }
+    }
+    a.nav-link { transition: color 0.1s; }
+    a.nav-link:hover { color: var(--accent) !important; }
+    .step-card { transition: border-color 0.15s, box-shadow 0.15s; }
+    .step-card:hover { border-color: var(--accent2) !important; box-shadow: 3px 3px 0 var(--accent2) !important; }
+    .rule-row { transition: background 0.1s; }
+    .rule-row:hover { background: rgba(51,51,170,0.25) !important; }
+    .faq-btn { cursor: pointer; transition: color 0.1s; }
+    .faq-btn:hover { color: var(--accent) !important; }
+  </style>
+</helmet>
+
+<!-- ── Nav ─────────────────────────────────────────────────────────── -->
+<nav style="position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:2px solid var(--accent);padding:0.65rem 2rem;display:flex;align-items:center;justify-content:space-between">
+  <a href="#" style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;text-decoration:none;letter-spacing:0.05em">⚽ FN</a>
+  <div style="display:flex;gap:2rem;align-items:center">
+    <a href="#intro"   class="nav-link" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--accent);text-decoration:none;text-transform:uppercase">Come funziona</a>
+    <a href="#regole"  class="nav-link" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted);text-decoration:none;text-transform:uppercase">Regole</a>
+    <a href="#faq"     class="nav-link" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted);text-decoration:none;text-transform:uppercase">FAQ</a>
+    <a href="#accedi"  class="nav-link" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted);text-decoration:none;text-transform:uppercase">Accedi</a>
+  </div>
+</nav>
+
+<!-- ── Hero intro ──────────────────────────────────────────────────── -->
+<section id="intro" style="padding:5rem 2rem 4rem;position:relative;overflow:hidden;border-bottom:2px solid var(--border)">
+  <div style="position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(51,51,170,0.18) 1px,transparent 1px),linear-gradient(90deg,rgba(51,51,170,0.18) 1px,transparent 1px);background-size:48px 48px"></div>
+  <div style="position:relative;z-index:1;max-width:760px;margin:0 auto;text-align:center;animation:fadeup 0.6s ease both">
+    <div style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.2em;margin-bottom:1.25rem">Guida al meccanismo</div>
+    <h1 style="font-family:var(--font-pixel);font-size:clamp(0.9rem,3vw,1.6rem);color:var(--accent);text-transform:uppercase;line-height:1.5;margin:0 0 1.5rem;letter-spacing:0.05em">Come funziona<br>FantaNostalgia</h1>
+    <p style="font-family:var(--font-data);font-size:1rem;color:var(--muted);line-height:1.85;margin:0 auto;max-width:580px">
+      FantaNostalgia è un layer che si sovrappone alla tua lega di fantacalcio classica. Usi la piattaforma che già conosci, ma ogni giocatore che compri all'asta ha un <span style="color:var(--accent)">alter ego storico</span> che gioca in parallelo in un campionato di leggende.
+    </p>
+    <!-- Step pill indicators -->
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:2.5rem;flex-wrap:wrap">
+      <a href="#step1" style="font-family:var(--font-pixel);font-size:0.42rem;background:var(--surface);border:2px solid var(--border);color:var(--muted);padding:0.45rem 0.9rem;text-decoration:none;text-transform:uppercase;display:inline-flex;align-items:center;gap:0.5rem;transition:border-color 0.1s">
+        <span style="color:var(--accent);opacity:0.6">01</span> Fai l'asta
+      </a>
+      <a href="#step2" style="font-family:var(--font-pixel);font-size:0.42rem;background:var(--surface);border:2px solid var(--accent);color:var(--accent);padding:0.45rem 0.9rem;text-decoration:none;text-transform:uppercase;display:inline-flex;align-items:center;gap:0.5rem;animation:pulse-border 2.5s ease-in-out infinite">
+        <span>02</span> I tuoi idoli
+      </a>
+      <a href="#step3" style="font-family:var(--font-pixel);font-size:0.42rem;background:var(--surface);border:2px solid var(--border);color:var(--muted);padding:0.45rem 0.9rem;text-decoration:none;text-transform:uppercase;display:inline-flex;align-items:center;gap:0.5rem">
+        <span style="color:var(--accent);opacity:0.6">03</span> Gioca
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Step 01 ─────────────────────────────────────────────────────── -->
+<section id="step1" style="padding:5rem 2rem;border-bottom:2px solid var(--border)">
+  <div style="max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start">
+
+    <div>
+      <div style="font-family:var(--font-pixel);font-size:3rem;color:var(--accent);opacity:0.18;line-height:1;margin-bottom:0.5rem">01</div>
+      <h2 style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;line-height:1.6;margin:0 0 1.25rem;letter-spacing:0.06em">Fai l'asta come<br>sempre</h2>
+      <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.9;margin:0 0 1rem">
+        FantaNostalgia non sostituisce la tua piattaforma. Usi <span style="color:var(--text)">fantacalcio.it</span>, <span style="color:var(--text)">fantacalcioservice.com</span> o qualsiasi altro servizio — l'asta si svolge normalmente, con il tuo budget, i tuoi rilanci, le tue strategie.
+      </p>
+      <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.9;margin:0">
+        Alla fine dell'asta esporti la lista delle rose e la carichi su FantaNostalgia. Il sistema fa il resto: mappa ogni giocatore moderno al suo alter ego nella stagione storica scelta dall'admin della lega.
+      </p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0.75rem">
+      <!-- Compatibilità piattaforme -->
+      <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem 1.5rem">
+        <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1rem">Piattaforme compatibili</div>
+        <div style="display:flex;flex-direction:column;gap:0.55rem">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">fantacalcio.it</span>
+            <span style="font-family:var(--font-pixel);font-size:0.38rem;background:var(--green);color:#000;padding:2px 7px">✓ SUPPORTATA</span>
+          </div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">fantacalcioservice.com</span>
+            <span style="font-family:var(--font-pixel);font-size:0.38rem;background:var(--green);color:#000;padding:2px 7px">✓ SUPPORTATA</span>
+          </div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Import manuale CSV</span>
+            <span style="font-family:var(--font-pixel);font-size:0.38rem;background:var(--accent2);color:#000;padding:2px 7px">BETA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nota budget -->
+      <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1rem 1.25rem;display:flex;gap:0.75rem;align-items:flex-start">
+        <span style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);flex-shrink:0">ℹ</span>
+        <p style="font-family:var(--font-data);font-size:0.82rem;color:var(--muted);line-height:1.75;margin:0">
+          Il budget dell'asta rimane quello standard della tua lega. FantaNostalgia non altera le quotazioni né il numero di giocatori acquistabili.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Step 02 ─────────────────────────────────────────────────────── -->
+<section id="step2" style="padding:5rem 2rem;border-bottom:2px solid var(--border);background:var(--surface)">
+  <div style="max-width:960px;margin:0 auto">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start">
+      <div style="order:2">
+        <div style="font-family:var(--font-pixel);font-size:3rem;color:var(--accent);opacity:0.25;line-height:1;margin-bottom:0.5rem">02</div>
+        <h2 style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;line-height:1.6;margin:0 0 1.25rem;letter-spacing:0.06em">Ogni calciatore<br>ha il suo idolo</h2>
+        <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.9;margin:0 0 1rem">
+          L'admin della lega sceglie una <span style="color:var(--accent)">stagione storica</span> (es. 2003/04). Il database FantaNostalgia contiene ogni calciatore di Serie A da quella stagione, con i voti giornata per giornata.
+        </p>
+        <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.9;margin:0">
+          Quando acquisti <span style="color:var(--text)">Lautaro Martínez</span> all'asta moderna, il sistema ti assegna il suo alter ego nella stagione scelta — magari <span style="color:var(--accent)">Hernan Crespo</span> della stagione 2002/03. I voti storici di Crespo diventano i tuoi punti nel campionato parallelo.
+        </p>
+      </div>
+
+      <!-- Esempio mapping -->
+      <div style="order:1">
+        <div style="background:var(--bg);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:0;overflow:hidden">
+          <div style="padding:0.7rem 1rem;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.1em">Mapping alter ego · es. 2003/04</span>
+          </div>
+          <!-- Header -->
+          <div style="display:grid;grid-template-columns:1fr 24px 1fr;gap:0;padding:0.5rem 1rem;border-bottom:1px solid var(--border);background:var(--surface)">
+            <span style="font-family:var(--font-pixel);font-size:0.36rem;color:var(--muted);text-transform:uppercase">Moderno</span>
+            <span></span>
+            <span style="font-family:var(--font-pixel);font-size:0.36rem;color:var(--muted);text-transform:uppercase;text-align:right">Storico</span>
+          </div>
+          <!-- Rows -->
+          <div style="display:flex;flex-direction:column">
+            <div style="display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;padding:0.65rem 1rem;border-bottom:1px solid var(--border)">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Lautaro M.</span>
+              <span style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent);text-align:right">Crespo</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;padding:0.65rem 1rem;border-bottom:1px solid var(--border)">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Osimhen</span>
+              <span style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent);text-align:right">Batistuta</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;padding:0.65rem 1rem;border-bottom:1px solid var(--border)">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Barella</span>
+              <span style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent);text-align:right">Nedved</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;padding:0.65rem 1rem;border-bottom:1px solid var(--border)">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Maignan</span>
+              <span style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent);text-align:right">Buffon</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;padding:0.65rem 1rem">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Theo Hernández</span>
+              <span style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent);text-align:right">Maldini</span>
+            </div>
+          </div>
+        </div>
+        <p style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase;text-align:center;margin-top:0.75rem;letter-spacing:0.08em">I mapping sono automatici ma editabili dall'admin</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Step 03 ─────────────────────────────────────────────────────── -->
+<section id="step3" style="padding:5rem 2rem;border-bottom:2px solid var(--border)">
+  <div style="max-width:960px;margin:0 auto">
+
+    <!-- Intro -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;margin-bottom:4rem">
+      <div>
+        <div style="font-family:var(--font-pixel);font-size:3rem;color:var(--accent);opacity:0.18;line-height:1;margin-bottom:0.5rem">03</div>
+        <h2 style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;line-height:1.6;margin:0 0 1.25rem;letter-spacing:0.06em">Punteggi storici:<br>come si calcolano</h2>
+        <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.9;margin:0 0 1rem">
+          Ogni giornata, il sistema recupera i voti reali di quella giornata nella stagione storica scelta e li usa per calcolare il punteggio della tua rosa storica. La formula è la stessa del fantacalcio classico: <span style="color:var(--accent)">voto base + bonus − malus</span>, giocatore per giocatore.
+        </p>
+        <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.9;margin:0">
+          La giornata storica usata è sempre quella corrispondente per numero alla giornata moderna in corso. Giornata 14 del campionato attuale → voti della giornata 14 storica.
+        </p>
+      </div>
+
+      <!-- Formula card -->
+      <div style="background:var(--surface);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:1.5rem;overflow:hidden">
+        <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1.25rem">Formula punteggio giocatore</div>
+        <!-- Formula display -->
+        <div style="background:var(--bg);border:1px solid var(--border);padding:1rem 1.25rem;margin-bottom:1.25rem;text-align:center">
+          <span style="font-family:var(--font-data);font-size:1.1rem;color:var(--accent)">P</span>
+          <span style="font-family:var(--font-data);font-size:1rem;color:var(--muted)"> = </span>
+          <span style="font-family:var(--font-data);font-size:1rem;color:var(--text)">V</span>
+          <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)"> + </span>
+          <span style="font-family:var(--font-data);font-size:1rem;color:var(--green)">B</span>
+          <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)"> − </span>
+          <span style="font-family:var(--font-data);font-size:1rem;color:var(--red)">M</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <div style="display:flex;gap:0.75rem;align-items:baseline">
+            <span style="font-family:var(--font-data);font-size:1rem;color:var(--accent);min-width:20px">P</span>
+            <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Punteggio finale del giocatore nella giornata storica</span>
+          </div>
+          <div style="display:flex;gap:0.75rem;align-items:baseline">
+            <span style="font-family:var(--font-data);font-size:1rem;color:var(--text);min-width:20px">V</span>
+            <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Voto Gazzetta reale di quella giornata (es. 7.0)</span>
+          </div>
+          <div style="display:flex;gap:0.75rem;align-items:baseline">
+            <span style="font-family:var(--font-data);font-size:1rem;color:var(--green);min-width:20px">B</span>
+            <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Bonus: +3 per gol, +1 assist, +1 clean sheet (por/dif)</span>
+          </div>
+          <div style="display:flex;gap:0.75rem;align-items:baseline">
+            <span style="font-family:var(--font-data);font-size:1rem;color:var(--red);min-width:20px">M</span>
+            <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Malus: −1 ammonizione, −2 espulsione, −1 autorete</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Algoritmo scontro diretto -->
+    <div style="margin-bottom:3rem">
+      <h3 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent2);text-transform:uppercase;text-align:center;margin-bottom:2rem;letter-spacing:0.1em">Algoritmo scontro diretto storico</h3>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+        <!-- Step A -->
+        <div style="background:var(--surface);padding:1.25rem 1rem;border-right:2px solid var(--border)">
+          <div style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent);margin-bottom:0.75rem">A</div>
+          <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--text);text-transform:uppercase;line-height:1.9;margin-bottom:0.65rem">Schieramento</div>
+          <p style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.75;margin:0">
+            Ogni manager schiera 11 alter ego storici con modulo libero. Chi non schiera entro la deadline usa la formazione automatica (miglior XI per media storica).
+          </p>
+        </div>
+        <!-- Step B -->
+        <div style="background:var(--surface);padding:1.25rem 1rem;border-right:2px solid var(--border)">
+          <div style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent);margin-bottom:0.75rem">B</div>
+          <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--text);text-transform:uppercase;line-height:1.9;margin-bottom:0.65rem">Calcolo punti</div>
+          <p style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.75;margin:0">
+            Per ogni giocatore schierato si applica la formula P = V + B − M con i dati reali di quella giornata storica. SV conta come 6.0 di default.
+          </p>
+        </div>
+        <!-- Step C -->
+        <div style="background:var(--surface);padding:1.25rem 1rem;border-right:2px solid var(--border)">
+          <div style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent);margin-bottom:0.75rem">C</div>
+          <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--text);text-transform:uppercase;line-height:1.9;margin-bottom:0.65rem">Totale squadra</div>
+          <p style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.75;margin:0">
+            Si sommano i punteggi degli 11 titolari. I giocatori con SV entrano in campo dalle panchine storiche se disponibili (stessa regola del fanta classico).
+          </p>
+        </div>
+        <!-- Step D -->
+        <div style="background:var(--surface);padding:1.25rem 1rem">
+          <div style="font-family:var(--font-pixel);font-size:0.55rem;color:var(--accent);margin-bottom:0.75rem">D</div>
+          <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--text);text-transform:uppercase;line-height:1.9;margin-bottom:0.65rem">Risultato</div>
+          <p style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.75;margin:0">
+            Chi totalizza più punti vince lo scontro (3 pt classifica storica). In caso di parità esatta: pareggio (1 pt ciascuno). Spareggio con gol storici segnati.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Esempio numerico -->
+    <div>
+      <h3 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent2);text-transform:uppercase;text-align:center;margin-bottom:1.5rem;letter-spacing:0.1em">Esempio · G14 · Erculo Tuo vs Gli Eroi</h3>
+
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:1.5rem;align-items:start">
+
+        <!-- Rosa A -->
+        <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+          <div style="padding:0.6rem 1rem;border-bottom:2px solid var(--border);background:var(--bg)">
+            <span style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent);text-transform:uppercase">Erculo Tuo</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.4rem 0.85rem;border-bottom:1px solid var(--border);background:rgba(51,51,170,0.15)">
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase">Giocatore</span>
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;text-align:center">V</span>
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--green);text-transform:uppercase;text-align:center">B</span>
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent);text-transform:uppercase;text-align:right">Pt</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Buffon</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">7.5</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--green);text-align:center">+1</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">8.5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Maldini</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">7.0</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">7.0</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Nedved</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">8.0</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--green);text-align:center">+1</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">9.0</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Crespo</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">8.5</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--green);text-align:center">+3</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">11.5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center;opacity:0.5">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted)">altri 7…</span>
+            <span></span><span></span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);text-align:right">47.5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 84px;padding:0.6rem 0.85rem;background:var(--bg);align-items:center">
+            <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Totale</span>
+            <span style="font-family:var(--font-data);font-size:1rem;color:var(--green);text-align:right;font-weight:bold">83.5</span>
+          </div>
+        </div>
+
+        <!-- VS -->
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;padding-top:3rem">
+          <div style="font-family:var(--font-pixel);font-size:0.7rem;color:var(--accent2)">VS</div>
+          <div style="width:2px;height:40px;background:var(--border)"></div>
+          <div style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;writing-mode:vertical-lr;letter-spacing:0.1em">G14 storica</div>
+        </div>
+
+        <!-- Rosa B -->
+        <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+          <div style="padding:0.6rem 1rem;border-bottom:2px solid var(--border);background:var(--bg)">
+            <span style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent);text-transform:uppercase">Gli Eroi</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.4rem 0.85rem;border-bottom:1px solid var(--border);background:rgba(51,51,170,0.15)">
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase">Giocatore</span>
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;text-align:center">V</span>
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--green);text-transform:uppercase;text-align:center">B</span>
+            <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent);text-transform:uppercase;text-align:right">Pt</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Toldo</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">6.5</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">6.5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Nesta</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">7.5</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">7.5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Seedorf</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">6.5</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--red);text-align:center">−1</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">5.5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text)">Batistuta</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--text);text-align:center">7.0</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--green);text-align:center">+3</span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent);text-align:right">10.0</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 36px 36px 48px;padding:0.45rem 0.85rem;border-bottom:1px solid var(--border);align-items:center;opacity:0.5">
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted)">altri 7…</span>
+            <span></span><span></span>
+            <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);text-align:right">44.0</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 84px;padding:0.6rem 0.85rem;background:var(--bg);align-items:center">
+            <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Totale</span>
+            <span style="font-family:var(--font-data);font-size:1rem;color:var(--muted);text-align:right;font-weight:bold">73.5</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Risultato -->
+      <div style="margin-top:1rem;background:var(--surface);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Risultato storico G14</span>
+          <span style="font-family:var(--font-data);font-size:1.1rem;color:var(--text)">Erculo Tuo <span style="color:var(--green)">83.5</span> — <span style="color:var(--muted)">73.5</span> Gli Eroi</span>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:center">
+          <span style="font-family:var(--font-pixel);font-size:0.38rem;background:var(--green);color:#000;padding:3px 8px">VITTORIA STORICA +3 PT</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Regole ──────────────────────────────────────────────────────── -->
+<section id="regole" style="padding:5rem 2rem;border-bottom:2px solid var(--border);background:var(--surface)">
+  <div style="max-width:760px;margin:0 auto">
+
+    <h2 style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;text-align:center;margin-bottom:3rem;letter-spacing:0.1em">Regole principali</h2>
+
+    <div style="background:var(--bg);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+
+      <div class="rule-row" style="display:grid;grid-template-columns:2fr 3fr;gap:1rem;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);align-items:start;background:transparent">
+        <span style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent);text-transform:uppercase;line-height:1.9">Voti</span>
+        <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.8">Nel campionato storico si usano i voti reali della stagione storica — Gazzetta dello Sport, giornata per giornata, esattamente come uscirono.</span>
+      </div>
+
+      <div class="rule-row" style="display:grid;grid-template-columns:2fr 3fr;gap:1rem;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);align-items:start;background:transparent">
+        <span style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent);text-transform:uppercase;line-height:1.9">Bonus/Malus</span>
+        <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.8">I bonus classici (gol, assist, clean sheet) si applicano anche al campionato storico, calcolati sui dati reali di quella stagione.</span>
+      </div>
+
+      <div class="rule-row" style="display:grid;grid-template-columns:2fr 3fr;gap:1rem;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);align-items:start;background:transparent">
+        <span style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent);text-transform:uppercase;line-height:1.9">Assenza giocatore</span>
+        <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.8">Se il giocatore moderno che hai comprato non aveva un alter ego in quella stagione storica, ricevi SV (senza voto) come nel fanta classico.</span>
+      </div>
+
+      <div class="rule-row" style="display:grid;grid-template-columns:2fr 3fr;gap:1rem;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);align-items:start;background:transparent">
+        <span style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent);text-transform:uppercase;line-height:1.9">Wildcard storica</span>
+        <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.8">Ogni giornata il miglior scontro diretto storico vince una wildcard: un leggendario extra da schierare nella propria rosa storica per i prossimi 3 turni.</span>
+      </div>
+
+      <div class="rule-row" style="display:grid;grid-template-columns:2fr 3fr;gap:1rem;padding:1.1rem 1.5rem;align-items:start;background:transparent">
+        <span style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent);text-transform:uppercase;line-height:1.9">Mercato riparazioni</span>
+        <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.8">A gennaio il mercato di riparazione riassegna anche gli alter ego storici: un'altra chance di sistemare la rosa leggendaria.</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ────────────────────────────────────────────────────────── -->
+<section id="faq" style="padding:5rem 2rem;border-bottom:2px solid var(--border)">
+  <div style="max-width:760px;margin:0 auto">
+
+    <h2 style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;text-align:center;margin-bottom:3rem;letter-spacing:0.1em">FAQ</h2>
+
+    <div style="display:flex;flex-direction:column;gap:0">
+
+      <div style="border:2px solid var(--border);border-bottom:none;overflow:hidden">
+        <button class="faq-btn" onClick="{{ toggleFaq0 }}" style="width:100%;background:var(--surface);border:none;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left">
+          <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--text);text-transform:uppercase;line-height:1.8">Devo usare una piattaforma specifica?</span>
+          <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);flex-shrink:0">{{ faqIcon0 }}</span>
+        </button>
+        <sc-if value="{{ faqOpen0 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:0.85rem 1.5rem 1.1rem;border-top:1px solid var(--border)">
+            <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.85;margin:0">No. FantaNostalgia supporta fantacalcio.it e fantacalcioservice.com, e accetta import manuale in CSV. La lega classica la gestisci dove vuoi.</p>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="border:2px solid var(--border);border-bottom:none;overflow:hidden">
+        <button class="faq-btn" onClick="{{ toggleFaq1 }}" style="width:100%;background:var(--surface);border:none;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left">
+          <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--text);text-transform:uppercase;line-height:1.8">Quante stagioni storiche sono disponibili?</span>
+          <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);flex-shrink:0">{{ faqIcon1 }}</span>
+        </button>
+        <sc-if value="{{ faqOpen1 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:0.85rem 1.5rem 1.1rem;border-top:1px solid var(--border)">
+            <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.85;margin:0">Il database copre tutte le stagioni di Serie A dal 1994/95 al 2010/11. Nuove stagioni vengono aggiunte ogni anno.</p>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="border:2px solid var(--border);border-bottom:none;overflow:hidden">
+        <button class="faq-btn" onClick="{{ toggleFaq2 }}" style="width:100%;background:var(--surface);border:none;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left">
+          <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--text);text-transform:uppercase;line-height:1.8">Cosa succede se due manager prendono lo stesso calciatore moderno?</span>
+          <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);flex-shrink:0">{{ faqIcon2 }}</span>
+        </button>
+        <sc-if value="{{ faqOpen2 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:0.85rem 1.5rem 1.1rem;border-top:1px solid var(--border)">
+            <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.85;margin:0">Come nel fanta classico, ogni calciatore è acquistabile da un solo manager. Se prendi Lautaro, lui ha Crespo — e nessun altro può averlo in quella lega.</p>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="border:2px solid var(--border);border-bottom:none;overflow:hidden">
+        <button class="faq-btn" onClick="{{ toggleFaq3 }}" style="width:100%;background:var(--surface);border:none;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left">
+          <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--text);text-transform:uppercase;line-height:1.8">Chi può creare una lega?</span>
+          <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);flex-shrink:0">{{ faqIcon3 }}</span>
+        </button>
+        <sc-if value="{{ faqOpen3 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:0.85rem 1.5rem 1.1rem;border-top:1px solid var(--border)">
+            <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.85;margin:0">Per ora solo su invito. Registrati come Coach, richiedi l'accesso admin tramite il form nell'area personale, e ti verrà abilitata la creazione di leghe.</p>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="border:2px solid var(--border);overflow:hidden">
+        <button class="faq-btn" onClick="{{ toggleFaq4 }}" style="width:100%;background:var(--surface);border:none;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left">
+          <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--text);text-transform:uppercase;line-height:1.8">È gratuito?</span>
+          <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);flex-shrink:0">{{ faqIcon4 }}</span>
+        </button>
+        <sc-if value="{{ faqOpen4 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:0.85rem 1.5rem 1.1rem;border-top:1px solid var(--border)">
+            <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);line-height:1.85;margin:0">Sì, completamente. FantaNostalgia è un progetto indipendente, senza abbonamenti né acquisti in-app.</p>
+          </div>
+        </sc-if>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ────────────────────────────────────────────────────────── -->
+<section id="accedi" style="padding:6rem 2rem;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(51,51,170,0.18) 1px,transparent 1px),linear-gradient(90deg,rgba(51,51,170,0.18) 1px,transparent 1px);background-size:48px 48px"></div>
+  <div style="position:relative;z-index:1;text-align:center;max-width:560px">
+    <div style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.2em;margin-bottom:1.25rem">Pronto a giocare?</div>
+    <h2 style="font-family:var(--font-pixel);font-size:clamp(0.75rem,2.5vw,1.2rem);color:var(--accent);text-transform:uppercase;line-height:1.5;margin:0 0 1.5rem">I tuoi idoli<br>ti aspettano</h2>
+    <p style="font-family:var(--font-data);font-size:0.9rem;color:var(--muted);line-height:1.85;margin:0 auto 2.5rem;max-width:420px">
+      Accedi con il codice invito ricevuto dal tuo admin, oppure registrati e richiedi di creare la tua prima lega storica.
+    </p>
+    <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap">
+      <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" hint-size="210px,46px">Accedi alla lega →</x-import>
+      <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" variant="secondary" hint-size="170px,46px">Torna all'home</x-import>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────────────── -->
+<footer style="border-top:2px solid var(--border);padding:1.5rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--surface)">
+  <span style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--muted);text-transform:uppercase">⚽ FantaNostalgia · 2026</span>
+  <a href="#intro" style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--muted);text-decoration:none;text-transform:uppercase">↑ Torna su</a>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { faq: [false, false, false, false, false] };
+
+  renderVals() {
+    const { faq } = this.state;
+    const toggle = (i) => () => {
+      const next = [...faq];
+      next[i] = !next[i];
+      this.setState({ faq: next });
+    };
+    return {
+      faqOpen0: faq[0], faqIcon0: faq[0] ? '−' : '+',
+      faqOpen1: faq[1], faqIcon1: faq[1] ? '−' : '+',
+      faqOpen2: faq[2], faqIcon2: faq[2] ? '−' : '+',
+      faqOpen3: faq[3], faqIcon3: faq[3] ? '−' : '+',
+      faqOpen4: faq[4], faqIcon4: faq[4] ? '−' : '+',
+      toggleFaq0: toggle(0),
+      toggleFaq1: toggle(1),
+      toggleFaq2: toggle(2),
+      toggleFaq3: toggle(3),
+      toggleFaq4: toggle(4),
+    };
+  }
+}
+</script>
+</body>
+</html>

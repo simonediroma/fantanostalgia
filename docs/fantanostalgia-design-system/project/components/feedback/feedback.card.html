@@ -1,0 +1,47 @@
+<!-- @dsCard group="Components" viewport="700x500" name="Feedback" subtitle="Message · HelpBox · EmptyState · ProgressBar" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { Message, HelpBox, EmptyState, ProgressBar } = window.FantaNostalgiaDesignSystem_90de16;
+    const lbl = (t) => (
+      <div style={{ fontFamily:'var(--font-pixel)', fontSize:'0.38rem', color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'0.5rem', marginTop:'0.25rem' }}>{t}</div>
+    );
+    function App() {
+      return (
+        <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+          {lbl('Message')}
+          <Message variant="ok">Listone importato — 250 giocatori trovati.</Message>
+          <Message variant="err" onDismiss={() => {}}>Errore: file non valido o formato non riconosciuto.</Message>
+          <Message variant="warn">Attenzione: questa operazione è irreversibile.</Message>
+          <Message variant="info">Sorteggio giornata storica in corso...</Message>
+
+          {lbl('HelpBox')}
+          <HelpBox title="Carica Listone" variant="info">
+            Importa la rosa della lega da file Excel. Usa il foglio "TutteLeRose" con due squadre affiancate.
+          </HelpBox>
+
+          {lbl('EmptyState')}
+          <EmptyState message="Nessun manager ancora." action="+ Aggiungi manager" onAction={() => {}} />
+
+          {lbl('ProgressBar')}
+          <ProgressBar value={7} max={12} label="7/12 assegnati" showPercent />
+          <div style={{marginTop:'0.5rem'}}><ProgressBar value={3} max={12} /></div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

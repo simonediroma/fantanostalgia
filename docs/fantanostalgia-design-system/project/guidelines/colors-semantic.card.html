@@ -1,0 +1,34 @@
+<!-- @dsCard group="Colors" viewport="700x130" name="Accent Palette" subtitle="accent · accent2 · green · red" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { margin: 0; padding: 0; }
+    .row { display: flex; height: 110px; }
+    .swatch { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 10px; }
+    .token { font-family: var(--font-pixel); font-size: 0.38rem; text-transform: uppercase; color: rgba(0,0,0,0.55); margin-bottom: 3px; }
+    .hex   { font-family: var(--font-data);  font-size: 0.72rem; color: rgba(0,0,0,0.4); }
+    .use   { font-family: var(--font-data);  font-size: 0.65rem; color: rgba(0,0,0,0.35); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="swatch" style="background:#ffe600">
+      <div class="token">--accent</div><div class="hex">#ffe600</div><div class="use">CTA · headings</div>
+    </div>
+    <div class="swatch" style="background:#00d4ff">
+      <div class="token">--accent2</div><div class="hex">#00d4ff</div><div class="use">hover · rank</div>
+    </div>
+    <div class="swatch" style="background:#00ff55">
+      <div class="token">--green</div><div class="hex">#00ff55</div><div class="use">positive · done</div>
+    </div>
+    <div class="swatch" style="background:#ff1144">
+      <div class="token" style="color:rgba(255,255,255,0.7)">--red</div><div class="hex" style="color:rgba(255,255,255,0.6)">#ff1144</div><div class="use" style="color:rgba(255,255,255,0.5)">danger · irreversible</div>
+    </div>
+  </div>
+</body>
+</html>

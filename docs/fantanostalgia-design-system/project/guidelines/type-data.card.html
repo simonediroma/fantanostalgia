@@ -1,0 +1,31 @@
+<!-- @dsCard group="Type" viewport="700x200" name="Data Font Scale" subtitle="Courier New — body text, tables, statistics" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { padding: 1.25rem 1.5rem; }
+    .row { display: flex; align-items: baseline; gap: 1.5rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border); }
+    .row:last-child { border-bottom: none; }
+    .token { font-family: var(--font-data); font-size: 0.72rem; color: var(--muted); width: 120px; flex-shrink: 0; }
+    .sample { font-family: var(--font-data); color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="token">data-sm / 0.78rem</div>
+    <div class="sample" style="font-size:0.78rem; color:var(--muted)">Stagione storica: 2003/04 — giornata sorteggiata: 22</div>
+  </div>
+  <div class="row">
+    <div class="token">data-md / 0.875rem</div>
+    <div class="sample" style="font-size:0.875rem">Mancini · Erculo Tuo · Budget residuo: 47 crediti</div>
+  </div>
+  <div class="row">
+    <div class="token">data-lg / 1rem</div>
+    <div class="sample" style="font-size:1rem; color:var(--green)">98.5 &nbsp;·&nbsp; <span style="color:var(--red)">−1.0</span> &nbsp;·&nbsp; <span style="color:var(--accent2)">1°</span></div>
+  </div>
+</body>
+</html>

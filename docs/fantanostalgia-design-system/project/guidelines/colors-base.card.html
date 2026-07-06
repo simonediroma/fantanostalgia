@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x130" name="Surface Palette" subtitle="bg · surface · border · muted · text" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { margin: 0; padding: 0; }
+    .row { display: flex; height: 110px; }
+    .swatch { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 10px; }
+    .token { font-family: var(--font-pixel); font-size: 0.38rem; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 3px; }
+    .hex   { font-family: var(--font-data);  font-size: 0.72rem; color: rgba(255,255,255,0.45); }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="swatch" style="background:#050510"><div class="token">--bg</div><div class="hex">#050510</div></div>
+    <div class="swatch" style="background:#0d0d2b"><div class="token">--surface</div><div class="hex">#0d0d2b</div></div>
+    <div class="swatch" style="background:#3333aa"><div class="token">--border</div><div class="hex">#3333aa</div></div>
+    <div class="swatch" style="background:#7777aa"><div class="token">--muted</div><div class="hex">#7777aa</div></div>
+    <div class="swatch" style="background:#ffffff"><div class="token" style="color:rgba(0,0,0,0.4)">--text</div><div class="hex" style="color:rgba(0,0,0,0.35)">#ffffff</div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!-- @dsCard group="Components" viewport="700x290" name="Data" subtitle="Table — classifica e statistiche" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { Table, Badge } = window.FantaNostalgiaDesignSystem_90de16;
+    const G = ({v}) => <span style={{color:'var(--green)',fontFamily:'var(--font-data)'}}>{v}</span>;
+    const C = ({v}) => <span style={{color:'var(--accent2)',fontFamily:'var(--font-pixel)',fontSize:'0.5rem'}}>{v}</span>;
+    function App() {
+      const cols = [
+        { label:'#', align:'center', pixel:true },
+        { label:'Squadra' },
+        { label:'Nostalgia', align:'right' },
+        { label:'Normale', align:'right' },
+        { label:'Ptg', align:'right', pixel:true },
+      ];
+      const rows = [
+        [<C v="1"/>, 'Erculo Tuo',     <G v="98.5"/>, '91.0', '42'],
+        [<C v="2"/>, 'Roma FC',         <G v="91.0"/>, '88.5', '39'],
+        [<C v="3"/>, 'Squadra Bianca',  <G v="87.5"/>, '90.0', '36'],
+        [<C v="4"/>, 'Los Tigros',      <G v="82.0"/>, '79.5', '33'],
+        [<C v="5"/>, 'PanzerDivision',  <G v="78.5"/>, '81.0', '30'],
+      ];
+      return (
+        <div style={{padding:'1.25rem'}}>
+          <Table columns={cols} rows={rows} />
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

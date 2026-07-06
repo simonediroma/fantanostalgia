@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Homepage" description="Landing page pubblica — hero, come funziona, leghe attive, login coach" -->
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="./ds-base.js"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    @keyframes title-glow {
+      0%,100% { text-shadow: 0 0 8px rgba(255,230,0,0.7), 0 0 20px rgba(255,230,0,0.3); }
+      50%      { text-shadow: 0 0 14px rgba(255,230,0,1),  0 0 35px rgba(255,230,0,0.5), 0 0 60px rgba(255,230,0,0.15); }
+    }
+    @keyframes cur { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes fadeup { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+    .hero-step { transition: border-color 0.15s, box-shadow 0.15s; }
+    .league-card-hp:hover { border-color: var(--accent) !important; box-shadow: 3px 3px 0 var(--accent) !important; }
+    a.nav-link-hp { transition: color 0.1s; }
+    a.nav-link-hp:hover { color: var(--accent) !important; }
+    .tab-btn-hp { font-family:var(--font-pixel);font-size:0.48rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.4rem 0.75rem;background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;box-shadow:none;margin-bottom:-2px;white-space:nowrap; }
+    .tab-btn-hp[data-active="true"] { background:var(--accent);color:var(--bg);border-bottom-color:var(--accent2); }
+  </style>
+</helmet>
+
+<!-- ── Nav ──────────────────────────────────────────────────── -->
+<nav style="position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:2px solid var(--accent);padding:0.65rem 2rem;display:flex;align-items:center;justify-content:space-between">
+  <a href="#" style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;text-decoration:none;letter-spacing:0.05em">⚽ FN</a>
+  <div style="display:flex;gap:2rem;align-items:center">
+    <a href="#come-funziona" class="nav-link-hp" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted);text-decoration:none;text-transform:uppercase">Come funziona</a>
+    <a href="#leghe"         class="nav-link-hp" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted);text-decoration:none;text-transform:uppercase">Leghe</a>
+    <a href="#accedi"        class="nav-link-hp" style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted);text-decoration:none;text-transform:uppercase">Accedi</a>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────── -->
+<section style="min-height:calc(100vh - 50px);display:flex;align-items:center;justify-content:center;text-align:center;padding:3rem 2rem;position:relative;overflow:hidden">
+
+  <!-- Pixel grid background -->
+  <div style="position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(51,51,170,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(51,51,170,0.25) 1px,transparent 1px);background-size:48px 48px"></div>
+
+  <div style="position:relative;z-index:1;max-width:680px;animation:fadeup 0.6s ease both">
+
+    <!-- Main title -->
+    <h1 style="font-family:var(--font-pixel);font-size:clamp(1rem,4.5vw,2.2rem);color:var(--accent);text-transform:uppercase;line-height:1.4;margin:0 0 2rem;letter-spacing:0.05em;animation:title-glow 3s ease-in-out infinite;white-space:nowrap">
+      ⚽ FANTANOSTALGIA ⚽
+    </h1>
+
+    <!-- Tagline -->
+    <p style="font-family:var(--font-pixel);font-size:clamp(0.48rem,1.3vw,0.68rem);color:var(--text);text-transform:uppercase;line-height:2.3;margin:0 auto 2.5rem;max-width:520px">
+      Maradona. Totti. Platini.<br>Quest'anno puoi finalmente ri-comprarli.<span style="display:inline-block;width:0.55rem;height:0.9em;background:var(--accent);vertical-align:text-bottom;margin-left:3px;animation:cur 1s step-end infinite"></span>
+    </p>
+
+    <!-- CTAs -->
+    <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:3rem">
+      <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" hint-size="220px,46px">Accedi alla lega →</x-import>
+      <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" variant="secondary" hint-size="195px,46px">Come funziona ↓</x-import>
+    </div>
+
+    <!-- Top players storici -->
+    <div style="display:inline-block;background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.85rem 1.5rem;text-align:left;min-width:360px">
+      <div style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.75rem;padding-bottom:0.5rem;border-bottom:1px solid var(--border)">
+        Top Player · Hall of Fame
+      </div>
+      <!-- Column headers -->
+      <div style="display:grid;grid-template-columns:72px 1fr 60px;gap:0.5rem;margin-bottom:0.5rem;padding-bottom:0.35rem;border-bottom:1px solid var(--border)">
+        <span style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase">Stagione</span>
+        <span style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase">Calciatore</span>
+        <span style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase;text-align:right">Media</span>
+      </div>
+      <!-- Rows -->
+      <div style="display:flex;flex-direction:column;gap:0.35rem">
+        <div style="display:grid;grid-template-columns:72px 1fr 60px;gap:0.5rem;align-items:center">
+          <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent2)">1999/00</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Shevchenko</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--green);text-align:right">8.14</span>
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 60px;gap:0.5rem;align-items:center">
+          <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent2)">2002/03</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Ronaldo</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--green);text-align:right">7.98</span>
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 60px;gap:0.5rem;align-items:center">
+          <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent2)">2000/01</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Batistuta</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--green);text-align:right">7.91</span>
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 60px;gap:0.5rem;align-items:center">
+          <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent2)">2003/04</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Totti</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--green);text-align:right">7.82</span>
+        </div>
+        <div style="display:grid;grid-template-columns:72px 1fr 60px;gap:0.5rem;align-items:center">
+          <span style="font-family:var(--font-data);font-size:0.78rem;color:var(--accent2)">2004/05</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Buffon</span>
+          <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--green);text-align:right">7.71</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Come funziona ─────────────────────────────────────────── -->
+<section id="come-funziona" style="padding:6rem 2rem;border-top:2px solid var(--border)">
+  <div style="max-width:960px;margin:0 auto">
+
+    <h2 style="font-family:var(--font-pixel);font-size:0.85rem;color:var(--accent);text-transform:uppercase;text-align:center;margin-bottom:3.5rem;letter-spacing:0.1em">Come funziona</h2>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0">
+
+      <!-- Step 01 -->
+      <div class="hero-step" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:2rem 1.75rem">
+        <div style="font-family:var(--font-pixel);font-size:1.8rem;color:var(--accent);opacity:0.5;margin-bottom:1.25rem;line-height:1">01</div>
+        <h3 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--text);text-transform:uppercase;margin-bottom:0.85rem;line-height:1.8">Fai l'asta</h3>
+        <p style="font-family:var(--font-data);font-size:0.82rem;color:var(--muted);line-height:1.75;margin:0">
+          Usa la piattaforma che preferisci — fantacalcio.it o fantacalcioservice.com. L'asta si fa come sempre: budget, rilanci, strategie. Nessun vincolo.
+        </p>
+      </div>
+
+      <!-- Step 02 — highlighted -->
+      <div class="hero-step" style="background:var(--surface);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:2rem 1.75rem;position:relative;z-index:1;margin:-1px 0">
+        <div style="font-family:var(--font-pixel);font-size:1.8rem;color:var(--accent);margin-bottom:1.25rem;line-height:1">02</div>
+        <h3 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);text-transform:uppercase;margin-bottom:0.85rem;line-height:1.8">I tuoi idoli</h3>
+        <p style="font-family:var(--font-data);font-size:0.82rem;color:var(--muted);line-height:1.75;margin:0 0 1rem">
+          Scegli una stagione storica dal database. Ogni giocatore che compri avrà il suo corrispettivo in quella stagione. I campioni che ti hanno fatto innamorare del pallone, finalmente con i colori della tua squadra del fantacalcio.
+        </p>
+        <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">★ I campioni della tua infanzia</div>
+      </div>
+
+      <!-- Step 03 -->
+      <div class="hero-step" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:2rem 1.75rem">
+        <div style="font-family:var(--font-pixel);font-size:1.8rem;color:var(--accent);opacity:0.5;margin-bottom:1.25rem;line-height:1">03</div>
+        <h3 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--text);text-transform:uppercase;margin-bottom:0.85rem;line-height:1.8">Gioca il campionato storico</h3>
+        <p style="font-family:var(--font-data);font-size:0.82rem;color:var(--muted);line-height:1.75;margin:0">
+          Alla classifica standard si affianca una classifica storica basata sugli scontri diretti con gli alter ego. Ogni giornata vengono messi in palio nuovi giocatori storici: un'altra chance per avere i campioni del cuore.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Leghe attive ──────────────────────────────────────────── -->
+<section id="leghe" style="padding:5rem 2rem;background:var(--surface);border-top:2px solid var(--border);border-bottom:2px solid var(--border)">
+  <div style="max-width:960px;margin:0 auto">
+
+    <h2 style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;margin-bottom:2rem;letter-spacing:0.1em">Leghe attive</h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;margin-bottom:1.75rem">
+
+      <div class="league-card-hp" style="background:var(--bg);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
+        <div>
+          <div style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);text-transform:uppercase;margin-bottom:0.35rem">Erculo Tuo</div>
+          <div style="font-family:var(--font-data);font-size:0.75rem;color:var(--muted)">2024/25 · storico 2003/04 · 10 manager</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;flex-shrink:0">
+          <span style="font-family:var(--font-pixel);font-size:0.42rem;background:var(--green);color:#000;padding:2px 6px">LIVE</span>
+          <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--accent2)">Giornata 22 →</span>
+        </div>
+      </div>
+
+      <div class="league-card-hp" style="background:var(--bg);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
+        <div>
+          <div style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);text-transform:uppercase;margin-bottom:0.35rem">Lega degli Eroi</div>
+          <div style="font-family:var(--font-data);font-size:0.75rem;color:var(--muted)">2024/25 · storico 2009/10 · 8 manager</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;flex-shrink:0">
+          <span style="font-family:var(--font-pixel);font-size:0.42rem;background:var(--green);color:#000;padding:2px 6px">LIVE</span>
+          <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--accent2)">Giornata 19 →</span>
+        </div>
+      </div>
+
+      <div class="league-card-hp" style="background:var(--bg);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;opacity:0.6;cursor:pointer">
+        <div>
+          <div style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);text-transform:uppercase;margin-bottom:0.35rem">Serie A Legends</div>
+          <div style="font-family:var(--font-data);font-size:0.75rem;color:var(--muted)">2024/25 · storico 1999/00 · 12 manager</div>
+        </div>
+        <span style="font-family:var(--font-pixel);font-size:0.42rem;background:var(--border);color:var(--muted);padding:2px 6px;flex-shrink:0">SETUP</span>
+      </div>
+
+    </div>
+
+    <div style="text-align:center">
+      <a href="#accedi" style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--accent2);text-decoration:none;text-transform:uppercase;letter-spacing:0.08em">Accedi per vedere la tua lega →</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Accedi ────────────────────────────────────────────────── -->
+<section id="accedi" style="padding:6rem 2rem;display:flex;align-items:center;justify-content:center">
+  <div style="width:100%;max-width:390px">
+
+    <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:2rem 2.5rem">
+      <div style="font-family:var(--font-pixel);font-size:0.75rem;color:var(--accent);text-transform:uppercase;margin-bottom:0.3rem">⚽ FantaNostalgia</div>
+      <div style="font-family:var(--font-pixel);font-size:0.48rem;color:var(--muted);text-transform:uppercase;margin-bottom:1.5rem">Area Coach</div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.25rem">
+        <button onClick="{{ setLogin }}"    data-active="{{ isLogin }}"    class="tab-btn-hp">Accedi</button>
+        <button onClick="{{ setRegister }}" data-active="{{ isRegister }}" class="tab-btn-hp">Registrati</button>
+      </div>
+
+      <!-- Login -->
+      <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:0.55rem">
+          <label style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Username</label>
+          <input type="text"     value="{{ user }}" onChange="{{ setUser }}" placeholder="il tuo username"
+            style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none;width:100%">
+          <label style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.2rem">Password</label>
+          <input type="password" value="{{ pass }}" onChange="{{ setPass }}" placeholder="••••••••"
+            style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none;width:100%">
+          <div style="margin-top:0.5rem">
+            <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" full-width="{{ true }}" hint-size="100%,46px">Accedi →</x-import>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Register -->
+      <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:0.55rem">
+          <label style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Username</label>
+          <input type="text"     value="{{ email }}"  onChange="{{ setEmail }}"  placeholder="scegli un username"
+            style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none;width:100%">
+          <label style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.2rem">Codice invito</label>
+          <input type="text"     value="{{ invite }}" onChange="{{ setInvite }}" placeholder="ricevuto dall'admin"
+            style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none;width:100%">
+          <label style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.2rem">Password</label>
+          <input type="password" value="{{ pass }}"   onChange="{{ setPass }}"   placeholder="••••••••"
+            style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none;width:100%">
+          <div style="margin-top:0.5rem">
+            <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" full-width="{{ true }}" hint-size="100%,46px">Registrati →</x-import>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────────── -->
+<footer style="border-top:2px solid var(--border);padding:1.5rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--surface)">
+  <span style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--muted);text-transform:uppercase">⚽ FantaNostalgia · 2026</span>
+  <a href="#come-funziona" style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--muted);text-decoration:none;text-transform:uppercase">Come funziona</a>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab: 'login', user: '', pass: '', email: '', invite: '' };
+
+  renderVals() {
+    const { tab, user, pass, email, invite } = this.state;
+    return {
+      isLogin:    tab === 'login',
+      isRegister: tab === 'register',
+      setLogin:    () => this.setState({ tab: 'login' }),
+      setRegister: () => this.setState({ tab: 'register' }),
+      user, pass, email, invite,
+      setUser:   (e) => this.setState({ user:   e.target.value }),
+      setPass:   (e) => this.setState({ pass:   e.target.value }),
+      setEmail:  (e) => this.setState({ email:  e.target.value }),
+      setInvite: (e) => this.setState({ invite: e.target.value }),
+    };
+  }
+}
+</script>
+</body>
+</html>

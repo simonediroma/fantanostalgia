@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Coach Portal" description="Area allenatore: dashboard classifica, associazione alter ego, schieramento storico, punteggi giornata" -->
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body { margin:0; height:100%; overflow:hidden; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    /* Tab nav */
+    .coach-tab { cursor:pointer; border:none; background:transparent; font-family:var(--font-pixel); font-size:0.42rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); padding:0.6rem 1.25rem; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color 0.1s; }
+    .coach-tab:hover:not([data-active="true"]) { color:var(--accent); }
+    .coach-tab[data-active="true"] { color:var(--accent); border-bottom-color:var(--accent); }
+    /* Player rows */
+    .player-row { transition:background 0.1s; }
+    .player-row:hover { background:rgba(255,230,0,0.05) !important; }
+    /* Locked form */
+    .alterego-wrap.is-locked select { pointer-events:none; opacity:0.6; }
+    /* Lineup */
+    .lineup-card { cursor:pointer; transition:border-color 0.12s, box-shadow 0.12s; }
+    .lineup-card[data-selected="true"]  { border-color:var(--accent) !important; box-shadow:3px 3px 0 var(--accent) !important; }
+    .lineup-card[data-selected="false"]:hover { border-color:var(--border) !important; opacity:0.85; }
+    ::-webkit-scrollbar { width:6px; background:var(--bg); }
+    ::-webkit-scrollbar-thumb { background:var(--border); }
+    .assign-status { font-family:var(--font-pixel);font-size:0.35rem;text-align:center;color:var(--muted); }
+    .assign-status[data-assigned="true"] { color:var(--green); }
+    .lineup-count { color:var(--accent); }
+    .lineup-count[data-full="true"] { color:var(--green); }
+  </style>
+</helmet>
+
+<!-- ── Shell ──────────────────────────────────────────────────────── -->
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;background:var(--bg)">
+
+  <!-- Topbar -->
+  <header style="background:var(--surface);border-bottom:2px solid var(--accent);padding:0 1.5rem;height:50px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:0.85rem">
+      <span style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent)">⚽ FN</span>
+      <span style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--border)">|</span>
+      <span style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--text);text-transform:uppercase">Erculo Tuo</span>
+      <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase">· Erculo Tuo 24/25</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem">
+      <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--green);animation:blink 2s step-end infinite">● G22 IN CORSO</span>
+      <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" variant="ghost" hint-size="60px,32px">Esci</x-import>
+    </div>
+  </header>
+
+  <!-- Tab nav -->
+  <nav style="background:var(--surface);border-bottom:2px solid var(--border);padding:0 1.5rem;display:flex;align-items:flex-end;gap:0;flex-shrink:0">
+    <button class="coach-tab" data-active="{{ isDashboard }}"     onClick="{{ goDashboard }}">Dashboard</button>
+    <button class="coach-tab" data-active="{{ isAlterego }}"      onClick="{{ goAlterego }}">Alter Ego</button>
+    <button class="coach-tab" data-active="{{ isSchieramento }}"  onClick="{{ goSchieramento }}">Schieramento</button>
+    <button class="coach-tab" data-active="{{ isPunteggi }}"      onClick="{{ goPunteggi }}">Punteggi</button>
+  </nav>
+
+  <!-- Content -->
+  <main style="flex:1;overflow-y:auto">
+
+    <!-- ══ DASHBOARD ═══════════════════════════════════════════════ -->
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:1.75rem 2rem;max-width:900px">
+
+        <!-- Classifiche -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+
+          <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+            <div style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.85rem">Classifica moderna · G22</div>
+            <div style="display:flex;align-items:baseline;gap:0.75rem;margin-bottom:0.75rem">
+              <span style="font-family:var(--font-data);font-size:2.5rem;color:var(--accent);line-height:1">1°</span>
+              <span style="font-family:var(--font-data);font-size:1rem;color:var(--muted)">46 pt</span>
+            </div>
+            <div style="height:1px;background:var(--border);margin-bottom:0.65rem"></div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem">
+              <div style="display:grid;grid-template-columns:20px 1fr 40px;gap:0.4rem;align-items:center">
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent)">1</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--accent)">Erculo Tuo</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--green);text-align:right">46</span>
+              </div>
+              <div style="display:grid;grid-template-columns:20px 1fr 40px;gap:0.4rem;align-items:center">
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted)">2</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Gli Eroi</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);text-align:right">42</span>
+              </div>
+              <div style="display:grid;grid-template-columns:20px 1fr 40px;gap:0.4rem;align-items:center">
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted)">3</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">La Vecchia</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);text-align:right">39</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:2px solid var(--accent2);box-shadow:3px 3px 0 var(--accent2);padding:1.25rem">
+            <div style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.85rem">Classifica storica · G22</div>
+            <div style="display:flex;align-items:baseline;gap:0.75rem;margin-bottom:0.75rem">
+              <span style="font-family:var(--font-data);font-size:2.5rem;color:var(--accent);line-height:1">3°</span>
+              <span style="font-family:var(--font-data);font-size:1rem;color:var(--muted)">38 pt</span>
+            </div>
+            <div style="height:1px;background:var(--border);margin-bottom:0.65rem"></div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem">
+              <div style="display:grid;grid-template-columns:20px 1fr 40px;gap:0.4rem;align-items:center">
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">1</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Gli Eroi</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);text-align:right">51</span>
+              </div>
+              <div style="display:grid;grid-template-columns:20px 1fr 40px;gap:0.4rem;align-items:center">
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted)">2</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Calcio Epico</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);text-align:right">42</span>
+              </div>
+              <div style="display:grid;grid-template-columns:20px 1fr 40px;gap:0.4rem;align-items:center">
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent)">3</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--accent)">Erculo Tuo</span>
+                <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--green);text-align:right">38</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Prossimo scontro -->
+        <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <div>
+            <div style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase;margin-bottom:0.35rem">Prossimo scontro storico · G23</div>
+            <div style="font-family:var(--font-data);font-size:0.9rem;color:var(--text)">Erculo Tuo <span style="color:var(--muted)">vs</span> Gli Eroi</div>
+          </div>
+          <button onClick="{{ goSchieramento }}" style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.4rem 0.85rem;cursor:pointer;white-space:nowrap">Schiera →</button>
+        </div>
+
+        <!-- Alert alter ego non bloccati -->
+        <sc-if value="{{ notLocked }}" hint-placeholder-val="{{ true }}">
+          <div style="background:var(--surface);border:2px solid var(--red);box-shadow:3px 3px 0 var(--red);padding:0.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+            <div style="display:flex;align-items:center;gap:0.75rem">
+              <span style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--red)">!</span>
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Hai ancora <span style="color:var(--accent)">{{ unassignedCount }} giocatori</span> senza alter ego. Completa l'associazione prima di G23.</span>
+            </div>
+            <button onClick="{{ goAlterego }}" style="background:var(--red);border:2px solid var(--red);color:#fff;font-family:var(--font-pixel);font-size:0.35rem;text-transform:uppercase;padding:0.35rem 0.75rem;cursor:pointer;white-space:nowrap">Completa →</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isLocked }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--surface);border:2px solid var(--green);box-shadow:3px 3px 0 var(--green);padding:0.85rem 1.25rem;display:flex;align-items:center;gap:0.75rem">
+            <span style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--green)">✓</span>
+            <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Rosa storica bloccata e confermata. Tutti gli alter ego sono attivi.</span>
+          </div>
+        </sc-if>
+
+      </div>
+    </sc-if>
+
+    <!-- ══ ALTER EGO ════════════════════════════════════════════════ -->
+    <sc-if value="{{ isAlterego }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:1.75rem 2rem;max-width:820px">
+
+        <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.HelpBox" title="Associa i tuoi alter ego" variant="info" hint-size="100%,72px">
+          Assegna ogni leggenda storica al giocatore della tua rosa moderna. Una volta confermata e bloccata, l'associazione è definitiva.
+        </x-import>
+
+        <div style="margin-top:1.25rem" class="alterego-wrap {{ lockedClass }}">
+
+          <!-- Progress + lock -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;gap:1rem">
+            <div style="flex:1">
+              <div style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);margin-bottom:0.35rem">{{ assignedCount }}/12 assegnati</div>
+              <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.ProgressBar" value="{{ assignedCount }}" max="12" hint-size="100%,10px"></x-import>
+            </div>
+            <sc-if value="{{ notLocked }}" hint-placeholder-val="{{ true }}">
+              <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" variant="danger" disabled="{{ notAllAssigned }}" onClick="{{ handleLock }}" hint-size="180px,40px">Conferma e Blocca</x-import>
+            </sc-if>
+            <sc-if value="{{ isLocked }}" hint-placeholder-val="{{ false }}">
+              <span style="font-family:var(--font-pixel);font-size:0.38rem;background:var(--green);color:#000;padding:4px 10px">✓ BLOCCATA</span>
+            </sc-if>
+          </div>
+
+          <!-- Table header -->
+          <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+            <div style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.4rem 1rem;border-bottom:2px solid var(--border);background:var(--accent);gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase">Ruolo</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase">Leggenda storica</span>
+              <span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase">Rosa moderna</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase;text-align:center">Stato</span>
+            </div>
+
+            <!-- POR -->
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">POR</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Peruzzi</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Lazio 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign1 }}" onChange="{{ setAssign1 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona portiere</option>
+                <option value="Handanovic">Handanovic</option>
+                <option value="Szczesny">Szczesny</option>
+                <option value="Radu">Radu</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned1 }}">{{ statusText1 }}</span>
+            </div>
+
+            <!-- DIF -->
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">DIF</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Maldini</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign2 }}" onChange="{{ setAssign2 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona difensore</option>
+                <option value="Theo Hernandez">Theo Hernandez</option>
+                <option value="De Vrij">De Vrij</option>
+                <option value="Skriniar">Skriniar</option>
+                <option value="Bastoni">Bastoni</option>
+                <option value="Danilo">Danilo</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned2 }}">{{ statusText2 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">DIF</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Nesta</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign3 }}" onChange="{{ setAssign3 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona difensore</option>
+                <option value="Theo Hernandez">Theo Hernandez</option>
+                <option value="De Vrij">De Vrij</option>
+                <option value="Skriniar">Skriniar</option>
+                <option value="Bastoni">Bastoni</option>
+                <option value="Bremer">Bremer</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned3 }}">{{ statusText3 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">DIF</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Cannavaro</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Juve 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign4 }}" onChange="{{ setAssign4 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona difensore</option>
+                <option value="De Vrij">De Vrij</option>
+                <option value="Skriniar">Skriniar</option>
+                <option value="Bastoni">Bastoni</option>
+                <option value="Bremer">Bremer</option>
+                <option value="Danilo">Danilo</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned4 }}">{{ statusText4 }}</span>
+            </div>
+
+            <!-- CEN -->
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">CEN</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Pirlo</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign5 }}" onChange="{{ setAssign5 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona centrocampista</option>
+                <option value="Barella">Barella</option>
+                <option value="Calhanoglu">Calhanoglu</option>
+                <option value="Milinkovic">Milinkovic</option>
+                <option value="Verratti">Verratti</option>
+                <option value="Pellegrini">Pellegrini</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned5 }}">{{ statusText5 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">CEN</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Totti</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Roma 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign6 }}" onChange="{{ setAssign6 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona centrocampista</option>
+                <option value="Dybala">Dybala</option>
+                <option value="Barella">Barella</option>
+                <option value="Milinkovic">Milinkovic</option>
+                <option value="Verratti">Verratti</option>
+                <option value="Pellegrini">Pellegrini</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned6 }}">{{ statusText6 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">CEN</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Veron</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Lazio 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign7 }}" onChange="{{ setAssign7 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona centrocampista</option>
+                <option value="Barella">Barella</option>
+                <option value="Calhanoglu">Calhanoglu</option>
+                <option value="Milinkovic">Milinkovic</option>
+                <option value="Verratti">Verratti</option>
+                <option value="Pellegrini">Pellegrini</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned7 }}">{{ statusText7 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">CEN</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Seedorf</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign8 }}" onChange="{{ setAssign8 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona centrocampista</option>
+                <option value="Calhanoglu">Calhanoglu</option>
+                <option value="Barella">Barella</option>
+                <option value="Milinkovic">Milinkovic</option>
+                <option value="Verratti">Verratti</option>
+                <option value="Pellegrini">Pellegrini</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned8 }}">{{ statusText8 }}</span>
+            </div>
+
+            <!-- ATT -->
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">ATT</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Inzaghi</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign9 }}" onChange="{{ setAssign9 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona attaccante</option>
+                <option value="Giroud">Giroud</option>
+                <option value="Vlahovic">Vlahovic</option>
+                <option value="El Shaarawy">El Shaarawy</option>
+                <option value="Osimhen">Osimhen</option>
+                <option value="Lautaro">Lautaro</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned9 }}">{{ statusText9 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">ATT</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Trezeguet</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Juve 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign10 }}" onChange="{{ setAssign10 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona attaccante</option>
+                <option value="Vlahovic">Vlahovic</option>
+                <option value="Giroud">Giroud</option>
+                <option value="El Shaarawy">El Shaarawy</option>
+                <option value="Osimhen">Osimhen</option>
+                <option value="Lautaro">Lautaro</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned10 }}">{{ statusText10 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">ATT</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Vieri</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Inter 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign11 }}" onChange="{{ setAssign11 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona attaccante</option>
+                <option value="Osimhen">Osimhen</option>
+                <option value="Lautaro">Lautaro</option>
+                <option value="Giroud">Giroud</option>
+                <option value="Vlahovic">Vlahovic</option>
+                <option value="Dzeko">Dzeko</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned11 }}">{{ statusText11 }}</span>
+            </div>
+            <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 28px 1fr 60px;padding:0.6rem 1rem;align-items:center;gap:0.5rem;background:transparent">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2)">ATT</span>
+              <div><div style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Montella</div><div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Roma 03/04</div></div>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <select value="{{ assign12 }}" onChange="{{ setAssign12 }}" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.3rem 0.5rem;outline:none;width:100%">
+                <option value="">— Seleziona attaccante</option>
+                <option value="El Shaarawy">El Shaarawy</option>
+                <option value="Giroud">Giroud</option>
+                <option value="Dzeko">Dzeko</option>
+                <option value="Lautaro">Lautaro</option>
+                <option value="Osimhen">Osimhen</option>
+              </select>
+              <span class="assign-status" data-assigned="{{ assigned12 }}">{{ statusText12 }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ══ SCHIERAMENTO ═════════════════════════════════════════════ -->
+    <sc-if value="{{ isSchieramento }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:1.75rem 2rem;max-width:820px">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap">
+          <div>
+            <h2 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);text-transform:uppercase;margin:0 0 0.25rem">Schieramento storico · G23</h2>
+            <p style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);margin:0">Seleziona 11 titolari. Deadline: <span style="color:var(--accent)">venerdì ore 12:00</span></p>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <select style="background:var(--surface);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.35rem 0.6rem;outline:none">
+              <option>4-3-3</option><option>4-4-2</option><option>3-5-2</option><option>3-4-3</option><option>5-3-2</option>
+            </select>
+            <span class="lineup-count" data-full="{{ lineupFull }}" style="font-family:var(--font-pixel);font-size:0.42rem">{{ lineupCount }}/11</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.65rem;margin-bottom:1.25rem">
+
+          <div class="lineup-card" data-selected="{{ in1 }}" onClick="{{ toggle1 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">POR</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Peruzzi</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Lazio 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in2 }}" onClick="{{ toggle2 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">DIF</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Maldini</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in3 }}" onClick="{{ toggle3 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">DIF</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Nesta</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in4 }}" onClick="{{ toggle4 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">DIF</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Cannavaro</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Juve 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in5 }}" onClick="{{ toggle5 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">CEN</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Pirlo</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in6 }}" onClick="{{ toggle6 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">CEN</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Totti</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Roma 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in7 }}" onClick="{{ toggle7 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">CEN</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Veron</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Lazio 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in8 }}" onClick="{{ toggle8 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">CEN</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Seedorf</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in9 }}" onClick="{{ toggle9 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">ATT</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Inzaghi</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Milan 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in10 }}" onClick="{{ toggle10 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">ATT</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Trezeguet</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Juve 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in11 }}" onClick="{{ toggle11 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">ATT</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Vieri</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Inter 03/04</div>
+          </div>
+          <div class="lineup-card" data-selected="{{ in12 }}" onClick="{{ toggle12 }}" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:0.75rem 0.85rem">
+            <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-bottom:0.3rem">ATT</div>
+            <div style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Montella</div>
+            <div style="font-family:var(--font-data);font-size:0.72rem;color:var(--muted)">Roma 03/04</div>
+          </div>
+
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <p style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);margin:0">Il giocatore non selezionato va in panchina — entra automaticamente in caso di SV di un titolare.</p>
+          <x-import component-from-global-scope="FantaNostalgiaDesignSystem_90de16.Button" disabled="{{ lineupNotReady }}" hint-size="200px,40px">Conferma schieramento →</x-import>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <!-- ══ PUNTEGGI ═════════════════════════════════════════════════ -->
+    <sc-if value="{{ isPunteggi }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:1.75rem 2rem;max-width:820px">
+
+        <h2 style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent);text-transform:uppercase;margin:0 0 1.25rem">Punteggi storici · G22</h2>
+
+        <!-- Risultato scontro -->
+        <div style="background:var(--surface);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:1.25rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <div style="text-align:center;flex:1">
+            <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--accent);text-transform:uppercase;margin-bottom:0.3rem">Erculo Tuo</div>
+            <div style="font-family:var(--font-data);font-size:2.2rem;color:var(--green);line-height:1">83.5</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--muted)">vs</div>
+            <div style="font-family:var(--font-pixel);font-size:0.35rem;background:var(--green);color:#000;padding:2px 8px;margin-top:0.35rem">VITTORIA +3 PT</div>
+          </div>
+          <div style="text-align:center;flex:1">
+            <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--muted);text-transform:uppercase;margin-bottom:0.3rem">Gli Eroi</div>
+            <div style="font-family:var(--font-data);font-size:2.2rem;color:var(--muted);line-height:1">73.5</div>
+          </div>
+        </div>
+
+        <!-- Dettaglio per giocatore -->
+        <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+          <div style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.4rem 1rem;border-bottom:2px solid var(--border);background:var(--accent);gap:0.5rem">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase">Ruolo</span>
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase">Leggenda</span>
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase;text-align:center">Voto</span>
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase;text-align:center">Bonus</span>
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase;text-align:center">Malus</span>
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--bg);text-transform:uppercase;text-align:right">Totale</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">POR</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Peruzzi</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">7.5</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--green);text-align:center">+1</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.9rem;color:var(--accent);text-align:right;font-weight:bold">8.5</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">DIF</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Maldini</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">7.0</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.9rem;color:var(--accent);text-align:right;font-weight:bold">7.0</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">DIF</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Nesta</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">6.5</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.9rem;color:var(--accent);text-align:right;font-weight:bold">6.5</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">CEN</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Pirlo</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">7.5</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--green);text-align:center">+1</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.9rem;color:var(--accent);text-align:right;font-weight:bold">8.5</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">CEN</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Totti</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">8.0</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--green);text-align:center">+1</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.9rem;color:var(--accent);text-align:right;font-weight:bold">9.0</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem;background:transparent">
+            <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2)">ATT</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Inzaghi</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">8.5</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--green);text-align:center">+3</span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:center">—</span>
+            <span style="font-family:var(--font-data);font-size:0.9rem;color:var(--accent);text-align:right;font-weight:bold">11.5</span>
+          </div>
+          <div class="player-row" style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.55rem 1rem;align-items:center;gap:0.5rem;background:transparent;opacity:0.55">
+            <span></span>
+            <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">altri 5 titolari…</span>
+            <span></span><span></span><span></span>
+            <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted);text-align:right">33.0</span>
+          </div>
+          <!-- Totale -->
+          <div style="display:grid;grid-template-columns:52px 1fr 52px 52px 52px 64px;padding:0.7rem 1rem;background:var(--bg);align-items:center;gap:0.5rem;border-top:2px solid var(--border)">
+            <span></span>
+            <span style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase">Totale squadra</span>
+            <span></span><span></span><span></span>
+            <span style="font-family:var(--font-data);font-size:1.1rem;color:var(--green);text-align:right;font-weight:bold">83.5</span>
+          </div>
+        </div>
+
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    view: 'dashboard',
+    locked: false,
+    assignments: { 2:'Theo Hernandez', 5:'Barella', 6:'Dybala', 8:'Calhanoglu', 9:'Giroud', 10:'Vlahovic', 12:'El Shaarawy' },
+    lineup: new Set([1,2,3,4,5,6,8,9,10,11,12]),
+  };
+
+  renderVals() {
+    const { view, locked, assignments, lineup } = this.state;
+    const a = assignments;
+    const assignedCount = Object.values(a).filter(Boolean).length;
+    const allAssigned = assignedCount === 12;
+
+    const makeAssignHandler = (id) => (e) => {
+      const val = e.target.value;
+      this.setState(s => ({ assignments: { ...s.assignments, [id]: val } }));
+    };
+
+    const makeToggle = (id) => () => {
+      this.setState(s => {
+        const next = new Set(s.lineup);
+        if (next.has(id)) { next.delete(id); }
+        else if (next.size < 11) { next.add(id); }
+        return { lineup: next };
+      });
+    };
+
+    const lineupCount = lineup.size;
+
+    return {
+      // nav
+      isDashboard:    view === 'dashboard',
+      isAlterego:     view === 'alterego',
+      isSchieramento: view === 'schieramento',
+      isPunteggi:     view === 'punteggi',
+      goDashboard:    () => this.setState({ view: 'dashboard' }),
+      goAlterego:     () => this.setState({ view: 'alterego' }),
+      goSchieramento: () => this.setState({ view: 'schieramento' }),
+      goPunteggi:     () => this.setState({ view: 'punteggi' }),
+
+      // alter ego
+      locked, isLocked: locked, notLocked: !locked,
+      lockedClass: locked ? 'is-locked' : '',
+      assignedCount, totalPlayers: 12, allAssigned,
+      notAllAssigned: !allAssigned,
+      unassignedCount: 12 - assignedCount,
+      handleLock: () => this.setState({ locked: true }),
+
+      // individual assignments + status
+      assign1: a[1]||'', assign2: a[2]||'', assign3: a[3]||'', assign4: a[4]||'',
+      assign5: a[5]||'', assign6: a[6]||'', assign7: a[7]||'', assign8: a[8]||'',
+      assign9: a[9]||'', assign10: a[10]||'', assign11: a[11]||'', assign12: a[12]||'',
+      assigned1: !!a[1], assigned2: !!a[2], assigned3: !!a[3], assigned4: !!a[4],
+      assigned5: !!a[5], assigned6: !!a[6], assigned7: !!a[7], assigned8: !!a[8],
+      assigned9: !!a[9], assigned10: !!a[10], assigned11: !!a[11], assigned12: !!a[12],
+      statusText1: a[1]?'✓':'—', statusText2: a[2]?'✓':'—', statusText3: a[3]?'✓':'—', statusText4: a[4]?'✓':'—',
+      statusText5: a[5]?'✓':'—', statusText6: a[6]?'✓':'—', statusText7: a[7]?'✓':'—', statusText8: a[8]?'✓':'—',
+      statusText9: a[9]?'✓':'—', statusText10: a[10]?'✓':'—', statusText11: a[11]?'✓':'—', statusText12: a[12]?'✓':'—',
+      setAssign1: makeAssignHandler(1),  setAssign2: makeAssignHandler(2),
+      setAssign3: makeAssignHandler(3),  setAssign4: makeAssignHandler(4),
+      setAssign5: makeAssignHandler(5),  setAssign6: makeAssignHandler(6),
+      setAssign7: makeAssignHandler(7),  setAssign8: makeAssignHandler(8),
+      setAssign9: makeAssignHandler(9),  setAssign10: makeAssignHandler(10),
+      setAssign11: makeAssignHandler(11), setAssign12: makeAssignHandler(12),
+
+      // lineup
+      lineupCount, lineupFull: lineupCount === 11, lineupNotReady: lineupCount !== 11,
+      in1: lineup.has(1), in2: lineup.has(2), in3: lineup.has(3), in4: lineup.has(4),
+      in5: lineup.has(5), in6: lineup.has(6), in7: lineup.has(7), in8: lineup.has(8),
+      in9: lineup.has(9), in10: lineup.has(10), in11: lineup.has(11), in12: lineup.has(12),
+      toggle1: makeToggle(1),  toggle2: makeToggle(2),  toggle3: makeToggle(3),
+      toggle4: makeToggle(4),  toggle5: makeToggle(5),  toggle6: makeToggle(6),
+      toggle7: makeToggle(7),  toggle8: makeToggle(8),  toggle9: makeToggle(9),
+      toggle10: makeToggle(10), toggle11: makeToggle(11), toggle12: makeToggle(12),
+    };
+  }
+}
+</script>
+</body>
+</html>

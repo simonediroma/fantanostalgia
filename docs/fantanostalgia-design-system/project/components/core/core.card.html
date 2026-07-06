@@ -1,0 +1,68 @@
+<!-- @dsCard group="Components" viewport="700x390" name="Core" subtitle="Button · Badge · Panel" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { Button, Badge, Panel } = window.FantaNostalgiaDesignSystem_90de16;
+    const lbl = (t) => (
+      <div style={{ fontFamily:'var(--font-pixel)', fontSize:'0.38rem', color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'0.5rem' }}>{t}</div>
+    );
+    function App() {
+      return (
+        <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+          <div>
+            {lbl('Button')}
+            <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', alignItems:'center' }}>
+              <Button>Primario</Button>
+              <Button variant="secondary">Secondario</Button>
+              <Button variant="danger">Danger</Button>
+              <Button variant="ghost">Ghost</Button>
+              <Button disabled>Disabilitato</Button>
+            </div>
+          </div>
+          <div>
+            {lbl('Badge')}
+            <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
+              <Badge variant="accent">admin</Badge>
+              <Badge variant="cyan">P</Badge>
+              <Badge variant="cyan">D</Badge>
+              <Badge variant="cyan">C</Badge>
+              <Badge variant="cyan">A</Badge>
+              <Badge variant="green">live</Badge>
+              <Badge variant="red">bloccata</Badge>
+              <Badge variant="default">bozza</Badge>
+              <Badge variant="outline">nostalgia</Badge>
+            </div>
+          </div>
+          <div>
+            {lbl('Panel')}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.75rem' }}>
+              <Panel title="Default">
+                <span style={{fontFamily:'var(--font-data)',fontSize:'0.8rem',color:'var(--muted)'}}>Bordo blu · ombra pixel</span>
+              </Panel>
+              <Panel variant="accent" title="Accent">
+                <span style={{fontFamily:'var(--font-data)',fontSize:'0.8rem',color:'var(--muted)'}}>Bordo giallo</span>
+              </Panel>
+              <Panel variant="danger" title="Danger">
+                <span style={{fontFamily:'var(--font-data)',fontSize:'0.8rem',color:'var(--muted)'}}>Bordo rosso</span>
+              </Panel>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

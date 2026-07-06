@@ -1,0 +1,35 @@
+<!-- @dsCard group="Type" viewport="700x220" name="Pixel Font Scale" subtitle="Press Start 2P — headings, labels, buttons, badges" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { padding: 1.25rem 1.5rem; }
+    .row { display: flex; align-items: baseline; gap: 1.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .row:last-child { border-bottom: none; }
+    .token { font-family: var(--font-data); font-size: 0.75rem; color: var(--muted); width: 120px; flex-shrink: 0; }
+    .sample { font-family: var(--font-pixel); color: var(--accent); text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="token">--fs-pixel-xs<br>0.45rem</div>
+    <div class="sample" style="font-size:0.45rem">BADGE · ROLE TAG · MICRO LABEL</div>
+  </div>
+  <div class="row">
+    <div class="token">--fs-pixel-sm<br>0.55rem</div>
+    <div class="sample" style="font-size:0.55rem">NAV ITEM · TABLE HEADER · WIZARD STEP</div>
+  </div>
+  <div class="row">
+    <div class="token">--fs-pixel-md<br>0.75rem</div>
+    <div class="sample" style="font-size:0.75rem">TOPBAR LOGO · PANEL TITLE</div>
+  </div>
+  <div class="row">
+    <div class="token">--fs-pixel-lg<br>1.1rem</div>
+    <div class="sample" style="font-size:1.1rem">⚽ FANTANOSTALGIA</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+/* FantaNostalgia — Visual Effects + Global Resets
+ * Pixel-art shadow system (no blur), border widths.
+ * Enforces the 8-bit aesthetic globally: no border-radius, sharp shadows,
+ * CRT scanline overlay on every page.
+ */
+:root {
+  /* ── Pixel shadows (no gaussian blur — authentic 8-bit) */
+  --shadow-sm:     2px 2px 0 #000;
+  --shadow-md:     3px 3px 0 #000;
+  --shadow-lg:     4px 4px 0 #000;
+  --shadow-accent: 3px 3px 0 var(--accent);
+  --shadow-modal:  4px 4px 0 #000;
+
+  /* ── Border widths ───────────────────────────────── */
+  --border-sm: 1px;
+  --border-md: 2px;
+  --border-lg: 3px;
+}
+
+/* ── Global 8-bit resets ─────────────────────────────
+   These apply to every page that imports styles.css.   */
+*, *::before, *::after {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: var(--body-font-size);
+  line-height: var(--body-line-height);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ── CRT Scanline overlay ────────────────────────────
+   Fixed overlay on every page. Disable on mobile:
+   @media (max-width: 480px) { body::before { display: none; } }   */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
