@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-08
 **Branch attivo:** `claude/prossimo-task-vwa0s9`
-**PR in corso:** nessuna — branch pushato, PR non ancora aperta (task 26 completato, in attesa di richiesta esplicita). Nota: task 25 (branch `claude/prossimo-task-1wzl48`) è stato mergiato come PR #80.
+**PR in corso:** [#81](https://github.com/simonediroma/fantanostalgia/pull/81) — task 26 (Restyle Admin SPA), aperta dalla UI Claude Code, non ancora mergiata. Nota: task 25 (branch `claude/prossimo-task-1wzl48`) è stato mergiato come PR #80.
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
