@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
+  <script src="/shared/design-system.js"></script>
 </head>
 <body>
 
@@ -31,6 +32,15 @@
       <p style="color:var(--muted)">Il pool di giocatori nostalgia non è ancora stato assegnato dall'amministratore. Riprova più tardi.</p>
     </div>
   </div>
+  <div id="helpAssoc" style="display:none">
+    <div class="ds-help-box ds-help-box--info">
+      <span class="ds-help-box__icon" aria-hidden="true">i</span>
+      <div class="ds-help-box__body">
+        <strong class="ds-help-box__title">Associa l'alter ego</strong>
+        <p class="ds-help-box__text">Per ogni giocatore storico del tuo pool, scegli il giocatore attuale della tua rosa che lo sostituirà in campo: i suoi voti storici genereranno il tuo punteggio. Ogni giocatore attuale può essere usato una sola volta per ruolo.</p>
+      </div>
+    </div>
+  </div>
   <div id="main" style="display:none">
     <!-- Sections per ruolo renderizzate via JS -->
   </div>
@@ -48,6 +58,8 @@
 
 <script>
 'use strict';
+
+const DS = window.FantaNostalgiaDS;
 
 const leagueId = (() => {
   const m = location.pathname.match(/\/coach\/lega\/(\d+)/);
@@ -145,11 +157,13 @@ function render() {
     document.getElementById('poolEmpty').style.display = 'block';
     document.getElementById('main').style.display = 'none';
     document.getElementById('lockBar').style.display = 'none';
+    document.getElementById('helpAssoc').style.display = 'none';
     return;
   }
 
   document.getElementById('poolEmpty').style.display = 'none';
   document.getElementById('main').style.display = 'block';
+  document.getElementById('helpAssoc').style.display = 'block';
 
   // Build set of already-assigned current player IDs
   const assignedIds = new Set(
@@ -301,7 +315,13 @@ async function doAssign(historicId, currentId, selectEl) {
 }
 
 document.getElementById('lockBtn').addEventListener('click', async () => {
-  if (!confirm('Confermi il blocco delle associazioni? Non potrai più modificarle.')) return;
+  const ok = await DS.confirmDialog({
+    title: 'Conferma e blocca',
+    message: 'Le associazioni tra giocatori storici e attuali verranno bloccate per questa lega.',
+    consequence: 'Operazione irreversibile: non potrai più modificarle.',
+    confirmLabel: 'Blocca',
+  });
+  if (!ok) return;
   try {
     const res = await fetch(`/coach/league/${leagueId}/lock`, {method:'POST'});
     const data = await res.json();

@@ -146,6 +146,40 @@
     return wrap;
   }
 
+  /* ── FileSpec ───────────────────────────────────────────────────── */
+  function FileSpec({ format, structure, note } = {}) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ds-file-spec';
+
+    const header = document.createElement('div');
+    header.className = 'ds-file-spec__header';
+    const title = document.createElement('strong');
+    title.className = 'ds-file-spec__title';
+    title.textContent = 'Formato atteso';
+    header.appendChild(title);
+    if (format) {
+      const badge = document.createElement('span');
+      badge.className = 'ds-file-spec__format';
+      badge.textContent = format;
+      header.appendChild(badge);
+    }
+    wrap.appendChild(header);
+
+    if (structure) {
+      const p = document.createElement('p');
+      p.className = 'ds-file-spec__structure';
+      appendChildren(p, structure);
+      wrap.appendChild(p);
+    }
+    if (note) {
+      const p = document.createElement('p');
+      p.className = 'ds-file-spec__note';
+      appendChildren(p, note);
+      wrap.appendChild(p);
+    }
+    return wrap;
+  }
+
   /* ── Message ────────────────────────────────────────────────────── */
   function Message({ children, variant = 'ok', onDismiss } = {}) {
     const wrap = document.createElement('div');
@@ -491,6 +525,44 @@
     return overlay;
   }
 
+  /* ── Confirm Dialog ─────────────────────────────────────────────── */
+  function confirmDialog({ title, message, consequence, confirmLabel = 'Conferma', cancelLabel = 'Annulla', danger = true } = {}) {
+    return new Promise((resolve) => {
+      const msgEl = document.createElement('p');
+      msgEl.className = 'ds-confirm-dialog__message';
+      appendChildren(msgEl, message);
+      const bodyChildren = [msgEl];
+      if (consequence) {
+        const warnEl = document.createElement('p');
+        warnEl.className = 'ds-confirm-dialog__consequence';
+        appendChildren(warnEl, consequence);
+        bodyChildren.push(warnEl);
+      }
+
+      let settled = false;
+      function finish(result) {
+        if (settled) return;
+        settled = true;
+        overlay.remove();
+        resolve(result);
+      }
+
+      const cancelBtn = Button({ children: cancelLabel, variant: 'secondary', onClick: () => overlay.close() });
+      const confirmBtn = Button({ children: confirmLabel, variant: danger ? 'danger' : 'default', onClick: () => finish(true) });
+
+      const overlay = Modal({
+        title,
+        children: bodyChildren,
+        onClose: () => finish(false),
+        actions: [cancelBtn, confirmBtn],
+      });
+      overlay.classList.add('ds-confirm-dialog');
+      if (danger) overlay.classList.add('ds-confirm-dialog--danger');
+      document.body.appendChild(overlay);
+      overlay.open();
+    });
+  }
+
   Object.assign(ns, {
     Badge,
     Button,
@@ -498,6 +570,7 @@
     Table,
     EmptyState,
     HelpBox,
+    FileSpec,
     Message,
     ProgressBar,
     DropZone,
@@ -505,5 +578,6 @@
     WizardSteps,
     Tabs,
     Modal,
+    confirmDialog,
   });
 })();

@@ -117,6 +117,14 @@ root.appendChild(section('HelpBox',
   DS.HelpBox({ title: 'Operazione irreversibile', variant: 'danger', children: "L'apertura delle buste non può essere annullata." })
 ));
 
+/* FileSpec */
+root.appendChild(section('FileSpec',
+  DS.FileSpec({
+    format: '.xlsx',
+    structure: 'Foglio unico "TutteLeRose", due squadre affiancate (colonne A-D e F-I). Ogni blocco: Ruolo | Calciatore | Squadra | Costo, terminato da "Crediti Residui: X".',
+  })
+));
+
 /* Message */
 root.appendChild(section('Message',
   DS.Message({ children: 'Import completato con successo', variant: 'ok', onDismiss: () => {} }),
@@ -179,6 +187,21 @@ root.appendChild(section('Tabs',
   root.appendChild(section('Modal', trigger));
   document.body.appendChild(modal);
 })();
+
+/* ConfirmDialog */
+root.appendChild(section('ConfirmDialog',
+  DS.Button({
+    children: 'Apri confirm dialog demo', variant: 'danger', onClick: async () => {
+      const ok = await DS.confirmDialog({
+        title: 'Apri buste',
+        message: 'Il mapping alter ego diventerà pubblico e visibile a tutti i partecipanti.',
+        consequence: 'Operazione irreversibile.',
+        confirmLabel: 'Apri buste',
+      });
+      console.log('confirmDialog result', ok);
+    }
+  })
+));
 </script>
 </body>
 </html>

@@ -128,6 +128,19 @@
           <!-- Upload listone -->
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">Carica listone Excel</h4>
+            <div class="ds-help-box ds-help-box--info">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Importa la rosa completa della lega da file Excel. Dopo l'import potrai assegnare ogni giocatore al manager proprietario.</p>
+              </div>
+            </div>
+            <div class="ds-file-spec">
+              <div class="ds-file-spec__header">
+                <strong class="ds-file-spec__title">Formato atteso</strong>
+                <span class="ds-file-spec__format">.xlsx</span>
+              </div>
+              <p class="ds-file-spec__structure">Foglio unico "TutteLeRose", due squadre affiancate (colonne A-D e F-I). Ogni blocco: Ruolo | Calciatore | Squadra | Costo, terminato da "Crediti Residui: X".</p>
+            </div>
             <div class="col-gap mt-sm">
               <div id="dropZoneListone" class="ds-dropzone">
                 <span id="dzListoneText" class="ds-dropzone__label">Trascina .xlsx qui o clicca per selezionare</span>
@@ -159,9 +172,12 @@
           <!-- Assegna pool nostalgia -->
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">1. Assegna pool nostalgia agli allenatori</h4>
-            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 1rem">
-              Assegna casualmente 12 giocatori storici (1P+4D+4C+3A) a ogni squadra. Gli allenatori li vedranno nel loro pannello.
-            </p>
+            <div class="ds-help-box ds-help-box--info">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Assegna casualmente 12 giocatori storici (1P+4D+4C+3A) a ogni squadra. Gli allenatori li vedranno nel loro pannello.</p>
+              </div>
+            </div>
             <button id="assignPoolsBtn" class="ds-button ds-button--default">Assegna pool nostalgia</button>
           </div>
           <div id="poolAssignPreview"></div>
@@ -169,9 +185,12 @@
           <!-- Inviti allenatori + status -->
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">2. Inviti e stato allenatori</h4>
-            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
-              Genera link invito per ogni allenatore e monitora lo stato delle associazioni.
-            </p>
+            <div class="ds-help-box ds-help-box--info">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Genera link invito per ogni allenatore e monitora lo stato delle associazioni.</p>
+              </div>
+            </div>
             <button class="ds-button ds-button--secondary" id="refreshCoachStatusBtn" style="font-size:0.75rem;margin-bottom:0.75rem">↻ Aggiorna stato</button>
             <div id="coachStatusTable"></div>
           </div>
@@ -179,10 +198,12 @@
           <!-- Chiudi periodo -->
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">3. Chiudi periodo associazioni</h4>
-            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.35rem">
-              Gli allenatori che non hanno ancora bloccato riceveranno associazioni automatiche basate sulla titolarità.
-            </p>
-            <p style="color:var(--red);font-size:0.82rem;margin-bottom:1rem">Operazione irreversibile.</p>
+            <div class="ds-help-box ds-help-box--warn">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Gli allenatori che non hanno ancora bloccato riceveranno associazioni automatiche basate sulla titolarità.</p>
+              </div>
+            </div>
             <button class="ds-button ds-button--danger" id="closeAssociationsBtn">Chiudi periodo associazioni</button>
           </div>
 
@@ -204,12 +225,12 @@
           <div id="busteMsg"></div>
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">Apertura buste</h4>
-            <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.35rem">
-              Rivela gli alter ego a tutti i partecipanti. Il mapping sarà visibile nella pagina pubblica.
-            </p>
-            <p style="color:var(--red);font-size:0.82rem;margin-bottom:1rem">
-              Operazione irreversibile.
-            </p>
+            <div class="ds-help-box ds-help-box--warn">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Rivela gli alter ego a tutti i partecipanti. Il mapping sarà visibile nella pagina pubblica.</p>
+              </div>
+            </div>
             <button class="ds-button ds-button--danger" id="revealBtn">Apri buste</button>
           </div>
           <div id="mappingFull"></div>
@@ -222,6 +243,19 @@
           <!-- Upload formazioni -->
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">Carica formazioni</h4>
+            <div class="ds-help-box ds-help-box--info">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Importa i risultati della giornata: voti, titolari e panchina di ogni squadra.</p>
+              </div>
+            </div>
+            <div class="ds-file-spec">
+              <div class="ds-file-spec__header">
+                <strong class="ds-file-spec__title">Formato atteso</strong>
+                <span class="ds-file-spec__format">.xlsx</span>
+              </div>
+              <p class="ds-file-spec__structure">Foglio per giornata (es. "Formazioni 36 giornata"), due match affiancati (colonne A-E e G-K, risultato in F). Colonne: Ruolo | Calciatore | Voto_no_bonus | Voto_con_bonus. "Panchina" separa i titolari; "TOTALE: XX,YY" chiude la squadra; "-" indica un giocatore senza voto.</p>
+            </div>
             <div class="col-gap mt-sm">
               <label>Giornata corrente</label>
               <input type="number" id="formazioniGiornata" min="1" placeholder="es. 1" style="width:120px">
@@ -307,6 +341,7 @@
   </div><!-- .app-body -->
 </div><!-- #pg-app -->
 
+<script src="/shared/design-system.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/league.js"></script>
@@ -315,6 +350,8 @@
 <script src="js/matchday.js"></script>
 <script>
 'use strict';
+
+const DS = window.FantaNostalgiaDS;
 
 // ── State ───────────────────────────────────────────────────────────────────
 let currentLeagueId = null;
@@ -842,7 +879,13 @@ async function refreshCoachStatus() {
 document.getElementById('refreshCoachStatusBtn').addEventListener('click', refreshCoachStatus);
 
 document.getElementById('closeAssociationsBtn').addEventListener('click', async () => {
-  if (!confirm('Chiudere il periodo? Le associazioni mancanti saranno generate automaticamente. Operazione irreversibile.')) return;
+  const ok = await DS.confirmDialog({
+    title: 'Chiudi periodo associazioni',
+    message: 'Le associazioni mancanti saranno generate automaticamente in base alla titolarità.',
+    consequence: 'Operazione irreversibile: non potrai più modificare le associazioni.',
+    confirmLabel: 'Chiudi periodo',
+  });
+  if (!ok) return;
   try {
     const res = await apiCloseAssociations(currentLeagueId);
     showMsg('mappingMsg', res.detail);
@@ -873,7 +916,13 @@ document.getElementById('generateMappingBtn').addEventListener('click', async ()
 
 // ── Buste ─────────────────────────────────────────────────────────────────────
 document.getElementById('revealBtn').addEventListener('click', async () => {
-  if (!confirm('Aprire le buste? Il mapping diventerà pubblico. Operazione irreversibile.')) return;
+  const ok = await DS.confirmDialog({
+    title: 'Apri buste',
+    message: 'Il mapping alter ego diventerà pubblico e visibile a tutti i partecipanti.',
+    consequence: 'Operazione irreversibile.',
+    confirmLabel: 'Apri buste',
+  });
+  if (!ok) return;
   try {
     const res = await apiRevealMapping(currentLeagueId);
     showMsg('busteMsg', 'Buste aperte. Mapping ora pubblico.');
