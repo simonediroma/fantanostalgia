@@ -1,9 +1,9 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-06-22
-**Branch attivo:** `claude/eager-brahmagupta-8w97ef`
-**PR in corso:** [#63](https://github.com/simonediroma/fantanostalgia/pull/63) — Auto-crea squadre dall'import listone
+**Ultima sessione:** 2026-07-08
+**Branch attivo:** `claude/session-planning-ragfwp`
+**PR in corso:** nessuna — branch pushato, PR non ancora aperta (task 24 completato, in attesa di richiesta esplicita)
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -92,7 +92,7 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 
 ### Epica 4 — Design System Restyling
  
-- [ ] **24** — Libreria design system vanilla JS (porting da `_ds_bundle.js` React, 13 componenti) → `prompts/frontend/24-design-system-vanilla-js.md` (branch: `task/24-design-system-vanilla-js`)
+- [x] **24** — Libreria design system vanilla JS (porting da `_ds_bundle.js` React, 13 componenti) → `prompts/frontend/24-design-system-vanilla-js.md` (branch: `claude/session-planning-ragfwp`). Creati `frontend/shared/design-system.js` (namespace `window.FantaNostalgiaDS`, 13 factory function: Badge, Button, Panel, Table, EmptyState, HelpBox, Message, ProgressBar, DropZone, Input, WizardSteps, Tabs, Modal), `frontend/shared/design-system.css`, `frontend/shared/tokens/{colors,spacing,typography,effects,fonts}.css` (single source of truth, non ancora adottati dai 3 CSS esistenti — verrà fatto nei task 25-27), `frontend/shared/demo.html` (verifica visiva manuale). Verificato con Playwright headless: zero errori JS, zero riferimenti a React/ReactDOM, tutte le varianti/stati conformi a `_ds_bundle.js` e `project-spec.md` sez. 11.
 - [ ] **25** — Restyle pagine pubbliche SSR + sezione Hall of Fame → `prompts/frontend/25-restyle-pagine-pubbliche.md` (branch: `task/25-restyle-pagine-pubbliche`, dipende da 24)
 - [ ] **26** — Restyle Admin SPA (wizard 4 step, incl. invito coach esistente) → `prompts/frontend/26-restyle-admin-spa.md` (branch: `task/26-restyle-admin-spa`, dipende da 24)
 - [ ] **27** — Restyle Coach SPA → `prompts/frontend/27-restyle-coach-spa.md` (branch: `task/27-restyle-coach-spa`, dipende da 24)
@@ -107,10 +107,10 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 ---
  
 ## Prossima sessione — inizia da qui (per questa epica)
- 
-Il design system (cartella `fantanostalgia-design-system/`, da copiare nel repo — vedi `HANDOFF.md`) e i file di boilerplate (`docs/context.md`, `prompts/frontend/24-31`, `prompts/backend/30`, `docs/spike-32-35`) sono pronti. Il primo passo operativo è **task 24** (libreria vanilla JS): leggere `prompts/frontend/24-design-system-vanilla-js.md` e `project-spec.md` sezione 11 prima di iniziare.
- 
-Ordine di esecuzione: 24 → 25/26/27 (parallelizzabili, tutte dipendono solo da 24) → 28 (dopo 26+27) → 29 (dopo 26) → 30 (dopo 26+27, HIGH risk) → 31 (dopo 25). Le task 32-35 restano bloccate finché non vengono risolte con `/cdp:spike-integrate` dopo aver riempito i rispettivi `docs/spike-NN.md`.
+
+Task 24 completato: `frontend/shared/design-system.js` + `.css` + `tokens/*.css` + `demo.html` pronti e verificati (vedi task list sopra). Prossimo passo: **task 25, 26, 27** (parallelizzabili, tutte dipendono solo da 24) — restyle pagine pubbliche, Admin SPA, Coach SPA usando la libreria appena creata. Leggere il rispettivo prompt in `prompts/frontend/2{5,6,7}-*.md` prima di iniziare. Nota: i 3 `:root` duplicati in `backend/static/style.css`, `frontend/coach/css/coach.css`, `frontend/admin/css/admin.css` vanno sostituiti con `frontend/shared/tokens/` durante questi task (non ancora fatto nel task 24, per restare nello scope dichiarato).
+
+Ordine di esecuzione: 24 (fatto) → 25/26/27 (parallelizzabili) → 28 (dopo 26+27) → 29 (dopo 26) → 30 (dopo 26+27, HIGH risk) → 31 (dopo 25). Le task 32-35 restano bloccate finché non vengono risolte con `/cdp:spike-integrate` dopo aver riempito i rispettivi `docs/spike-NN.md`.
  
 ## Decisioni prese epica 4
  

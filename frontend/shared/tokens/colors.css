@@ -1,0 +1,33 @@
+/* FantaNostalgia — Color Tokens
+ * 8-bit arcade palette: deep indigo-black bg, neon yellow + cyan accents,
+ * neon green for positive states, hot red for danger.
+ */
+:root {
+  /* ── Base surfaces ──────────────────────────────── */
+  --color-bg:      #050510;   /* Main background — deep indigo/black */
+  --color-surface: #0d0d2b;   /* Panels, cards, topbar — dark blue   */
+  --color-border:  #3333aa;   /* Borders and dividers — mid blue     */
+
+  /* ── Accent ─────────────────────────────────────── */
+  --color-accent:  #ffe600;   /* Neon yellow — primary CTA, headings */
+  --color-accent2: #00d4ff;   /* Neon cyan   — secondary accent, hover */
+
+  /* ── Text ───────────────────────────────────────── */
+  --color-text:    #ffffff;   /* Body text */
+  --color-muted:   #7777aa;   /* Secondary / inactive (violet-grey)  */
+
+  /* ── Semantic ───────────────────────────────────── */
+  --color-green:   #00ff55;   /* Positive: scores, done, wins  */
+  --color-red:     #ff1144;   /* Danger: negatives, irreversible ops */
+
+  /* ── Short aliases (used throughout app CSS) ────── */
+  --bg:      var(--color-bg);
+  --surface: var(--color-surface);
+  --border:  var(--color-border);
+  --accent:  var(--color-accent);
+  --accent2: var(--color-accent2);
+  --text:    var(--color-text);
+  --muted:   var(--color-muted);
+  --green:   var(--color-green);
+  --red:     var(--color-red);
+}
