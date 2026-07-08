@@ -1,0 +1,17 @@
+/* FantaNostalgia — Web Font Declarations
+ *
+ * Press Start 2P is loaded via Google Fonts CDN — no local file bundled.
+ * The @import below covers CSS-only loading contexts.
+ * For HTML templates, also add these to <head> for fastest loading:
+ *
+ *   <link rel="preconnect" href="https://fonts.googleapis.com">
+ *   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+ *
+ * To self-host (offline / intranet):
+ *   1. Download from https://fonts.google.com/specimen/Press+Start+2P
+ *   2. Place as: assets/fonts/PressStart2P-Regular.ttf
+ *   3. Replace the @import below with an @font-face block.
+ *
+ * Courier New is a system font — no @font-face needed.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');

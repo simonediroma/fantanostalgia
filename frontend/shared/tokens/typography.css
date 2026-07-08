@@ -1,0 +1,24 @@
+/* FantaNostalgia — Typography Tokens
+ * Two fonts only: Press Start 2P (pixel, UI chrome) and Courier New (data, body).
+ * Rule: NEVER use pixel font below --fs-pixel-xs on mobile — illegible.
+ */
+:root {
+  /* ── Font stacks ─────────────────────────────────── */
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-data:  'Courier New', Courier, monospace;
+
+  /* ── Pixel scale (headings, labels, badges, buttons) */
+  --fs-pixel-xs: 0.45rem;    /* Micro: badges, role tags, sub-labels  */
+  --fs-pixel-sm: 0.55rem;    /* Small: nav items, th, wizard steps    */
+  --fs-pixel-md: 0.75rem;    /* Medium: topbar logo, panel h4         */
+  --fs-pixel-lg: 1.1rem;     /* Large: page h1 titles                 */
+
+  /* ── Data scale (body, tables, statistics) ──────── */
+  --fs-data-sm:  0.78rem;    /* Small: metadata, captions             */
+  --fs-data-md:  0.875rem;   /* Medium: standard body text            */
+  --fs-data-lg:  1rem;       /* Large: primary content                */
+
+  /* ── Body defaults ───────────────────────────────── */
+  --body-font-size:   15px;
+  --body-line-height: 1.5;
+}

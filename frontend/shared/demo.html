@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>FantaNostalgia Design System — Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-system.css">
+<style>
+  .demo-section { margin-bottom: var(--space-8); }
+  .demo-section__label {
+    font-family: var(--font-pixel);
+    font-size: 0.5rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-3);
+  }
+  .demo-row { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+  .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
+  .demo-page { max-width: 960px; margin: 0 auto; padding: var(--space-8) var(--space-4); }
+</style>
+</head>
+<body>
+<div class="demo-page" id="root"></div>
+<script src="design-system.js"></script>
+<script>
+const DS = window.FantaNostalgiaDS;
+const root = document.getElementById('root');
+
+function section(label, ...content) {
+  const wrap = document.createElement('div');
+  wrap.className = 'demo-section';
+  const lbl = document.createElement('div');
+  lbl.className = 'demo-section__label';
+  lbl.textContent = label;
+  wrap.appendChild(lbl);
+  content.forEach((c) => wrap.appendChild(c));
+  return wrap;
+}
+
+function row(...children) {
+  const wrap = document.createElement('div');
+  wrap.className = 'demo-row';
+  children.forEach((c) => wrap.appendChild(c));
+  return wrap;
+}
+
+/* Badge */
+root.appendChild(section('Badge',
+  row(
+    DS.Badge({ children: 'default', variant: 'default' }),
+    DS.Badge({ children: 'accent', variant: 'accent' }),
+    DS.Badge({ children: 'P', variant: 'cyan' }),
+    DS.Badge({ children: 'live', variant: 'green' }),
+    DS.Badge({ children: 'bloccata', variant: 'red' }),
+    DS.Badge({ children: 'nostalgia', variant: 'outline' }),
+  )
+));
+
+/* Button */
+root.appendChild(section('Button',
+  row(
+    DS.Button({ children: 'Primario' }),
+    DS.Button({ children: 'Secondario', variant: 'secondary' }),
+    DS.Button({ children: 'Danger', variant: 'danger' }),
+    DS.Button({ children: 'Ghost', variant: 'ghost' }),
+    DS.Button({ children: 'Disabilitato', disabled: true }),
+  ),
+  (() => {
+    const b = DS.Button({ children: 'Full width', fullWidth: true, onClick: () => alert('click!') });
+    b.style.marginTop = 'var(--space-3)';
+    return b;
+  })()
+));
+
+/* Panel */
+root.appendChild(section('Panel',
+  (() => {
+    const grid = document.createElement('div');
+    grid.className = 'demo-grid';
+    grid.appendChild(DS.Panel({ title: 'Default', children: 'Bordo blu · ombra pixel' }));
+    grid.appendChild(DS.Panel({ title: 'Accent', variant: 'accent', children: 'Bordo giallo' }));
+    grid.appendChild(DS.Panel({ title: 'Danger', variant: 'danger', children: 'Bordo rosso' }));
+    grid.appendChild(DS.Panel({ title: 'Plain', variant: 'plain', children: 'Senza ombra' }));
+    return grid;
+  })()
+));
+
+/* Table */
+root.appendChild(section('Table',
+  DS.Table({
+    columns: [
+      { label: 'Ruolo', pixel: true },
+      { label: 'Calciatore' },
+      { label: 'Voto', align: 'right' },
+    ],
+    rows: [
+      ['P', 'Buffon', '6.5'],
+      ['D', 'Cannavaro', '7'],
+      ['A', 'Totti', '8'],
+    ],
+    onRowClick: (row) => console.log('row click', row),
+  })
+));
+
+/* EmptyState */
+root.appendChild(section('EmptyState',
+  DS.EmptyState({ message: 'Nessun manager — aggiungine uno per assegnare i giocatori', action: 'Aggiungi manager', onAction: () => alert('aggiungi') })
+));
+
+/* HelpBox */
+root.appendChild(section('HelpBox',
+  DS.HelpBox({ title: 'Carica listone', variant: 'info', link: '#', linkText: 'Che file mi serve? →', children: "Importa la rosa completa della lega da file Excel." }),
+  DS.HelpBox({ title: 'Attenzione', variant: 'warn', children: 'Questa azione riapre le associazioni.' }),
+  DS.HelpBox({ title: 'Operazione irreversibile', variant: 'danger', children: "L'apertura delle buste non può essere annullata." })
+));
+
+/* Message */
+root.appendChild(section('Message',
+  DS.Message({ children: 'Import completato con successo', variant: 'ok', onDismiss: () => {} }),
+  DS.Message({ children: 'Errore durante il salvataggio', variant: 'err', onDismiss: () => {} }),
+  DS.Message({ children: 'Informazione utile', variant: 'info' }),
+  DS.Message({ children: 'Attenzione ai crediti residui', variant: 'warn' })
+));
+
+/* ProgressBar */
+root.appendChild(section('ProgressBar',
+  DS.ProgressBar({ value: 8, max: 11, label: 'Titolari confermati', showPercent: true })
+));
+
+/* DropZone */
+root.appendChild(section('DropZone',
+  row(
+    DS.DropZone({ label: 'Trascina .xlsx qui', sublabel: 'Formato: Rose_lega.xlsx', accept: '.xlsx', onFile: (f) => console.log('file', f) }),
+    DS.DropZone({ label: 'Trascina .xlsx qui', fileName: 'Rose_erculotuo.xlsx' })
+  )
+));
+
+/* Input */
+root.appendChild(section('Input',
+  row(
+    DS.Input({ label: 'Nome squadra', id: 'demo-input-1', placeholder: 'Es. Erculotuo', required: true }),
+    DS.Input({ label: 'Con errore', id: 'demo-input-2', value: 'abc', error: 'Campo obbligatorio' }),
+    DS.Input({ label: 'Disabilitato', id: 'demo-input-3', value: 'readonly', disabled: true }),
+  )
+));
+
+/* WizardSteps */
+root.appendChild(section('WizardSteps',
+  DS.WizardSteps({ steps: ['Listone', 'Mapping', 'Buste', 'Giornate'], current: 2, onNavigate: (n) => console.log('goto', n) })
+));
+
+/* Tabs */
+root.appendChild(section('Tabs',
+  DS.Tabs({
+    tabs: [
+      { id: 'nostalgia', label: 'Nostalgia' },
+      { id: 'normale', label: 'Normale' },
+    ],
+    defaultTab: 'nostalgia',
+    children: (active) => active === 'nostalgia' ? 'Classifica nostalgia (contenuto demo)' : 'Classifica normale (contenuto demo)',
+  })
+));
+
+/* Modal */
+(() => {
+  const modal = DS.Modal({
+    title: 'Apri buste',
+    children: "Confermi l'apertura delle buste? L'operazione è irreversibile.",
+    onClose: () => {},
+    actions: [
+      DS.Button({ children: 'Annulla', variant: 'ghost', onClick: () => modal.close() }),
+      DS.Button({ children: 'Conferma', variant: 'danger', onClick: () => modal.close() }),
+    ],
+  });
+  const trigger = DS.Button({ children: 'Apri modal demo', onClick: () => modal.open() });
+  root.appendChild(section('Modal', trigger));
+  document.body.appendChild(modal);
+})();
+</script>
+</body>
+</html>
