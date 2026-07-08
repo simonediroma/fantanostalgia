@@ -1,46 +1,9 @@
-:root {
-  --bg: #050510;
-  --surface: #0d0d2b;
-  --accent: #ffe600;
-  --accent2: #00d4ff;
-  --text: #ffffff;
-  --muted: #7777aa;
-  --green: #00ff55;
-  --red: #ff1144;
-  --border: #3333aa;
-  --font-pixel: 'Press Start 2P', monospace;
-  --font-data: 'Courier New', monospace;
-}
-
-*, *::before, *::after {
-  border-radius: 0 !important;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-data);
-  font-size: 15px;
-  min-height: 100vh;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 2px,
-    rgba(0,0,0,0.15) 2px,
-    rgba(0,0,0,0.15) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
-}
+/* FantaNostalgia Coach — 8-bit retro theme
+ * Tokens, global reset, body base and CRT scanline overlay now live in
+ * frontend/shared/tokens/*.css and design-system.css (linked before this
+ * file in login.html/index.html/rosa.html/punteggi.html). This file keeps
+ * only page-shell + page-specific rules.
+ */
 
 /* Topbar */
 .topbar {
@@ -60,18 +23,6 @@ body::before {
   color: var(--accent);
   text-transform: uppercase;
 }
-.badge {
-  display: inline-block;
-  background: var(--accent);
-  color: #000;
-  font-family: var(--font-pixel);
-  font-size: 0.45rem;
-  padding: 2px 5px;
-  margin-left: 0.4rem;
-  vertical-align: middle;
-}
-.badge-green { background: var(--green); }
-.badge-red { background: var(--red); }
 
 /* Content */
 .content {
@@ -88,9 +39,6 @@ body::before {
   justify-content: center;
 }
 .login-card {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  box-shadow: 3px 3px 0 #000;
   padding: 2rem 2.5rem;
   width: 340px;
 }
@@ -108,28 +56,6 @@ body::before {
   text-transform: uppercase;
   margin-bottom: 1.5rem;
 }
-.tabs {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 1.25rem;
-  border-bottom: 2px solid var(--border);
-}
-.tab-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-family: var(--font-pixel);
-  font-size: 0.48rem;
-  padding: 0.4rem 0.75rem;
-  cursor: pointer;
-  text-transform: uppercase;
-}
-.tab-btn.active {
-  color: var(--accent);
-  border-bottom: 2px solid var(--accent);
-}
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
 
 /* Forms */
 label {
@@ -151,55 +77,6 @@ input[type="text"], input[type="email"], input[type="password"], select {
 }
 input:focus, select:focus {
   border-color: var(--accent);
-}
-
-button {
-  background: var(--accent);
-  border: none;
-  color: #000;
-  cursor: pointer;
-  font-family: var(--font-pixel);
-  font-size: 0.55rem;
-  padding: 0.5rem 1rem;
-  text-transform: uppercase;
-  transition: opacity 0.1s;
-}
-button:hover { opacity: 0.85; }
-button:disabled { opacity: 0.4; cursor: not-allowed; }
-button.secondary {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
-button.secondary:hover { border-color: var(--accent); color: var(--accent); }
-button.danger {
-  background: var(--red);
-  color: #fff;
-}
-
-/* Messages */
-.msg {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.82rem;
-  margin-bottom: 0.75rem;
-  border-left: 3px solid;
-}
-.msg.ok { border-color: var(--green); color: var(--green); }
-.msg.err { border-color: var(--red); color: var(--red); }
-
-/* Panel */
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
-}
-.panel h4 {
-  font-family: var(--font-pixel);
-  font-size: 0.6rem;
-  color: var(--accent);
-  text-transform: uppercase;
-  margin-bottom: 0.75rem;
 }
 
 /* Role section */
@@ -267,19 +144,6 @@ button.danger {
 .assign-select:focus { border-color: var(--accent); }
 .assign-select:disabled { opacity: 0.5; }
 
-/* Progress bar */
-.progress-bar-wrap {
-  background: #1a1a40;
-  border: 1px solid var(--border);
-  height: 12px;
-  margin: 0.5rem 0;
-}
-.progress-bar-fill {
-  background: var(--green);
-  height: 100%;
-  transition: width 0.3s;
-}
-
 /* League cards (home) */
 .league-card {
   background: var(--surface);
@@ -303,13 +167,6 @@ button.danger {
   margin-top: 0.3rem;
 }
 
-.empty {
-  color: var(--muted);
-  font-size: 0.85rem;
-  padding: 1rem 0;
-  text-align: center;
-}
-
 .lock-bar {
   position: sticky;
   bottom: 0;
@@ -325,6 +182,10 @@ button.danger {
 .lock-bar .progress-text {
   font-size: 0.82rem;
   color: var(--muted);
+}
+.lock-bar .ds-progress-bar__track {
+  width: 200px;
+  margin-top: 0.3rem;
 }
 
 .mt-md { margin-top: 1rem; }

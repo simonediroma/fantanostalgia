@@ -6,36 +6,37 @@
   <title>FantaNostalgia — Allenatori</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
 </head>
 <body>
 <div class="login-wrap">
-  <div class="login-card">
+  <div class="login-card ds-panel ds-panel--default">
     <div class="login-logo">⚽ FantaNostalgia</div>
     <p class="login-sub">Area Allenatori</p>
 
     <div id="msgBox"></div>
 
-    <div class="tabs" id="tabBar">
-      <button class="tab-btn active" data-tab="login">Accedi</button>
-      <button class="tab-btn" data-tab="register" id="registerTabBtn">Registrati</button>
+    <div class="ds-tabs__nav" id="tabBar">
+      <button class="ds-tabs__tab" aria-selected="true" data-tab="login">Accedi</button>
+      <button class="ds-tabs__tab" aria-selected="false" data-tab="register" id="registerTabBtn">Registrati</button>
     </div>
 
     <!-- Login -->
-    <div class="tab-panel active" id="tab-login">
+    <div class="ds-tabs__panel" id="tab-login">
       <form id="loginForm">
         <label>Email</label>
         <input type="email" id="loginEmail" required autocomplete="email">
         <label>Password</label>
         <input type="password" id="loginPass" required autocomplete="current-password">
         <div style="margin-top:1rem">
-          <button type="submit" style="width:100%">Accedi</button>
+          <button type="submit" class="ds-button ds-button--default ds-button--full">Accedi</button>
         </div>
       </form>
     </div>
 
     <!-- Register -->
-    <div class="tab-panel" id="tab-register">
+    <div class="ds-tabs__panel" id="tab-register" hidden>
       <form id="registerForm">
         <label>Nome</label>
         <input type="text" id="regName" required>
@@ -45,7 +46,7 @@
         <input type="password" id="regPass" required autocomplete="new-password">
         <input type="hidden" id="regToken">
         <div style="margin-top:1rem">
-          <button type="submit" style="width:100%">Registrati e unisciti</button>
+          <button type="submit" class="ds-button ds-button--default ds-button--full">Registrati e unisciti</button>
         </div>
       </form>
     </div>
@@ -65,7 +66,7 @@ function esc(s) {
 }
 function showMsg(text, isErr) {
   const el = document.getElementById('msgBox');
-  el.innerHTML = `<div class="msg ${isErr ? 'err' : 'ok'}">${esc(text)}</div>`;
+  el.innerHTML = `<div class="ds-message ds-message--${isErr ? 'err' : 'ok'}">${esc(text)}</div>`;
 }
 
 // Parse invite token from URL
@@ -78,12 +79,12 @@ if (token) {
 }
 
 // Tab switching
-document.querySelectorAll('.tab-btn').forEach(btn => {
+document.querySelectorAll('.ds-tabs__tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    document.querySelectorAll('.ds-tabs__tab').forEach(b => b.setAttribute('aria-selected', 'false'));
+    document.querySelectorAll('.ds-tabs__panel').forEach(p => { p.hidden = true; });
+    btn.setAttribute('aria-selected', 'true');
+    document.getElementById('tab-' + btn.dataset.tab).hidden = false;
   });
 });
 

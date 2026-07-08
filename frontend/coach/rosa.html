@@ -6,6 +6,7 @@
   <title>FantaNostalgia — Gestione Rosa</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
 </head>
 <body>
@@ -18,7 +19,7 @@
   <div class="row-gap">
     <span id="statusBadge"></span>
     <a id="punteggiLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Punteggi</a>
-    <button class="secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
+    <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
 </div>
 
@@ -26,7 +27,7 @@
   <div id="msgBox"></div>
   <div id="gpBanner"></div>
   <div id="poolEmpty" style="display:none">
-    <div class="panel">
+    <div class="ds-panel ds-panel--default">
       <p style="color:var(--muted)">Il pool di giocatori nostalgia non è ancora stato assegnato dall'amministratore. Riprova più tardi.</p>
     </div>
   </div>
@@ -38,11 +39,11 @@
 <div class="lock-bar" id="lockBar" style="display:none">
   <div>
     <span class="progress-text" id="progressText">0/12 assegnati</span>
-    <div class="progress-bar-wrap" style="width:200px;margin-top:0.3rem">
-      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    <div class="ds-progress-bar__track">
+      <div class="ds-progress-bar__fill" id="progressFill" style="width:0%"></div>
     </div>
   </div>
-  <button id="lockBtn" disabled class="danger">Conferma e Blocca</button>
+  <button id="lockBtn" disabled class="ds-button ds-button--danger">Conferma e Blocca</button>
 </div>
 
 <script>
@@ -68,7 +69,7 @@ function esc(s) {
 
 function showMsg(text, isErr) {
   const el = document.getElementById('msgBox');
-  el.innerHTML = `<div class="msg ${isErr ? 'err' : 'ok'}">${esc(text)}</div>`;
+  el.innerHTML = `<div class="ds-message ds-message--${isErr ? 'err' : 'ok'}">${esc(text)}</div>`;
   if (!isErr) setTimeout(() => { el.innerHTML = ''; }, 3500);
 }
 
@@ -122,18 +123,18 @@ function render() {
   // Status badge
   const badge = document.getElementById('statusBadge');
   if (locked) {
-    badge.innerHTML = '<span class="badge badge-green">Bloccato</span>';
+    badge.innerHTML = '<span class="ds-badge ds-badge--green">Bloccato</span>';
   } else if (closed) {
-    badge.innerHTML = '<span class="badge badge-red">Periodo chiuso</span>';
+    badge.innerHTML = '<span class="ds-badge ds-badge--red">Periodo chiuso</span>';
   } else {
-    badge.innerHTML = '<span class="badge">In corso</span>';
+    badge.innerHTML = '<span class="ds-badge ds-badge--default">In corso</span>';
   }
 
   // Gran Premio won banner (only while the rosa is still editable)
   const banner = document.getElementById('gpBanner');
   if (!readOnly && _gpWon.length) {
     const names = _gpWon.map(g => `${esc(g.prize_name)} (${g.prize_role})`).join(', ');
-    banner.innerHTML = `<div class="panel" style="border-color:var(--accent)">
+    banner.innerHTML = `<div class="ds-panel ds-panel--accent">
       <strong>🏆 Hai vinto un Gran Premio!</strong><br>
       Giocatori vinti: ${names}. Associali nella tua rosa qui sotto, poi ri-blocca.</div>`;
   } else {
