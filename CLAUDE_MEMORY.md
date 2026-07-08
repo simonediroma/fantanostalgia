@@ -11,7 +11,7 @@
 
 ## Prossima sessione — inizia da qui
 
-L'infrastruttura è completa. Il passo operativo rimanente è **popolare il DB con i dati storici** e giocare la prima lega.
+dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
 
 ### Scraper disponibili (scegli uno)
 
@@ -90,6 +90,36 @@ Prima di iniziare qualsiasi task: leggi il prompt corrispondente + `docs/archite
 - [x] **22** — Scraper calcio-seriea.net con ruoli reali (fonte alternativa, no Cloudflare) → (branch: `claude/upbeat-fermat-98un5f`, PR #39)
 - [x] **23** — Gran Premi di giornata: il presidente attiva max 2 GP/giornata (criterio: best_score/worst_defense/best_player/worst_player) con uno storico libero in palio; alla risoluzione il vincitore riceve lo storico come slot extra nel pool nostalgia e riapre l'associazione (coach) → (branch: `claude/project-analysis-features-4c2s9i`). Backend: `backend/engine/granpremio.py`, router `backend/api/routers/granpremio.py`, tabella `gran_premio` in `db.py`, helper `compute_player_breakdown` in `scoring.py`. Frontend: pannello Step 4 admin + avviso coach in `rosa.html` + sezione "Gran Premi" nella pagina pubblica `giornata.html` (con query in `views.py`). Fix collaterale: rimossa colonna inesistente `hr.penalties_saved` dalla query giornata in `views.py` (causava 500 sulla pagina). Test: `backend/tests/test_granpremio.py`.
 
+### Epica 4 — Design System Restyling
+ 
+- [ ] **24** — Libreria design system vanilla JS (porting da `_ds_bundle.js` React, 13 componenti) → `prompts/frontend/24-design-system-vanilla-js.md` (branch: `task/24-design-system-vanilla-js`)
+- [ ] **25** — Restyle pagine pubbliche SSR + sezione Hall of Fame → `prompts/frontend/25-restyle-pagine-pubbliche.md` (branch: `task/25-restyle-pagine-pubbliche`, dipende da 24)
+- [ ] **26** — Restyle Admin SPA (wizard 4 step, incl. invito coach esistente) → `prompts/frontend/26-restyle-admin-spa.md` (branch: `task/26-restyle-admin-spa`, dipende da 24)
+- [ ] **27** — Restyle Coach SPA → `prompts/frontend/27-restyle-coach-spa.md` (branch: `task/27-restyle-coach-spa`, dipende da 24)
+- [ ] **28** — Pattern esplicativi (help-box, file-spec, confirm-dialog) → `prompts/frontend/28-pattern-esplicativi.md` (branch: `task/28-pattern-esplicativi`, dipende da 26, 27)
+- [ ] **29** — Gestione multi-lega in Admin → `prompts/frontend/29-multi-lega-admin.md` (branch: `task/29-multi-lega-admin`, dipende da 26)
+- [ ] **30** — Elevazione coach → admin → `prompts/backend/30-elevazione-coach-admin.md` (branch: `task/30-elevazione-coach-admin`, dipende da 26, 27 — ⚠️ possibile modifica a `database/schema.sql`, richiede approvazione esplicita di Simone prima di procedere)
+- [ ] **31** — Pagina pubblica "Come Funziona" standalone → `prompts/frontend/31-pagina-come-funziona.md` (branch: `task/31-pagina-come-funziona`, dipende da 25)
+- ⏳ **32** — Wildcard storica — SPIKE PENDING → `docs/spike-32.md`
+- ⏳ **33** — Mercato di riparazione (gennaio) — SPIKE PENDING → `docs/spike-33.md`
+- ⏳ **34** — Tie-break su gol storici — SPIKE PENDING → `docs/spike-34.md`
+- ⏳ **35** — Sorteggio giornata con override manuale — SPIKE PENDING → `docs/spike-35.md`
+---
+ 
+## Prossima sessione — inizia da qui (per questa epica)
+ 
+Il design system (cartella `fantanostalgia-design-system/`, da copiare nel repo — vedi `HANDOFF.md`) e i file di boilerplate (`docs/context.md`, `prompts/frontend/24-31`, `prompts/backend/30`, `docs/spike-32-35`) sono pronti. Il primo passo operativo è **task 24** (libreria vanilla JS): leggere `prompts/frontend/24-design-system-vanilla-js.md` e `project-spec.md` sezione 11 prima di iniziare.
+ 
+Ordine di esecuzione: 24 → 25/26/27 (parallelizzabili, tutte dipendono solo da 24) → 28 (dopo 26+27) → 29 (dopo 26) → 30 (dopo 26+27, HIGH risk) → 31 (dopo 25). Le task 32-35 restano bloccate finché non vengono risolte con `/cdp:spike-integrate` dopo aver riempito i rispettivi `docs/spike-NN.md`.
+ 
+## Decisioni prese epica 4
+ 
+- Modalità: **FEATURE-ADDITION** su repo esistente `fantanostalgia`.
+- Scartate esplicitamente (non implementare): dashboard KPI admin, sezione manager standalone, catalogo stagioni esplorabile, coach dashboard doppia classifica, rimozione associazione alter ego pre-lock, import listone via API piattaforme esterne (vedi `project-spec.md` sez. 13 per l'elenco completo).
+- Il "link invito coach con token" **esiste già** nell'app — task 26 lo restyla soltanto, non lo ricostruisce.
+- Vincolo architetturale: nessuna dipendenza React nel prodotto finale — il design system va portato in vanilla JS (task 24).
+- Numerazione continua da dove si era fermata l'epica 3 (ultimo task completato: 23 — Gran Premi di giornata).
+ 
 ---
 
 ## Formato Excel reale (da Rose_erculotuo.xlsx e Formazioni_erculotuo_36_giornata.xlsx)
