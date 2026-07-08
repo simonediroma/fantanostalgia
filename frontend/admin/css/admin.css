@@ -1,48 +1,8 @@
-:root {
-  --bg: #050510;
-  --surface: #0d0d2b;
-  --accent: #ffe600;
-  --accent2: #00d4ff;
-  --text: #ffffff;
-  --muted: #7777aa;
-  --green: #00ff55;
-  --red: #ff1144;
-  --border: #3333aa;
-  --font-pixel: 'Press Start 2P', monospace;
-  --font-data: 'Courier New', monospace;
-}
-
-*, *::before, *::after {
-  border-radius: 0 !important;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-data);
-  font-size: 15px;
-  min-height: 100vh;
-  position: relative;
-}
-
-/* Scanline overlay — effetto CRT */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 2px,
-    rgba(0, 0, 0, 0.15) 2px,
-    rgba(0, 0, 0, 0.15) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
-}
+/* FantaNostalgia Admin — 8-bit retro theme
+ * Tokens, global reset, body base and CRT scanline overlay now live in
+ * frontend/shared/tokens/*.css and design-system.css (linked before this
+ * file in index.html). This file keeps only page-shell + page-specific rules.
+ */
 
 /* ── Login ─────────────────────────────────────────────────────────── */
 .login-wrap {
@@ -52,9 +12,6 @@ body::before {
   justify-content: center;
 }
 .login-card {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  box-shadow: 3px 3px 0 #000;
   padding: 2rem 2.5rem;
   width: 320px;
 }
@@ -96,13 +53,6 @@ body::before {
   font-size: 0.75rem;
   color: var(--accent);
   text-transform: uppercase;
-}
-.badge {
-  background: var(--border);
-  color: var(--muted);
-  font-family: var(--font-pixel);
-  font-size: 0.5rem;
-  padding: 0.15rem 0.5rem;
 }
 .app-body {
   display: flex;
@@ -158,60 +108,6 @@ h1, h2, h3 {
 h1, .logo { font-size: clamp(0.8rem, 2vw, 1.1rem); }
 h2 { font-size: clamp(0.65rem, 1.5vw, 0.85rem); margin-bottom: 1rem; }
 h3 { font-size: 0.65rem; margin-bottom: 0.75rem; }
-h4 {
-  font-family: var(--font-pixel);
-  font-size: 0.6rem;
-  color: var(--text);
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-}
-
-/* ── Buttons ───────────────────────────────────────────────────────── */
-button {
-  font-family: var(--font-pixel);
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: var(--accent);
-  color: var(--bg);
-  border: 2px solid var(--accent);
-  box-shadow: 2px 2px 0 #000;
-  cursor: pointer;
-  padding: 0.4rem 1rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
-}
-button:hover {
-  background: var(--accent2);
-  border-color: var(--accent2);
-  color: var(--bg);
-}
-button.secondary {
-  background: transparent;
-  color: var(--accent);
-  border-color: var(--accent);
-}
-button.secondary:hover {
-  background: var(--accent);
-  color: var(--bg);
-}
-button.danger {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
-}
-button:disabled { opacity: 0.45; cursor: default; }
-
-/* ── Panels ────────────────────────────────────────────────────────── */
-.panel {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  box-shadow: 3px 3px 0 #000;
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-}
 
 /* ── Forms ─────────────────────────────────────────────────────────── */
 form {
@@ -245,85 +141,7 @@ input:focus, select:focus {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-/* ── Tables ────────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 2px solid var(--border);
-  font-family: var(--font-data);
-  font-size: 0.85rem;
-}
-thead th {
-  background: var(--accent);
-  border: 1px solid var(--bg);
-  color: var(--bg);
-  font-family: var(--font-pixel);
-  font-size: 0.55rem;
-  letter-spacing: 0.06em;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-tbody tr { border-bottom: 1px solid var(--border); }
-tbody tr:hover { background: rgba(255, 230, 0, 0.07); }
-tbody td { padding: 0.5rem 0.75rem; vertical-align: middle; border: 1px solid var(--border); }
-
-/* ── Messages ──────────────────────────────────────────────────────── */
-.msg {
-  font-family: var(--font-pixel);
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  padding: 0.6rem 1rem;
-  border: 2px solid;
-  margin-bottom: 0.75rem;
-}
-.msg.ok {
-  border-color: var(--green);
-  color: var(--green);
-  background: rgba(0, 255, 85, 0.08);
-}
-.msg.err {
-  border-color: var(--red);
-  color: var(--red);
-  background: rgba(255, 17, 68, 0.08);
-}
-.empty {
-  color: var(--muted);
-  font-family: var(--font-pixel);
-  font-size: 0.55rem;
-  text-transform: uppercase;
-  padding: 0.5rem 0;
-}
-
 /* ── Wizard ────────────────────────────────────────────────────────── */
-.steps {
-  display: flex;
-  margin-bottom: 2rem;
-  border-bottom: 2px solid var(--border);
-  gap: 0;
-}
-.step {
-  flex: 1;
-  text-align: center;
-  font-family: var(--font-pixel);
-  font-size: 0.55rem;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding: 0.4rem 0.75rem;
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
-}
-.step:hover { color: var(--text); }
-.step.done { color: var(--green); border-bottom-color: var(--green); }
-.step.active {
-  color: var(--bg);
-  background: var(--accent);
-  border-bottom-color: var(--accent2);
-}
-
 .wizard-step { display: none; }
 .wizard-step.active { display: block; }
 
@@ -333,26 +151,6 @@ tbody td { padding: 0.5rem 0.75rem; vertical-align: middle; border: 1px solid va
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
-}
-
-/* ── Drop Zone ─────────────────────────────────────────────────────── */
-.drop-zone {
-  border: 2px dashed var(--border);
-  background: var(--surface);
-  text-align: center;
-  padding: 2rem;
-  font-family: var(--font-pixel);
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  color: var(--muted);
-  cursor: pointer;
-  user-select: none;
-}
-.drop-zone:hover,
-.drop-zone.drag-over {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(255, 230, 0, 0.05);
 }
 
 /* ── Details / Summary ─────────────────────────────────────────────── */
@@ -377,25 +175,6 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .mt-md { margin-top: 1rem; }
 
 /* ── Modal ─────────────────────────────────────────────────────────── */
-.modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.75);
-  z-index: 10000;
-  align-items: center;
-  justify-content: center;
-}
-.modal-overlay.open { display: flex; }
-.modal-box {
-  background: var(--surface);
-  border: 2px solid var(--accent);
-  box-shadow: 4px 4px 0 #000;
-  padding: 1.5rem;
-  max-width: 480px;
-  width: 90%;
-}
-.modal-box h3 { font-family: var(--font-pixel); font-size: 0.7rem; color: var(--accent); margin-bottom: 0.75rem; }
 .modal-url {
   font-family: var(--font-data);
   font-size: 0.78rem;
@@ -407,12 +186,11 @@ details[open] > summary { margin-bottom: 0.75rem; }
   margin-bottom: 1rem;
   display: block;
 }
-.modal-actions { display: flex; gap: 0.5rem; }
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   aside { display: none; }
   .content { padding: 1.25rem; }
-  .steps { font-size: 0.5rem; }
+  .ds-wizard-steps { font-size: 0.5rem; }
   h2 { font-size: 0.6rem; }
 }

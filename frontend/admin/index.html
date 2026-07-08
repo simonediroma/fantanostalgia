@@ -6,13 +6,14 @@
   <title>FantaNostalgia — Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
 
 <!-- ── Login ─────────────────────────────────────────────────────────────── -->
 <div id="pg-login" class="login-wrap" style="display:none">
-  <div class="login-card">
+  <div class="login-card ds-panel ds-panel--default">
     <div class="login-logo">⚽ FantaNostalgia</div>
     <p class="login-sub">Pannello Amministratore</p>
     <div id="loginMsg"></div>
@@ -21,7 +22,7 @@
       <input type="text" id="loginUser" autocomplete="username" required>
       <label>Password</label>
       <input type="password" id="loginPass" autocomplete="current-password" required>
-      <button type="submit" style="width:100%;margin-top:0.5rem">Accedi</button>
+      <button type="submit" class="ds-button ds-button--default ds-button--full" style="margin-top:0.5rem">Accedi</button>
     </form>
   </div>
 </div>
@@ -29,10 +30,10 @@
 <!-- ── App Shell ─────────────────────────────────────────────────────────── -->
 <div id="pg-app" style="display:none;flex-direction:column;min-height:100vh">
   <div class="topbar">
-    <span class="logo">⚽ FantaNostalgia <span class="badge">admin</span></span>
+    <span class="logo">⚽ FantaNostalgia <span class="ds-badge ds-badge--default">admin</span></span>
     <div style="display:flex;align-items:center;gap:0.75rem">
       <span id="userLabel" style="font-size:0.8rem;color:var(--muted)"></span>
-      <button class="secondary" id="logoutBtn">Esci</button>
+      <button class="ds-button ds-button--secondary" id="logoutBtn">Esci</button>
     </div>
   </div>
 
@@ -55,8 +56,8 @@
       <div id="pg-dashboard" class="page">
         <h2>Leghe</h2>
         <div id="dashMsg"></div>
-        <div id="leagueList" class="table-wrap">
-          <div class="empty">Caricamento…</div>
+        <div id="leagueList" class="ds-table-wrap">
+          <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
         </div>
       </div>
 
@@ -64,7 +65,7 @@
       <div id="pg-league-form" class="page">
         <h2 id="leagueFormTitle">Nuova Lega</h2>
         <div id="leagueFormMsg"></div>
-        <div class="panel">
+        <div class="ds-panel ds-panel--default">
           <form id="leagueForm">
             <input type="hidden" id="leagueFormId">
             <label>Nome</label>
@@ -76,8 +77,8 @@
             <label>Budget (crediti)</label>
             <input type="number" id="lfBudget" value="500" min="100" required>
             <div class="row-gap mt-sm">
-              <button type="submit" id="leagueSubmitBtn">Crea lega</button>
-              <button type="button" class="secondary" id="leagueFormCancel">Annulla</button>
+              <button type="submit" class="ds-button ds-button--default" id="leagueSubmitBtn">Crea lega</button>
+              <button type="button" class="ds-button ds-button--secondary" id="leagueFormCancel">Annulla</button>
             </div>
           </form>
         </div>
@@ -87,15 +88,15 @@
       <div id="pg-manage" class="page">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
           <h2 id="manageLegaNome">Gestione Lega</h2>
-          <button class="secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
+          <button class="ds-button ds-button--secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
         </div>
 
         <!-- Step indicator -->
-        <div class="steps" id="wizardSteps">
-          <div class="step" id="step-ind-1" data-step="1">1 — Listone</div>
-          <div class="step" id="step-ind-2" data-step="2">2 — Mapping</div>
-          <div class="step" id="step-ind-3" data-step="3">3 — Buste</div>
-          <div class="step" id="step-ind-4" data-step="4">4 — Giornate</div>
+        <div class="ds-wizard-steps" id="wizardSteps">
+          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-1" data-step="1">1 — Listone</div>
+          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-2" data-step="2">2 — Mapping</div>
+          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-3" data-step="3">3 — Buste</div>
+          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-4" data-step="4">4 — Giornate</div>
         </div>
 
         <!-- ── Step 1: Listone ───────────────────────────────────────────── -->
@@ -103,10 +104,10 @@
           <div id="listonMsg"></div>
 
           <!-- Manager della lega -->
-          <div class="panel">
-            <h4>Manager della lega</h4>
-            <div id="managerList" class="table-wrap mt-sm">
-              <div class="empty">Caricamento…</div>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">Manager della lega</h4>
+            <div id="managerList" class="ds-table-wrap mt-sm">
+              <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
             </div>
             <details style="margin-top:0.75rem">
               <summary>+ Aggiungi manager</summary>
@@ -119,20 +120,20 @@
                   <label>Nome squadra</label>
                   <input type="text" id="mgrTeam" style="width:160px">
                 </div>
-                <button id="addMgrBtn" style="align-self:flex-end">Aggiungi</button>
+                <button id="addMgrBtn" class="ds-button ds-button--default" style="align-self:flex-end">Aggiungi</button>
               </div>
             </details>
           </div>
 
           <!-- Upload listone -->
-          <div class="panel">
-            <h4>Carica listone Excel</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">Carica listone Excel</h4>
             <div class="col-gap mt-sm">
-              <div id="dropZoneListone" class="drop-zone">
-                <span id="dzListoneText">Trascina .xlsx qui o clicca per selezionare</span>
+              <div id="dropZoneListone" class="ds-dropzone">
+                <span id="dzListoneText" class="ds-dropzone__label">Trascina .xlsx qui o clicca per selezionare</span>
                 <input type="file" id="listonFile" accept=".xlsx" style="display:none">
               </div>
-              <button id="uploadListoneBtn">Carica listone</button>
+              <button id="uploadListoneBtn" class="ds-button ds-button--default">Carica listone</button>
             </div>
           </div>
 
@@ -141,11 +142,11 @@
 
           <!-- Assegnazione giocatori -->
           <div id="assignPanel" style="display:none">
-            <div class="panel">
-              <h4>Assegna giocatori ai manager</h4>
-              <div id="assignTable" class="table-wrap mt-sm"></div>
+            <div class="ds-panel ds-panel--default">
+              <h4 class="ds-panel__title">Assegna giocatori ai manager</h4>
+              <div id="assignTable" class="ds-table-wrap mt-sm"></div>
               <div class="mt-md">
-                <button id="saveAssignBtn">Salva assegnazioni</button>
+                <button id="saveAssignBtn" class="ds-button ds-button--default">Salva assegnazioni</button>
               </div>
             </div>
           </div>
@@ -156,43 +157,43 @@
           <div id="mappingMsg"></div>
 
           <!-- Assegna pool nostalgia -->
-          <div class="panel">
-            <h4>1. Assegna pool nostalgia agli allenatori</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">1. Assegna pool nostalgia agli allenatori</h4>
             <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 1rem">
               Assegna casualmente 12 giocatori storici (1P+4D+4C+3A) a ogni squadra. Gli allenatori li vedranno nel loro pannello.
             </p>
-            <button id="assignPoolsBtn">Assegna pool nostalgia</button>
+            <button id="assignPoolsBtn" class="ds-button ds-button--default">Assegna pool nostalgia</button>
           </div>
           <div id="poolAssignPreview"></div>
 
           <!-- Inviti allenatori + status -->
-          <div class="panel">
-            <h4>2. Inviti e stato allenatori</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">2. Inviti e stato allenatori</h4>
             <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
               Genera link invito per ogni allenatore e monitora lo stato delle associazioni.
             </p>
-            <button class="secondary" id="refreshCoachStatusBtn" style="font-size:0.75rem;margin-bottom:0.75rem">↻ Aggiorna stato</button>
+            <button class="ds-button ds-button--secondary" id="refreshCoachStatusBtn" style="font-size:0.75rem;margin-bottom:0.75rem">↻ Aggiorna stato</button>
             <div id="coachStatusTable"></div>
           </div>
 
           <!-- Chiudi periodo -->
-          <div class="panel">
-            <h4>3. Chiudi periodo associazioni</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">3. Chiudi periodo associazioni</h4>
             <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.35rem">
               Gli allenatori che non hanno ancora bloccato riceveranno associazioni automatiche basate sulla titolarità.
             </p>
             <p style="color:var(--red);font-size:0.82rem;margin-bottom:1rem">Operazione irreversibile.</p>
-            <button class="danger" id="closeAssociationsBtn">Chiudi periodo associazioni</button>
+            <button class="ds-button ds-button--danger" id="closeAssociationsBtn">Chiudi periodo associazioni</button>
           </div>
 
           <!-- Vecchio mapping automatico (avanzato) -->
           <details style="margin-top:0.5rem">
             <summary style="color:var(--muted);font-size:0.82rem;cursor:pointer">Mapping automatico diretto (avanzato)</summary>
-            <div class="panel" style="margin-top:0.5rem">
+            <div class="ds-panel ds-panel--default" style="margin-top:0.5rem">
               <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 1rem">
                 Genera mapping completo saltando la fase manuale degli allenatori.
               </p>
-              <button id="generateMappingBtn" class="secondary">Genera mapping diretto</button>
+              <button id="generateMappingBtn" class="ds-button ds-button--secondary">Genera mapping diretto</button>
             </div>
           </details>
           <div id="mappingPreview"></div>
@@ -201,15 +202,15 @@
         <!-- ── Step 3: Buste ─────────────────────────────────────────────── -->
         <div id="ws-3" class="wizard-step">
           <div id="busteMsg"></div>
-          <div class="panel">
-            <h4>Apertura buste</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">Apertura buste</h4>
             <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.35rem">
               Rivela gli alter ego a tutti i partecipanti. Il mapping sarà visibile nella pagina pubblica.
             </p>
             <p style="color:var(--red);font-size:0.82rem;margin-bottom:1rem">
               Operazione irreversibile.
             </p>
-            <button class="danger" id="revealBtn">Apri buste</button>
+            <button class="ds-button ds-button--danger" id="revealBtn">Apri buste</button>
           </div>
           <div id="mappingFull"></div>
         </div>
@@ -219,28 +220,28 @@
           <div id="giornataMsg"></div>
 
           <!-- Upload formazioni -->
-          <div class="panel">
-            <h4>Carica formazioni</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">Carica formazioni</h4>
             <div class="col-gap mt-sm">
               <label>Giornata corrente</label>
               <input type="number" id="formazioniGiornata" min="1" placeholder="es. 1" style="width:120px">
-              <div id="dropZoneFormazioni" class="drop-zone">
-                <span id="dzFormText">Trascina .xlsx qui o clicca per selezionare</span>
+              <div id="dropZoneFormazioni" class="ds-dropzone">
+                <span id="dzFormText" class="ds-dropzone__label">Trascina .xlsx qui o clicca per selezionare</span>
                 <input type="file" id="formazioniFile" accept=".xlsx" style="display:none">
               </div>
-              <button id="uploadFormazioniBtn">Carica formazioni</button>
+              <button id="uploadFormazioniBtn" class="ds-button ds-button--default">Carica formazioni</button>
             </div>
           </div>
 
           <!-- Sorteggio e calcolo -->
-          <div class="panel">
-            <h4>Sorteggio e calcolo punteggi</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">Sorteggio e calcolo punteggi</h4>
             <div class="col-gap mt-sm" style="max-width:280px">
               <label>Giornata da elaborare</label>
               <input type="number" id="sorteggioGiornata" min="1" placeholder="es. 1" style="width:120px">
               <div class="row-gap">
-                <button id="drawBtn">Sorteggia giornata storica</button>
-                <button class="secondary" id="scoresBtn">Calcola punteggi</button>
+                <button id="drawBtn" class="ds-button ds-button--default">Sorteggia giornata storica</button>
+                <button class="ds-button ds-button--secondary" id="scoresBtn">Calcola punteggi</button>
               </div>
             </div>
           </div>
@@ -248,8 +249,8 @@
           <div id="giornataResult"></div>
 
           <!-- Gran Premi -->
-          <div class="panel">
-            <h4>Gran Premi di giornata</h4>
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">Gran Premi di giornata</h4>
             <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
               Massimo 2 a giornata. Scegli un criterio e il giocatore storico in palio (dal pool dei liberi).
               Dopo aver calcolato i punteggi, risolvi per assegnare il giocatore al vincitore.
@@ -277,11 +278,11 @@
                 </select>
                 <select id="gpPrize"
                   style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem;flex:1;min-width:180px"></select>
-                <button class="secondary" id="gpRefreshPrizeBtn" style="font-size:0.72rem" title="Aggiorna liberi">↻</button>
+                <button class="ds-button ds-button--secondary" id="gpRefreshPrizeBtn" style="font-size:0.72rem" title="Aggiorna liberi">↻</button>
               </div>
               <div class="row-gap">
-                <button id="gpCreateBtn">Crea Gran Premio</button>
-                <button class="secondary" id="gpRefreshBtn">↻ Aggiorna lista</button>
+                <button id="gpCreateBtn" class="ds-button ds-button--default">Crea Gran Premio</button>
+                <button class="ds-button ds-button--secondary" id="gpRefreshBtn">↻ Aggiorna lista</button>
               </div>
             </div>
             <div id="gpList" class="mt-md"></div>
@@ -297,8 +298,8 @@
 
         <!-- Navigazione step -->
         <div class="wizard-nav" id="wizardNav">
-          <button class="secondary" id="prevStepBtn">← Precedente</button>
-          <button id="nextStepBtn">Avanti →</button>
+          <button class="ds-button ds-button--secondary" id="prevStepBtn">← Precedente</button>
+          <button id="nextStepBtn" class="ds-button ds-button--default">Avanti →</button>
         </div>
       </div>
 
@@ -333,7 +334,7 @@ function esc(s) {
 function showMsg(id, text, isError = false) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.innerHTML = `<div class="msg ${isError ? 'err' : 'ok'}">${esc(text)}</div>`;
+  el.innerHTML = `<div class="ds-message ds-message--${isError ? 'err' : 'ok'}">${esc(text)}</div>`;
   setTimeout(() => { if (el) el.innerHTML = ''; }, 5000);
 }
 
@@ -385,9 +386,9 @@ async function loadDashboard() {
 
   const wrap = document.getElementById('leagueList');
   if (!allLeagues.length) {
-    wrap.innerHTML = '<div class="empty">Nessuna lega. Usa "+ Nuova lega" per crearne una.</div>';
+    wrap.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessuna lega. Usa "+ Nuova lega" per crearne una.</div></div>';
   } else {
-    wrap.innerHTML = `<table>
+    wrap.innerHTML = `<table class="ds-table">
       <thead><tr>
         <th>#</th><th>Nome</th><th>Corrente</th><th>Storica</th><th>Budget</th><th></th>
       </tr></thead>
@@ -398,10 +399,10 @@ async function loadDashboard() {
         <td>${esc(l.season_historic)}</td>
         <td>${l.budget ?? '—'}</td>
         <td style="display:flex;gap:0.4rem;justify-content:flex-end">
-          <button class="secondary"
+          <button class="ds-button ds-button--secondary"
             style="font-size:0.78rem;padding:0.25rem 0.6rem"
             data-manage="${l.id}">Gestisci</button>
-          <button class="secondary"
+          <button class="ds-button ds-button--secondary"
             style="font-size:0.78rem;padding:0.25rem 0.6rem"
             data-edit="${l.id}">Modifica</button>
         </td>
@@ -555,23 +556,32 @@ function updateStepIndicators(hasListone, hasMapping, bustAperte) {
   const states = [hasListone, hasMapping, bustAperte, false];
   states.forEach((done, i) => {
     const el = document.getElementById(`step-ind-${i + 1}`);
-    el.className = 'step';
+    el.dataset.done = done ? '1' : '';
     if (done) {
-      el.classList.add('done');
       el.textContent = el.textContent.replace(/^\d+ — /, (m) => m.replace('—', '✓'));
     }
-    if (i + 1 === currentStep) el.classList.add('active');
   });
+  applyStepStates();
+}
+
+function applyStepStates() {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`step-ind-${i}`);
+    if (i === currentStep) {
+      el.dataset.state = 'active';
+    } else if (el.dataset.done === '1') {
+      el.dataset.state = 'done';
+    } else {
+      delete el.dataset.state;
+    }
+  }
 }
 
 function setWizardStep(step) {
   currentStep = step;
 
   // Update step indicators active state
-  for (let i = 1; i <= 4; i++) {
-    const el = document.getElementById(`step-ind-${i}`);
-    el.classList.toggle('active', i === step);
-  }
+  applyStepStates();
 
   // Show/hide wizard steps
   for (let i = 1; i <= 4; i++) {
@@ -586,7 +596,7 @@ function setWizardStep(step) {
 
 // Step click
 document.getElementById('wizardSteps').addEventListener('click', (e) => {
-  const stepEl = e.target.closest('.step');
+  const stepEl = e.target.closest('.ds-wizard-steps__step');
   if (stepEl && stepEl.dataset.step) {
     setWizardStep(parseInt(stepEl.dataset.step));
   }
@@ -599,16 +609,16 @@ document.getElementById('nextStepBtn').addEventListener('click', () => setWizard
 function renderManagerList() {
   const el = document.getElementById('managerList');
   if (!leagueManagers.length) {
-    el.innerHTML = '<div class="empty">Nessun manager. Aggiungine uno.</div>';
+    el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessun manager. Aggiungine uno.</div></div>';
     return;
   }
-  el.innerHTML = `<table>
+  el.innerHTML = `<table class="ds-table">
     <thead><tr><th>Nome</th><th>Squadra</th><th></th></tr></thead>
     <tbody>${leagueManagers.map(m =>
       `<tr id="mgr-row-${m.id}">
         <td id="mgr-name-${m.id}">${esc(m.name)}</td>
         <td id="mgr-team-${m.id}">${esc(m.team_name)}</td>
-        <td><button class="btn-edit-mgr" data-id="${m.id}" style="font-size:0.75rem;padding:2px 8px">Modifica</button></td>
+        <td><button class="btn-edit-mgr ds-button ds-button--secondary" data-id="${m.id}" style="font-size:0.75rem;padding:2px 8px">Modifica</button></td>
       </tr>`
     ).join('')}</tbody></table>`;
 
@@ -628,8 +638,8 @@ function startEditManager(id) {
   teamCell.innerHTML = `<input type="text" id="edit-team-${id}" value="${esc(m.team_name)}" style="width:140px">`;
   row.querySelector('.btn-edit-mgr').replaceWith((() => {
     const wrap = document.createElement('span');
-    wrap.innerHTML = `<button id="save-mgr-${id}" style="font-size:0.75rem;padding:2px 8px">Salva</button>
-                      <button id="cancel-mgr-${id}" style="font-size:0.75rem;padding:2px 8px;margin-left:4px">Annulla</button>`;
+    wrap.innerHTML = `<button id="save-mgr-${id}" class="ds-button ds-button--default" style="font-size:0.75rem;padding:2px 8px">Salva</button>
+                      <button id="cancel-mgr-${id}" class="ds-button ds-button--secondary" style="font-size:0.75rem;padding:2px 8px;margin-left:4px">Annulla</button>`;
     return wrap;
   })());
 
@@ -682,8 +692,8 @@ document.getElementById('uploadListoneBtn').addEventListener('click', async () =
     const br = res.by_role || {};
     const created = res.teams_created || [];
     document.getElementById('listonPreview').innerHTML = `
-      <div class="panel mt-md">
-        <h4>Riepilogo importazione</h4>
+      <div class="ds-panel ds-panel--default mt-md">
+        <h4 class="ds-panel__title">Riepilogo importazione</h4>
         <p style="margin-top:0.5rem">
           Importati: <strong>${res.imported}</strong> giocatori &nbsp;—&nbsp;
           P: ${br.P || 0} &nbsp; D: ${br.D || 0} &nbsp; C: ${br.C || 0} &nbsp; A: ${br.A || 0}
@@ -714,17 +724,17 @@ document.getElementById('uploadListoneBtn').addEventListener('click', async () =
 function renderAssignTable(players) {
   const el = document.getElementById('assignTable');
   if (!leagueManagers.length) {
-    el.innerHTML = '<div class="empty">Aggiungi manager prima di assegnare i giocatori.</div>';
+    el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Aggiungi manager prima di assegnare i giocatori.</div></div>';
     return;
   }
   const opts = `<option value="">—</option>` +
     leagueManagers.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
 
-  el.innerHTML = `<table>
+  el.innerHTML = `<table class="ds-table">
     <thead><tr><th>Giocatore</th><th>Ruolo</th><th>Squadra</th><th>Manager</th></tr></thead>
     <tbody>${players.map(p => `<tr>
       <td>${esc(p.name)}</td>
-      <td>${p.role}</td>
+      <td><span class="ds-badge ds-badge--cyan">${p.role}</span></td>
       <td>${esc(p.team)}</td>
       <td><select data-pid="${p.id}" class="assign-sel"
             style="background:var(--bg);border:1px solid var(--border);border-radius:3px;
@@ -765,9 +775,9 @@ document.getElementById('assignPoolsBtn').addEventListener('click', async () => 
       </tr>`
     ).join('');
     document.getElementById('poolAssignPreview').innerHTML = `
-      <div class="panel mt-md">
-        <h4>Pool assegnati</h4>
-        <div class="table-wrap mt-sm"><table>
+      <div class="ds-panel ds-panel--default mt-md">
+        <h4 class="ds-panel__title">Pool assegnati</h4>
+        <div class="ds-table-wrap mt-sm"><table class="ds-table">
           <thead><tr><th>Manager</th><th>P</th><th>D</th><th>C</th><th>A</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
@@ -784,10 +794,10 @@ async function refreshCoachStatus() {
     const rows = await apiCoachesStatus(currentLeagueId);
     const el = document.getElementById('coachStatusTable');
     if (!rows.length) {
-      el.innerHTML = '<div class="empty">Nessun manager.</div>';
+      el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessun manager.</div></div>';
       return;
     }
-    el.innerHTML = `<table>
+    el.innerHTML = `<table class="ds-table">
       <thead><tr>
         <th>Manager</th><th>Squadra</th><th>Account</th>
         <th>Pool</th><th>Assegnati</th><th>Stato</th><th>Invito</th>
@@ -804,7 +814,7 @@ async function refreshCoachStatus() {
           <td style="text-align:center">${r.pool_size}</td>
           <td style="text-align:center">${r.assigned_count}</td>
           <td>${stato}</td>
-          <td><button class="secondary btn-invite" data-mid="${r.manager_id}"
+          <td><button class="ds-button ds-button--secondary btn-invite" data-mid="${r.manager_id}"
               style="font-size:0.65rem;padding:2px 8px">Genera link</button></td>
         </tr>`;
       }).join('')}</tbody>
@@ -850,8 +860,8 @@ document.getElementById('generateMappingBtn').addEventListener('click', async ()
       .map(([name, c]) => `${esc(name)}: ${c.covered}/${c.total}`)
       .join(' &nbsp; ');
     document.getElementById('mappingPreview').innerHTML = `
-      <div class="panel mt-md">
-        <h4>Riepilogo mapping</h4>
+      <div class="ds-panel ds-panel--default mt-md">
+        <h4 class="ds-panel__title">Riepilogo mapping</h4>
         <p style="margin-top:0.5rem">Mappati: <strong>${res.mapped}</strong> &nbsp; Duplicati: ${res.duplicates}</p>
         ${cov ? `<p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">Copertura: ${cov}</p>` : ''}
       </div>`;
@@ -884,16 +894,16 @@ function renderFullMapping(data) {
   const managers = data.managers || [];
   if (!managers.length) return;
   document.getElementById('mappingFull').innerHTML = managers.map(mgr => `
-    <div class="panel" style="margin-bottom:0.75rem">
-      <h4>${esc(mgr.name || 'N/A')}</h4>
-      <div class="table-wrap mt-sm"><table>
+    <div class="ds-panel ds-panel--default" style="margin-bottom:0.75rem">
+      <h4 class="ds-panel__title">${esc(mgr.name || 'N/A')}</h4>
+      <div class="ds-table-wrap mt-sm"><table class="ds-table">
         <thead><tr>
           <th>Attuale</th><th>R</th><th>Squadra</th>
           <th>Alter Ego</th><th>Squadra storica</th>
         </tr></thead>
         <tbody>${mgr.players.map(p => `<tr>
           <td>${esc(p.current.name)}</td>
-          <td>${p.current.role}</td>
+          <td><span class="ds-badge ds-badge--cyan">${p.current.role}</span></td>
           <td>${esc(p.current.team)}</td>
           <td style="font-family:Georgia;color:var(--accent)">
             ${esc(p.historic.name)}${p.is_duplicate ? ' <span style="color:var(--muted);font-size:0.72rem">(dup)</span>' : ''}
@@ -935,8 +945,8 @@ document.getElementById('drawBtn').addEventListener('click', async () => {
   try {
     const res = await apiDrawMatchday(currentLeagueId, matchday);
     document.getElementById('giornataResult').innerHTML = `
-      <div class="panel mt-md">
-        <h4>Sorteggio completato</h4>
+      <div class="ds-panel ds-panel--default mt-md">
+        <h4 class="ds-panel__title">Sorteggio completato</h4>
         <p style="margin-top:0.5rem">
           Giornata corrente: <strong>${res.matchday_current}</strong> &nbsp;→&nbsp;
           Giornata storica: <strong style="color:var(--accent)">${res.matchday_historic}</strong>
@@ -960,9 +970,9 @@ document.getElementById('scoresBtn').addEventListener('click', async () => {
       <td style="font-family:monospace;color:var(--accent);text-align:right">${(s.score_nostalgia || 0).toFixed(2)}</td>
     </tr>`).join('');
     document.getElementById('giornataResult').innerHTML = `
-      <div class="panel mt-md">
-        <h4>Punteggi giornata ${res.matchday}</h4>
-        <div class="table-wrap mt-sm"><table>
+      <div class="ds-panel ds-panel--default mt-md">
+        <h4 class="ds-panel__title">Punteggi giornata ${res.matchday}</h4>
+        <div class="ds-table-wrap mt-sm"><table class="ds-table">
           <thead><tr><th>Manager</th><th style="text-align:right">Normale</th><th style="text-align:right">Nostalgia</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
@@ -1002,8 +1012,8 @@ async function loadGpList() {
   const el = document.getElementById('gpList');
   try {
     const all = await apiListGranPremi(currentLeagueId);
-    if (!all.length) { el.innerHTML = '<div class="empty">Nessun Gran Premio creato.</div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table>
+    if (!all.length) { el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessun Gran Premio creato.</div></div>'; return; }
+    el.innerHTML = `<div class="ds-table-wrap"><table class="ds-table">
       <thead><tr><th>G</th><th>Criterio</th><th>In palio</th><th>Stato</th><th>Vincitore</th><th></th></tr></thead>
       <tbody>${all.map(gp => {
         const resolved = gp.status === 'resolved';
@@ -1013,7 +1023,7 @@ async function loadGpList() {
           <td>${esc(gp.prize_name)} (${gp.prize_role})</td>
           <td>${resolved ? '<span style="color:var(--green)">Risolto</span>' : '<span style="color:var(--muted)">Attivo</span>'}</td>
           <td>${gp.winner_name ? esc(gp.winner_name) : '—'}</td>
-          <td>${resolved ? '' : `<button class="gp-resolve" data-gid="${gp.id}" style="font-size:0.7rem;padding:2px 8px">Risolvi</button>`}</td>
+          <td>${resolved ? '' : `<button class="gp-resolve ds-button ds-button--secondary" data-gid="${gp.id}" style="font-size:0.7rem;padding:2px 8px">Risolvi</button>`}</td>
         </tr>`;
       }).join('')}</tbody></table></div>`;
 
@@ -1065,11 +1075,11 @@ function setupDropZone(zoneId, inputId, textId) {
   if (!zone || !input) return;
 
   zone.addEventListener('click', () => input.click());
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.dataset.dragging = 'true'; });
+  zone.addEventListener('dragleave', () => delete zone.dataset.dragging);
   zone.addEventListener('drop', (e) => {
     e.preventDefault();
-    zone.classList.remove('drag-over');
+    delete zone.dataset.dragging;
     const file = e.dataTransfer.files[0];
     if (!file) return;
     try {
@@ -1094,14 +1104,14 @@ function setupDropZone(zoneId, inputId, textId) {
 </script>
 
 <!-- ── Modal link invito ──────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="inviteModal" role="dialog" aria-modal="true">
-  <div class="modal-box">
-    <h3>Link invito allenatore</h3>
-    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Condividi questo link con l'allenatore per farlo registrare direttamente nella lega.</p>
+<div class="ds-modal-overlay" id="inviteModal" role="dialog" aria-modal="true" hidden>
+  <div class="ds-modal">
+    <h3 class="ds-modal__title">Link invito allenatore</h3>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem" class="ds-modal__body">Condividi questo link con l'allenatore per farlo registrare direttamente nella lega.</p>
     <code class="modal-url" id="inviteUrl"></code>
-    <div class="modal-actions">
-      <button id="inviteCopyBtn">Copia link</button>
-      <button class="secondary" id="inviteCloseBtn">Chiudi</button>
+    <div class="ds-modal__actions">
+      <button id="inviteCopyBtn" class="ds-button ds-button--default">Copia link</button>
+      <button class="ds-button ds-button--secondary" id="inviteCloseBtn">Chiudi</button>
     </div>
   </div>
 </div>
@@ -1116,7 +1126,7 @@ function setupDropZone(zoneId, inputId, textId) {
   window.showInviteModal = function(url) {
     urlEl.textContent = url;
     copyBtn.textContent = 'Copia link';
-    overlay.classList.add('open');
+    overlay.hidden = false;
   };
 
   copyBtn.addEventListener('click', async () => {
@@ -1128,8 +1138,8 @@ function setupDropZone(zoneId, inputId, textId) {
     }
   });
 
-  closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+  closeBtn.addEventListener('click', () => overlay.hidden = true);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.hidden = true; });
 })();
 </script>
 </body>
