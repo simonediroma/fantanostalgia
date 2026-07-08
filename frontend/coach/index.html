@@ -6,15 +6,16 @@
   <title>FantaNostalgia — Le mie leghe</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
 </head>
 <body>
 
 <div class="topbar">
-  <span class="logo">⚽ FantaNostalgia <span class="badge">allenatore</span></span>
+  <span class="logo">⚽ FantaNostalgia <span class="ds-badge ds-badge--default">allenatore</span></span>
   <div class="row-gap">
     <span id="userName" style="font-size:0.8rem;color:var(--muted)"></span>
-    <button class="secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
+    <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
 </div>
 
@@ -24,7 +25,7 @@
     Le mie leghe
   </h2>
 
-  <div id="leagueList"><div class="empty">Caricamento…</div></div>
+  <div id="leagueList"><div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div></div>
 </div>
 
 <script>
@@ -54,13 +55,13 @@ async function init() {
   const list = document.getElementById('leagueList');
 
   if (!me.leagues || me.leagues.length === 0) {
-    list.innerHTML = '<div class="empty">Nessuna lega trovata. Chiedi al presidente di inviarti un link.</div>';
+    list.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessuna lega trovata. Chiedi al presidente di inviarti un link.</div></div>';
     return;
   }
 
   list.innerHTML = me.leagues.map(l => {
-    const locked = l.assignments_locked ? '<span class="badge badge-green">Bloccato</span>' : '';
-    const closed = l.associations_closed ? '<span class="badge badge-red">Periodo chiuso</span>' : '';
+    const locked = l.assignments_locked ? '<span class="ds-badge ds-badge--green">Bloccato</span>' : '';
+    const closed = l.associations_closed ? '<span class="ds-badge ds-badge--red">Periodo chiuso</span>' : '';
     return `
       <a href="/coach/lega/${l.league_id}" style="text-decoration:none">
         <div class="league-card">
@@ -69,9 +70,9 @@ async function init() {
             <div class="league-team">Squadra: ${esc(l.team_name)}</div>
           </div>
           <div style="display:flex;gap:0.5rem">
-            <button style="font-size:0.5rem">Rosa →</button>
+            <button class="ds-button ds-button--default" style="font-size:0.5rem">Rosa →</button>
             <a href="/coach/lega/${l.league_id}/punteggi" style="text-decoration:none" onclick="event.stopPropagation()">
-              <button class="secondary" style="font-size:0.5rem">Punteggi</button>
+              <button class="ds-button ds-button--secondary" style="font-size:0.5rem">Punteggi</button>
             </a>
           </div>
         </div>

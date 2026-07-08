@@ -6,6 +6,7 @@
   <title>FantaNostalgia — I miei punteggi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
 </head>
 <body>
@@ -17,14 +18,14 @@
   </div>
   <div class="row-gap">
     <a id="rosaLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Rosa</a>
-    <button class="secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
+    <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
 </div>
 
 <div class="content">
   <div id="msgBox"></div>
   <div id="main" style="display:none">
-    <div class="panel" style="margin-bottom:1.5rem">
+    <div class="ds-panel ds-panel--default" style="margin-bottom:1.5rem">
       <div style="display:flex;gap:2rem;flex-wrap:wrap">
         <div>
           <div style="color:var(--muted);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase;margin-bottom:0.3rem">FantaNostalgia</div>
@@ -63,9 +64,8 @@ function esc(s) {
 
 function showMsg(msg, isErr = false) {
   const el = document.getElementById('msgBox');
-  el.textContent = msg;
-  el.style.cssText = `padding:0.6rem 1rem;margin-bottom:1rem;border:1px solid ${isErr ? 'var(--red)' : 'var(--green)'};color:${isErr ? 'var(--red)' : 'var(--green)'};font-size:0.82rem`;
-  setTimeout(() => { el.textContent = ''; el.style.cssText = ''; }, 4000);
+  el.innerHTML = `<div class="ds-message ds-message--${isErr ? 'err' : 'ok'}">${esc(msg)}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
 }
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -90,10 +90,11 @@ async function load() {
 
     const el = document.getElementById('matchdayTable');
     if (!data.matchdays.length) {
-      el.innerHTML = '<div class="empty">Nessuna giornata disputata ancora.</div>';
+      el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessuna giornata disputata ancora.</div></div>';
     } else {
       el.innerHTML = `
-        <table>
+        <div class="ds-table-wrap">
+        <table class="ds-table">
           <thead><tr>
             <th>Giornata</th>
             <th>Storica</th>
@@ -102,7 +103,7 @@ async function load() {
             <th></th>
           </tr></thead>
           <tbody>
-            ${data.matchdays.map(md => `<tr>
+            ${data.matchdays.map(md => `<tr class="ds-table__row">
               <td style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent2)">G${md.matchday_current}</td>
               <td style="color:var(--muted)">G${md.matchday_historic}</td>
               <td style="color:var(--green);font-family:var(--font-data)">${md.score_nostalgia != null ? md.score_nostalgia.toFixed(1) : '—'}</td>
@@ -110,7 +111,8 @@ async function load() {
               <td><a href="/lega/${leagueId}/giornata/${md.matchday_current}" style="color:var(--accent);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase">Dettaglio →</a></td>
             </tr>`).join('')}
           </tbody>
-        </table>`;
+        </table>
+        </div>`;
     }
 
     document.getElementById('main').style.display = 'block';
