@@ -20,6 +20,10 @@ app = FastAPI(title="FantaNostalgia API", lifespan=lifespan)
 _static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
+_shared_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "shared")
+if os.path.isdir(_shared_dir):
+    app.mount("/shared", StaticFiles(directory=_shared_dir), name="shared")
+
 _admin_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "admin")
 if os.path.isdir(_admin_dir):
     app.mount("/admin/css", StaticFiles(directory=os.path.join(_admin_dir, "css")), name="admin-css")

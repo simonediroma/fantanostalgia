@@ -29,19 +29,19 @@
     {% if md > matchday and nxt.val is none %}{% set nxt.val = md %}{% endif %}
   {% endfor %}
   {% if prev.val is not none %}
-  <a href="/lega/{{ league.id }}/giornata/{{ prev.val }}" class="btn-link">← G{{ prev.val }}</a>
+  <a href="/lega/{{ league.id }}/giornata/{{ prev.val }}" class="ds-button ds-button--default">← G{{ prev.val }}</a>
   {% endif %}
   <span class="matchday-nav-label">G{{ matchday }}</span>
   {% if nxt.val is not none %}
-  <a href="/lega/{{ league.id }}/giornata/{{ nxt.val }}" class="btn-link">G{{ nxt.val }} →</a>
+  <a href="/lega/{{ league.id }}/giornata/{{ nxt.val }}" class="ds-button ds-button--default">G{{ nxt.val }} →</a>
   {% endif %}
 </div>
 {% endif %}
 
 {% if scores %}
 <h2 style="margin-top:1.5rem">Punteggi</h2>
-<div class="table-wrap" style="margin-bottom:2rem">
-  <table>
+<div class="ds-table-wrap" style="margin-bottom:2rem">
+  <table class="ds-table">
     <thead>
       <tr>
         <th>#</th>
@@ -65,13 +65,13 @@
   </table>
 </div>
 {% else %}
-<div class="empty">Punteggi non ancora calcolati.</div>
+<div class="ds-empty-state"><div class="ds-empty-state__message">Punteggi non ancora calcolati.</div></div>
 {% endif %}
 
 {% if gran_premi %}
 <h2 style="margin-top:1.5rem">🏆 Gran Premi</h2>
-<div class="table-wrap" style="margin-bottom:2rem">
-  <table>
+<div class="ds-table-wrap" style="margin-bottom:2rem">
+  <table class="ds-table">
     <thead>
       <tr>
         <th>Criterio</th>
@@ -85,7 +85,7 @@
       <tr>
         <td>{{ gp.criterion_label }}</td>
         <td class="historic-name" style="text-align:left">
-          {{ gp.prize_name }} <span class="role-badge">{{ gp.prize_role }}</span>
+          {{ gp.prize_name }} <span class="ds-badge ds-badge--cyan">{{ gp.prize_role }}</span>
           <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ gp.prize_team }}</span>
         </td>
         <td>{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
@@ -99,18 +99,18 @@
 
 {% if managers %}
 <h2>Formazioni e Alter Ego</h2>
-<div class="tabs" style="margin-top:1rem">
+<div class="ds-tabs__nav" style="margin-top:1rem">
   {% for mgr in managers %}
-  <button class="tab-btn {% if loop.first %}active{% endif %}"
+  <button class="ds-tabs__tab" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"
           onclick="switchTab('mgr{{ loop.index }}', this)">{{ mgr.name }}</button>
   {% endfor %}
 </div>
 
 {% for mgr in managers %}
-<div id="tab-mgr{{ loop.index }}" class="tab-panel {% if loop.first %}active{% endif %}">
+<div id="tab-mgr{{ loop.index }}" class="ds-tabs__panel" {% if not loop.first %}hidden{% endif %}>
   {% if mgr.starters %}
-  <div class="table-wrap">
-    <table>
+  <div class="ds-table-wrap">
+    <table class="ds-table">
       <thead>
         <tr>
           <th>Ruolo</th>
@@ -123,7 +123,7 @@
       <tbody>
         {% for p in mgr.starters %}
         <tr>
-          <td><span class="role-badge">{{ p.role }}</span></td>
+          <td><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
           <td>
             {{ p.player_name }}
             <span style="color:var(--muted);font-size:0.8rem"> {{ p.current_team }}</span>
@@ -152,15 +152,15 @@
     <summary style="cursor:pointer;color:var(--muted);font-family:var(--font-pixel);font-size:0.55rem;text-transform:uppercase;padding:0.35rem 0">
       Panchina ({{ mgr.bench|length }})
     </summary>
-    <div class="table-wrap" style="margin-top:0.5rem">
-      <table>
+    <div class="ds-table-wrap" style="margin-top:0.5rem">
+      <table class="ds-table">
         <thead>
           <tr><th>Ruolo</th><th>Giocatore</th><th>Alter Ego</th></tr>
         </thead>
         <tbody>
           {% for p in mgr.bench %}
           <tr>
-            <td><span class="role-badge">{{ p.role }}</span></td>
+            <td><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
             <td>{{ p.player_name }}</td>
             <td class="historic-name" style="text-align:left">
               {% if p.alter_ego_name %}{{ p.alter_ego_name }}{% else %}—{% endif %}
@@ -178,10 +178,10 @@
 
 <script>
 function switchTab(id, btn) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
-  btn.classList.add('active');
+  document.querySelectorAll('.ds-tabs__panel').forEach(p => { p.hidden = true; });
+  document.querySelectorAll('.ds-tabs__tab').forEach(b => b.setAttribute('aria-selected', 'false'));
+  document.getElementById('tab-' + id).hidden = false;
+  btn.setAttribute('aria-selected', 'true');
 }
 </script>
 {% endblock %}

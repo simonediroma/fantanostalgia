@@ -209,6 +209,7 @@
   align-items: center;
   gap: var(--space-2);
 }
+.ds-message[hidden] { display: none; }
 .ds-message--ok   { border-color: var(--green); color: var(--green); background: rgba(0, 255, 85, 0.08); }
 .ds-message--err  { border-color: var(--red); color: var(--red); background: rgba(255, 17, 68, 0.08); }
 .ds-message--info { border-color: var(--accent2); color: var(--accent2); background: rgba(0, 212, 255, 0.08); }

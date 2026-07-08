@@ -19,17 +19,17 @@
   {% if last_draw %}&nbsp;·&nbsp; Giornata {{ last_draw.matchday_current }}{% endif %}
 </p>
 
-<div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('nostalgia', this)">Punti Totali FantaNostalgia</button>
-  <button class="tab-btn" onclick="switchTab('normale', this)">Classifica FantaCalcio</button>
-  <button class="tab-btn" onclick="switchTab('h2h', this)">Classifica FantaNostalgia</button>
-  <button class="tab-btn" onclick="switchTab('calendario', this); calInit()">Calendario</button>
+<div class="ds-tabs__nav">
+  <button class="ds-tabs__tab" aria-selected="true" onclick="switchTab('nostalgia', this)">Punti Totali FantaNostalgia</button>
+  <button class="ds-tabs__tab" aria-selected="false" onclick="switchTab('normale', this)">Classifica FantaCalcio</button>
+  <button class="ds-tabs__tab" aria-selected="false" onclick="switchTab('h2h', this)">Classifica FantaNostalgia</button>
+  <button class="ds-tabs__tab" aria-selected="false" onclick="switchTab('calendario', this); calInit()">Calendario</button>
 </div>
 
-<div id="tab-nostalgia" class="tab-panel active">
+<div id="tab-nostalgia" class="ds-tabs__panel">
   {% if nostalgia %}
-  <div class="table-wrap">
-    <table>
+  <div class="ds-table-wrap">
+    <table class="ds-table">
       <thead>
         <tr>
           <th>#</th>
@@ -55,14 +55,14 @@
     </table>
   </div>
   {% else %}
-  <div class="empty">Nessun dato disponibile.</div>
+  <div class="ds-empty-state"><div class="ds-empty-state__message">Nessun dato disponibile.</div></div>
   {% endif %}
 </div>
 
-<div id="tab-normale" class="tab-panel">
+<div id="tab-normale" class="ds-tabs__panel" hidden>
   {% if normal %}
-  <div class="table-wrap">
-    <table>
+  <div class="ds-table-wrap">
+    <table class="ds-table">
       <thead>
         <tr>
           <th>#</th>
@@ -88,14 +88,14 @@
     </table>
   </div>
   {% else %}
-  <div class="empty">Nessun dato disponibile.</div>
+  <div class="ds-empty-state"><div class="ds-empty-state__message">Nessun dato disponibile.</div></div>
   {% endif %}
 </div>
 
-<div id="tab-h2h" class="tab-panel">
+<div id="tab-h2h" class="ds-tabs__panel" hidden>
   {% if h2h %}
-  <div class="table-wrap">
-    <table>
+  <div class="ds-table-wrap">
+    <table class="ds-table">
       <thead>
         <tr>
           <th>#</th>
@@ -129,8 +129,8 @@
     </table>
   </div>
   {% else %}
-  <div class="empty">Nessuno scontro diretto disponibile.<br>
-    <small>Importa le formazioni via Excel per popolare questa classifica.</small>
+  <div class="ds-empty-state"><div class="ds-empty-state__message">Nessuno scontro diretto disponibile.<br>
+    <small>Importa le formazioni via Excel per popolare questa classifica.</small></div>
   </div>
   {% endif %}
 </div>
@@ -144,8 +144,8 @@
 
 {% if all_draws %}
 <h2 style="margin-top:2rem">Archivio giornate</h2>
-<div class="table-wrap" style="margin-top:0.75rem">
-  <table>
+<div class="ds-table-wrap" style="margin-top:0.75rem">
+  <table class="ds-table">
     <thead>
       <tr>
         <th>Giornata</th>
@@ -160,7 +160,7 @@
         <td class="rank">G{{ d.matchday_current }}</td>
         <td style="color:var(--muted)">G{{ d.matchday_historic }} — {{ league.season_historic }}</td>
         <td style="color:var(--muted)">{{ d.drawn_at_fmt or '—' }}</td>
-        <td><a href="/lega/{{ league.id }}/giornata/{{ d.matchday_current }}" class="btn-link">Dettaglio</a></td>
+        <td><a href="/lega/{{ league.id }}/giornata/{{ d.matchday_current }}" class="ds-button ds-button--default">Dettaglio</a></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -168,7 +168,7 @@
 </div>
 {% endif %}
 
-<div id="tab-calendario" class="tab-panel">
+<div id="tab-calendario" class="ds-tabs__panel" hidden>
   <div class="cal-nav">
     <button class="cal-arrow" id="cal-prev" onclick="calNav(-1)">◀</button>
     <span id="cal-label"></span>
@@ -189,6 +189,7 @@
 }
 .cal-arrow {
   background: none;
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--accent, #ff0);
   color: var(--accent, #ff0);
   padding: 0.2rem 0.6rem;
@@ -256,10 +257,10 @@
 
 <script>
 function switchTab(name, btn) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  btn.classList.add('active');
+  document.querySelectorAll('.ds-tabs__panel').forEach(p => { p.hidden = true; });
+  document.querySelectorAll('.ds-tabs__tab').forEach(b => b.setAttribute('aria-selected', 'false'));
+  document.getElementById('tab-' + name).hidden = false;
+  btn.setAttribute('aria-selected', 'true');
 }
 
 // all_draws is DESC from server; reverse to get chronological order for calendar nav
