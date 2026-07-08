@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-08
 **Branch attivo:** `claude/prossimo-task-1wzl48`
-**PR in corso:** nessuna — branch pushato, PR non ancora aperta (task 25 completato, in attesa di richiesta esplicita)
+**PR in corso:** [#80](https://github.com/simonediroma/fantanostalgia/pull/80) — task 25, creata dall'utente da Claude Code UI
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
