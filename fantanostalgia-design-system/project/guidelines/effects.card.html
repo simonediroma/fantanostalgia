@@ -1,0 +1,49 @@
+<!-- @dsCard group="Brand" viewport="700x200" name="Pixel Shadows" subtitle="No-blur 8-bit box-shadow system + border widths" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { padding: 1.5rem; }
+    .grid { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end; }
+    .item { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+    .box { width: 60px; height: 40px; background: var(--surface); border: 2px solid var(--border); }
+    .lbl { font-family: var(--font-pixel); font-size: 0.38rem; color: var(--muted); text-transform: uppercase; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <div class="item">
+      <div class="box" style="box-shadow: 2px 2px 0 #000"></div>
+      <div class="lbl">--shadow-sm<br>2px 2px 0</div>
+    </div>
+    <div class="item">
+      <div class="box" style="box-shadow: 3px 3px 0 #000"></div>
+      <div class="lbl">--shadow-md<br>3px 3px 0</div>
+    </div>
+    <div class="item">
+      <div class="box" style="box-shadow: 4px 4px 0 #000"></div>
+      <div class="lbl">--shadow-lg<br>4px 4px 0</div>
+    </div>
+    <div class="item">
+      <div class="box" style="box-shadow: 3px 3px 0 var(--accent); border-color: var(--accent)"></div>
+      <div class="lbl" style="color:var(--accent)">--shadow-accent<br>3px 3px 0 yellow</div>
+    </div>
+    <div class="item">
+      <div class="box" style="box-shadow: 4px 4px 0 #000; border-color: var(--accent)"></div>
+      <div class="lbl">--shadow-modal<br>4px 4px 0</div>
+    </div>
+    <div class="item" style="justify-content: flex-end;">
+      <div style="display:flex;flex-direction:column;gap:6px;padding-bottom:4px">
+        <div style="width:60px;height:1px;background:var(--border)"></div>
+        <div style="width:60px;height:2px;background:var(--border)"></div>
+        <div style="width:60px;height:3px;background:var(--border)"></div>
+      </div>
+      <div class="lbl">borders<br>1 / 2 / 3px</div>
+    </div>
+  </div>
+</body>
+</html>

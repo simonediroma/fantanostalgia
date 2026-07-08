@@ -1,0 +1,173 @@
+<!-- @dsCard group="Coach Portal" viewport="900x720" name="Coach Portal" subtitle="Rosa — associazione storico→attuale e lock definitivo" -->
+<!-- @startingPoint section="UI Kits" subtitle="Coach portal — associazione alter ego e blocco rosa" viewport="900x720" -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FantaNostalgia — Coach</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { Button, Badge, Panel, HelpBox, Message, ProgressBar, Modal } = window.FantaNostalgiaDesignSystem_90de16;
+
+const POOL = {
+  P: [{ id:1, nostalgia:'Peruzzi · Lazio 03/04',  current:null }],
+  D: [
+    { id:2, nostalgia:'Maldini · Milan 03/04',    current:'Theo Hernandez' },
+    { id:3, nostalgia:'Nesta · Milan 03/04',       current:null },
+    { id:4, nostalgia:'Cannavaro · Juve 03/04',   current:null },
+  ],
+  C: [
+    { id:5, nostalgia:'Pirlo · Milan 03/04',       current:'Barella' },
+    { id:6, nostalgia:'Totti · Roma 03/04',        current:'Dybala' },
+    { id:7, nostalgia:'Veron · Lazio 03/04',       current:null },
+    { id:8, nostalgia:'Seedorf · Milan 03/04',     current:'Calhanoglu' },
+  ],
+  A: [
+    { id:9,  nostalgia:'Inzaghi · Milan 03/04',   current:'Giroud' },
+    { id:10, nostalgia:'Trezeguet · Juve 03/04',  current:'Vlahovic' },
+    { id:11, nostalgia:'Vieri · Inter 03/04',      current:null },
+    { id:12, nostalgia:'Montella · Roma 03/04',   current:'El Shaarawy' },
+  ],
+};
+
+const AVAILABLE = {
+  P: ['Handanovic','Szczesny','Radu'],
+  D: ['Theo Hernandez','De Vrij','Skriniar','Bastoni','Danilo','Bremer'],
+  C: ['Barella','Dybala','Calhanoglu','Milinkovic','Verratti','Pellegrini'],
+  A: ['Giroud','Vlahovic','El Shaarawy','Osimhen','Lautaro','Dzeko'],
+};
+
+const ROLE_LABELS = { P:'Portieri', D:'Difensori', C:'Centrocampisti', A:'Attaccanti' };
+
+function PlayerRow({ player, role, onAssign, locked }) {
+  const assigned = !!player.current;
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:'0.75rem', padding:'0.5rem 0', borderBottom:'1px solid #1a1a40' }}>
+      {/* Nostalgia card */}
+      <div style={{ background:'#0a0a1e', border:`1px solid ${assigned ? 'var(--green)' : 'var(--accent)'}`, padding:'0.4rem 0.6rem' }}>
+        <div style={{ fontFamily:'var(--font-pixel)', fontSize:'0.5rem', color:'var(--accent)', textTransform:'uppercase', marginBottom:'0.2rem' }}>
+          {player.nostalgia.split('·')[0].trim()}
+        </div>
+        <div style={{ fontFamily:'var(--font-data)', fontSize:'0.72rem', color:'var(--muted)' }}>
+          {player.nostalgia.split('·').slice(1).join('·').trim()}
+        </div>
+      </div>
+      {/* Arrow */}
+      <div style={{ color:'var(--accent)', fontSize:'1rem', textAlign:'center' }}>→</div>
+      {/* Current */}
+      {assigned ? (
+        <div style={{ background:'#0a0a1e', border:'1px solid var(--green)', padding:'0.4rem 0.6rem' }}>
+          <div style={{ fontFamily:'var(--font-data)', fontSize:'0.9rem', color:'var(--text)' }}>{player.current}</div>
+          {!locked && (
+            <button onClick={() => onAssign(player.id, null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--muted)', fontFamily:'var(--font-pixel)', fontSize:'0.4rem', padding:0, boxShadow:'none', marginTop:'0.2rem' }}>
+              rimuovi
+            </button>
+          )}
+        </div>
+      ) : (
+        <select
+          disabled={locked}
+          onChange={e => onAssign(player.id, e.target.value || null)}
+          style={{ width:'100%', background:'#0a0a1e', border:'1px solid var(--border)', color:'var(--text)', fontFamily:'var(--font-data)', fontSize:'0.85rem', padding:'0.35rem 0.5rem', outline:'none' }}
+        >
+          <option value="">— Seleziona giocatore</option>
+          {AVAILABLE[role].map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [pool, setPool] = React.useState(POOL);
+  const [locked, setLocked] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+
+  const total    = Object.values(pool).flat().length;
+  const assigned = Object.values(pool).flat().filter(p => p.current).length;
+
+  const handleAssign = (id, value) => {
+    setPool(prev => {
+      const next = {};
+      for (const role of Object.keys(prev)) {
+        next[role] = prev[role].map(p => p.id === id ? { ...p, current: value } : p);
+      }
+      return next;
+    });
+  };
+
+  const handleLock = () => {
+    setLocked(true);
+    setModalOpen(false);
+    setMsg({ type:'ok', text:'Rosa bloccata — associazioni confermate.' });
+  };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh' }}>
+      {/* Topbar */}
+      <div style={{ background:'var(--surface)', borderBottom:'2px solid var(--accent)', padding:'0.65rem 1.25rem', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+          <span style={{ fontFamily:'var(--font-data)', fontSize:'0.7rem', color:'var(--muted)', cursor:'pointer' }}>← Leghe</span>
+          <span style={{ fontFamily:'var(--font-pixel)', fontSize:'0.7rem', color:'var(--accent)', textTransform:'uppercase' }}>Erculo Tuo</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+          {locked && <Badge variant="green">bloccata</Badge>}
+          <span style={{ fontFamily:'var(--font-pixel)', fontSize:'0.5rem', color:'var(--accent2)', cursor:'pointer' }}>Punteggi</span>
+          <Button variant="secondary" onClick={() => {}}>Esci</Button>
+        </div>
+      </div>
+      {/* Content */}
+      <div style={{ maxWidth:'900px', margin:'0 auto', padding:'2rem 1.25rem', flex:1, width:'100%', paddingBottom:'100px' }}>
+        {msg && <Message variant={msg.type} onDismiss={() => setMsg(null)}>{msg.text}</Message>}
+        <HelpBox title="Associa i tuoi alter ego" variant="info">
+          Assegna ogni giocatore storico al suo corrispondente nella tua rosa attuale.
+          Una volta confermato e bloccato, l'associazione è irreversibile.
+        </HelpBox>
+        {Object.entries(pool).map(([role, players]) => (
+          <div key={role} style={{ marginBottom:'1.5rem' }}>
+            <div style={{ fontFamily:'var(--font-pixel)', fontSize:'0.58rem', color:'var(--accent2)', textTransform:'uppercase', borderBottom:'1px solid var(--border)', paddingBottom:'0.35rem', marginBottom:'0.75rem' }}>
+              {ROLE_LABELS[role]}
+            </div>
+            {players.map(p => (
+              <PlayerRow key={p.id} player={p} role={role} onAssign={handleAssign} locked={locked} />
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* Lock bar */}
+      {!locked && (
+        <div style={{ position:'sticky', bottom:0, background:'var(--surface)', borderTop:'2px solid var(--accent)', padding:'0.75rem 1.25rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'1rem', zIndex:5 }}>
+          <div>
+            <div style={{ fontFamily:'var(--font-data)', fontSize:'0.82rem', color:'var(--muted)', marginBottom:'0.3rem' }}>{assigned}/{total} assegnati</div>
+            <ProgressBar value={assigned} max={total} />
+          </div>
+          <Button variant="danger" disabled={assigned < total} onClick={() => setModalOpen(true)}>
+            Conferma e Blocca
+          </Button>
+        </div>
+      )}
+      <Modal open={modalOpen} title="Conferma e Blocca" onClose={() => setModalOpen(false)}
+        actions={<><Button variant="danger" onClick={handleLock}>Blocca definitivamente</Button><Button variant="secondary" onClick={() => setModalOpen(false)}>Annulla</Button></>}>
+        <p style={{ fontFamily:'var(--font-data)', fontSize:'0.875rem', color:'var(--muted)', lineHeight:1.6 }}>
+          Hai assegnato tutti i {total} giocatori. Una volta confermato, l'associazione è irreversibile e non potrai modificarla.
+        </p>
+      </Modal>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

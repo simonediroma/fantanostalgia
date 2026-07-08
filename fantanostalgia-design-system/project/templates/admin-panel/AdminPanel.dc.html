@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Admin Panel" description="Pannello amministratore: dashboard, leghe, mapping alter ego, manager, stagioni storiche, importazione rose" -->
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body { margin:0; height:100%; overflow:hidden; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .nav-btn { transition: background 0.1s, color 0.1s; cursor:pointer; border:none; width:100%; text-align:left; }
+    .nav-btn:hover:not([data-active="true"]) { background: rgba(255,230,0,0.08) !important; color: var(--accent) !important; }
+    .row-hover { transition: background 0.1s; }
+    .row-hover:hover { background: rgba(255,230,0,0.06) !important; }
+    .stat-card { transition: border-color 0.15s, box-shadow 0.15s; }
+    .stat-card:hover { border-color: var(--accent2) !important; box-shadow: 3px 3px 0 var(--accent2) !important; }
+    ::-webkit-scrollbar { width:6px; background:var(--bg); }
+    ::-webkit-scrollbar-thumb { background:var(--border); }
+    /* Wizard step pills */
+    .wizard-step { display:flex;align-items:center;gap:0.5rem;padding:0.5rem 1.25rem;background:var(--surface);border:2px solid var(--border); }
+    .wizard-step-num  { font-family:var(--font-pixel);font-size:0.45rem;color:var(--muted); }
+    .wizard-step-lbl  { font-family:var(--font-pixel);font-size:0.35rem;text-transform:uppercase;color:var(--muted); }
+    .wizard-step[data-active="true"]  { background:var(--accent); }
+    .wizard-step[data-active="true"]  .wizard-step-num,
+    .wizard-step[data-active="true"]  .wizard-step-lbl  { color:var(--bg); }
+    .wizard-step[data-enabled="true"] .wizard-step-num,
+    .wizard-step[data-enabled="true"] .wizard-step-lbl  { color:var(--text); }
+  </style>
+</helmet>
+
+<!-- ── App shell ──────────────────────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:220px 1fr;height:100vh;overflow:hidden;background:var(--bg)">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────── -->
+  <aside style="background:var(--surface);border-right:2px solid var(--border);display:flex;flex-direction:column;overflow-y:auto">
+
+    <!-- Logo -->
+    <div style="padding:1rem 1.25rem;border-bottom:2px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);text-transform:uppercase">⚽ FN</div>
+      <div style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--accent2);text-transform:uppercase;margin-top:0.25rem;letter-spacing:0.1em">Admin Panel</div>
+    </div>
+
+    <!-- League selector -->
+    <div style="padding:0.75rem 1.25rem;border-bottom:2px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem">Lega attiva</div>
+      <select style="width:100%;background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.78rem;padding:0.3rem 0.5rem;outline:none">
+        <option>Erculo Tuo 24/25</option>
+        <option>Serie A Legends</option>
+      </select>
+    </div>
+
+    <!-- Nav -->
+    <nav style="flex:1;padding:0.5rem 0">
+      <button class="nav-btn" data-active="{{ navDashboard }}" onClick="{{ goToDashboard }}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1.25rem;background:transparent;color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;letter-spacing:0.06em">
+        <span style="font-size:0.65rem">▦</span> Dashboard
+      </button>
+      <button class="nav-btn" data-active="{{ navLeghe }}" onClick="{{ goToLeghe }}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1.25rem;background:transparent;color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;letter-spacing:0.06em">
+        <span style="font-size:0.65rem">◈</span> Leghe
+      </button>
+      <button class="nav-btn" data-active="{{ navMapping }}" onClick="{{ goToMapping }}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1.25rem;background:transparent;color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;letter-spacing:0.06em">
+        <span style="font-size:0.65rem">⇄</span> Mapping
+      </button>
+      <button class="nav-btn" data-active="{{ navManager }}" onClick="{{ goToManager }}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1.25rem;background:transparent;color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;letter-spacing:0.06em">
+        <span style="font-size:0.65rem">♟</span> Manager
+      </button>
+      <button class="nav-btn" data-active="{{ navStagioni }}" onClick="{{ goToStagioni }}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1.25rem;background:transparent;color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;letter-spacing:0.06em">
+        <span style="font-size:0.65rem">◉</span> Stagioni
+      </button>
+      <button class="nav-btn" data-active="{{ navImport }}" onClick="{{ goToImport }}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1.25rem;background:transparent;color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;letter-spacing:0.06em">
+        <span style="font-size:0.65rem">↑</span> Importa Rose
+      </button>
+    </nav>
+
+    <!-- User -->
+    <div style="padding:0.85rem 1.25rem;border-top:2px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Admin</div>
+      <div style="font-family:var(--font-data);font-size:0.82rem;color:var(--text);margin-top:0.2rem">Erculo</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <div style="display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- Topbar -->
+    <header style="background:var(--surface);border-bottom:2px solid var(--border);padding:0 1.5rem;height:48px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Erculo Tuo 24/25</span>
+        <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted)">›</span>
+        <span style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--accent);text-transform:uppercase">{{ viewLabel }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:1rem">
+        <span style="font-family:var(--font-pixel);font-size:0.36rem;color:var(--green);animation:blink 2s step-end infinite">● G22</span>
+        <span style="font-family:var(--font-pixel);font-size:0.36rem;background:var(--accent);color:var(--bg);padding:2px 8px">STAGIONE IN CORSO</span>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main style="flex:1;overflow-y:auto;padding:1.75rem 2rem">
+
+      <!-- ══ DASHBOARD ═══════════════════════════════════════════ -->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <!-- Stat tiles -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem">
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.6rem">Manager</div>
+              <div style="font-family:var(--font-data);font-size:2rem;color:var(--accent);line-height:1">10</div>
+              <div style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--green);text-transform:uppercase;margin-top:0.4rem">tutti attivi</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.6rem">Giornata</div>
+              <div style="font-family:var(--font-data);font-size:2rem;color:var(--accent);line-height:1">22</div>
+              <div style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--accent2);text-transform:uppercase;margin-top:0.4rem">storico 2003/04</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.6rem">Mapping</div>
+              <div style="font-family:var(--font-data);font-size:2rem;color:var(--accent);line-height:1">118<span style="font-size:1rem;color:var(--muted)">/124</span></div>
+              <div style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--red);text-transform:uppercase;margin-top:0.4rem">6 da completare</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.6rem">Wildcards</div>
+              <div style="font-family:var(--font-data);font-size:2rem;color:var(--accent);line-height:1">21</div>
+              <div style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;margin-top:0.4rem">assegnate totali</div>
+            </div>
+
+          </div>
+
+          <!-- Ultimi scontri storici -->
+          <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden;margin-bottom:1.5rem">
+            <div style="padding:0.75rem 1.25rem;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <span style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--accent);text-transform:uppercase">Scontri storici · G22</span>
+              <span style="font-family:var(--font-pixel);font-size:0.35rem;color:var(--accent2);text-transform:uppercase;cursor:pointer" onClick="{{ goToMapping }}">Mapping →</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 120px 1fr 80px;padding:0.4rem 1.25rem;border-bottom:1px solid var(--border);background:rgba(51,51,170,0.2)">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase">Casa</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;text-align:center">Punteggio</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase">Ospite</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-transform:uppercase;text-align:right">Esito</span>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 1fr 80px;padding:0.6rem 1.25rem;border-bottom:1px solid var(--border);align-items:center">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Erculo Tuo</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center"><span style="color:var(--green)">83.5</span> — 73.5</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)">Gli Eroi</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">VINCE</span>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 1fr 80px;padding:0.6rem 1.25rem;border-bottom:1px solid var(--border);align-items:center">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">La Vecchia</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">68.0 — <span style="color:var(--green)">79.0</span></span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)">Nord FC</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">VINCE</span>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 1fr 80px;padding:0.6rem 1.25rem;border-bottom:1px solid var(--border);align-items:center">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Ultras Storici</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center">74.5 — 74.5</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)">Retró United</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">PARI</span>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 1fr 80px;padding:0.6rem 1.25rem;align-items:center">
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Calcio Epico</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text);text-align:center"><span style="color:var(--green)">91.0</span> — 62.0</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)">Zona Gol</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">VINCE</span>
+            </div>
+          </div>
+
+          <!-- Alert mapping incompleto -->
+          <div style="background:var(--surface);border:2px solid var(--red);box-shadow:3px 3px 0 var(--red);padding:0.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+            <div style="display:flex;align-items:center;gap:0.75rem">
+              <span style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--red)">!</span>
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">6 giocatori senza alter ego storico. Completa il mapping prima della prossima giornata.</span>
+            </div>
+            <button onClick="{{ goToMapping }}" style="background:var(--red);border:2px solid var(--red);color:#fff;font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.35rem 0.75rem;cursor:pointer;white-space:nowrap">Risolvi →</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ LEGHE ════════════════════════════════════════════════ -->
+      <sc-if value="{{ isLeghe }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+            <h2 style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);text-transform:uppercase;margin:0">Le tue leghe</h2>
+            <button onClick="{{ openCreateLega }}" style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.4rem 0.85rem;cursor:pointer">+ Nuova lega</button>
+          </div>
+
+          <!-- League list -->
+          <div style="display:flex;flex-direction:column;gap:0.85rem;margin-bottom:1.5rem">
+
+            <div style="background:var(--surface);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:1rem 1.25rem;display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center">
+              <div>
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.35rem">
+                  <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--accent);text-transform:uppercase">Erculo Tuo</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.32rem;background:var(--green);color:#000;padding:1px 6px">STAGIONE IN CORSO</span>
+                </div>
+                <div style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">2024/25 · Storico 2003/04 · 10 manager · G22/38</div>
+              </div>
+              <div style="display:flex;gap:0.5rem">
+                <button style="background:transparent;border:2px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.35rem;text-transform:uppercase;padding:0.35rem 0.65rem;cursor:pointer">Configura</button>
+                <button style="background:transparent;border:2px solid var(--red);color:var(--red);font-family:var(--font-pixel);font-size:0.35rem;text-transform:uppercase;padding:0.35rem 0.65rem;cursor:pointer">Archivia</button>
+              </div>
+            </div>
+
+            <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1rem 1.25rem;display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center">
+              <div>
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.35rem">
+                  <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--muted);text-transform:uppercase">Serie A Legends</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.32rem;background:var(--border);color:var(--muted);padding:1px 6px">BOZZA</span>
+                </div>
+                <div style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">2024/25 · Storico da scegliere · 0/12 manager · Non avviata</div>
+              </div>
+              <div style="display:flex;gap:0.5rem">
+                <button style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.35rem;text-transform:uppercase;padding:0.35rem 0.65rem;cursor:pointer">Configura →</button>
+                <button style="background:transparent;border:2px solid var(--red);color:var(--red);font-family:var(--font-pixel);font-size:0.35rem;text-transform:uppercase;padding:0.35rem 0.65rem;cursor:pointer">Elimina</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Create league form -->
+          <sc-if value="{{ showCreateLega }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface);border:2px solid var(--accent2);box-shadow:3px 3px 0 var(--accent2);padding:1.5rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+                <span style="font-family:var(--font-pixel);font-size:0.52rem;color:var(--accent2);text-transform:uppercase">Nuova lega</span>
+                <button onClick="{{ closeCreateLega }}" style="background:transparent;border:none;color:var(--muted);font-family:var(--font-pixel);font-size:0.55rem;cursor:pointer">✕</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+                <div style="display:flex;flex-direction:column;gap:0.4rem">
+                  <label style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Nome lega *</label>
+                  <input type="text" placeholder="es. Legends Serie A" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem">
+                  <label style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Stagione storica *</label>
+                  <select style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none">
+                    <option>2003/04</option>
+                    <option>2002/03</option>
+                    <option>2000/01</option>
+                    <option>1999/00</option>
+                    <option>2009/10</option>
+                  </select>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem">
+                  <label style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Max manager</label>
+                  <input type="number" placeholder="10" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem">
+                  <label style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Piattaforma fanta</label>
+                  <select style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.875rem;padding:0.4rem 0.6rem;outline:none">
+                    <option>fantacalcio.it</option>
+                    <option>fantacalcioservice.com</option>
+                    <option>CSV manuale</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                <button onClick="{{ closeCreateLega }}" style="background:transparent;border:2px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.4rem 0.85rem;cursor:pointer">Annulla</button>
+                <button style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.4rem 0.85rem;cursor:pointer">Crea lega →</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══ MAPPING ══════════════════════════════════════════════ -->
+      <sc-if value="{{ isMapping }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+            <div>
+              <h2 style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);text-transform:uppercase;margin:0 0 0.25rem">Mapping alter ego</h2>
+              <p style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted);margin:0">Stagione storica: <span style="color:var(--accent2)">2003/04</span> · 118/124 completati</p>
+            </div>
+            <button style="background:transparent;border:2px solid var(--accent2);color:var(--accent2);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.4rem 0.85rem;cursor:pointer">↺ Rigenera automatici</button>
+          </div>
+
+          <!-- Filter bar -->
+          <div style="display:flex;gap:0.75rem;margin-bottom:1rem;align-items:center">
+            <input type="text" placeholder="Cerca giocatore…" style="background:var(--surface);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.38rem 0.65rem;outline:none;flex:1;max-width:280px">
+            <select style="background:var(--surface);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.38rem 0.65rem;outline:none">
+              <option>Tutti i ruoli</option>
+              <option>POR</option><option>DIF</option><option>CEN</option><option>ATT</option>
+            </select>
+            <select style="background:var(--surface);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.82rem;padding:0.38rem 0.65rem;outline:none">
+              <option>Tutti</option>
+              <option>Automatici</option>
+              <option>Override</option>
+              <option>Mancanti</option>
+            </select>
+          </div>
+
+          <!-- Mapping table -->
+          <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.4rem 1rem;border-bottom:2px solid var(--border);background:var(--accent);gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase">#</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase">Giocatore moderno</span>
+              <span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase">Alter ego storico</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Tipo</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Azione</span>
+            </div>
+
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">1</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Lautaro M. <span style="font-size:0.75rem;color:var(--muted)">(ATT)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent)">Crespo</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">AUTO</span>
+              <button onClick="{{ editMapping0 }}" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Edit</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">2</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Osimhen <span style="font-size:0.75rem;color:var(--muted)">(ATT)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent)">Batistuta</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">AUTO</span>
+              <button onClick="{{ editMapping1 }}" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Edit</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">3</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Barella <span style="font-size:0.75rem;color:var(--muted)">(CEN)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent)">Nedved</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--accent2);color:#000;padding:2px 5px;text-align:center">OVR</span>
+              <button onClick="{{ editMapping2 }}" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Edit</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">4</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Maignan <span style="font-size:0.75rem;color:var(--muted)">(POR)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent)">Buffon</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">AUTO</span>
+              <button onClick="{{ editMapping3 }}" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Edit</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">5</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Theo Hernández <span style="font-size:0.75rem;color:var(--muted)">(DIF)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent)">Maldini</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">AUTO</span>
+              <button onClick="{{ editMapping4 }}" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Edit</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">6</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Vlahović <span style="font-size:0.75rem;color:var(--muted)">(ATT)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--red);text-align:center">?</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--red)">— nessuno —</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--red);color:#fff;padding:2px 5px;text-align:center">MANCA</span>
+              <button onClick="{{ editMapping5 }}" style="background:var(--red);border:1px solid var(--red);color:#fff;font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Assegna</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:28px 1fr 32px 1fr 80px 80px;padding:0.55rem 1rem;align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted)">7</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Calhanoglu <span style="font-size:0.75rem;color:var(--muted)">(CEN)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.5rem;color:var(--accent2);text-align:center">→</span>
+              <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--accent)">Pirlo</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">AUTO</span>
+              <button onClick="{{ editMapping6 }}" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.3rem;text-transform:uppercase;padding:2px 6px;cursor:pointer;width:100%">✎ Edit</button>
+            </div>
+          </div>
+
+          <!-- Edit panel -->
+          <sc-if value="{{ mappingEditActive }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface);border:2px solid var(--accent2);box-shadow:3px 3px 0 var(--accent2);padding:1.25rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <span style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--accent2);text-transform:uppercase">Override alter ego · {{ mappingEditName }}</span>
+                <button onClick="{{ cancelMappingEdit }}" style="background:transparent;border:none;color:var(--muted);font-family:var(--font-pixel);font-size:0.55rem;cursor:pointer">✕</button>
+              </div>
+              <div style="display:flex;gap:0.85rem;align-items:flex-end">
+                <div style="flex:1;display:flex;flex-direction:column;gap:0.4rem">
+                  <label style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Alter ego storico (stagione 2003/04)</label>
+                  <input type="text" value="{{ mappingEditVal }}" onChange="{{ setMappingEditVal }}" placeholder="es. Del Piero"
+                    style="background:var(--bg);border:2px solid var(--accent2);color:var(--text);font-family:var(--font-data);font-size:0.9rem;padding:0.4rem 0.65rem;outline:none">
+                </div>
+                <button onClick="{{ confirmMappingEdit }}" style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.52rem 0.85rem;cursor:pointer">Conferma</button>
+                <button onClick="{{ cancelMappingEdit }}" style="background:transparent;border:2px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.52rem 0.85rem;cursor:pointer">Annulla</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══ MANAGER ══════════════════════════════════════════════ -->
+      <sc-if value="{{ isManager }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+            <h2 style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);text-transform:uppercase;margin:0">Manager · 10/10</h2>
+            <button style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.38rem;text-transform:uppercase;padding:0.4rem 0.85rem;cursor:pointer">+ Invita manager</button>
+          </div>
+          <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:0.4rem 1rem;border-bottom:2px solid var(--border);background:var(--accent);gap:0.5rem">
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase">Manager</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Invito</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Rosa importata</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Azione</span>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">Erculo <span style="font-size:0.75rem;color:var(--accent2)">(admin)</span></span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">ACCETTATO</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">✓ SÌ</span>
+              <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--muted);text-align:center">—</span>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">GliEroi99</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">ACCETTATO</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">✓ SÌ</span>
+              <button style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.28rem;text-transform:uppercase;padding:2px 5px;cursor:pointer">Rimuovi</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">LaVecchiaFC</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">ACCETTATO</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">✓ SÌ</span>
+              <button style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.28rem;text-transform:uppercase;padding:2px 5px;cursor:pointer">Rimuovi</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:0.6rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">CalcioEpico</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">ACCETTATO</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--red);color:#fff;padding:2px 5px;text-align:center">✗ NO</span>
+              <button onClick="{{ goToImport }}" style="background:var(--accent);border:1px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.28rem;text-transform:uppercase;padding:2px 5px;cursor:pointer">Importa</button>
+            </div>
+            <div class="row-hover" style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:0.6rem 1rem;align-items:center;gap:0.5rem">
+              <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted)">xxxxxxxpending</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">IN ATTESA</span>
+              <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:2px 5px;text-align:center">—</span>
+              <button style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-pixel);font-size:0.28rem;text-transform:uppercase;padding:2px 5px;cursor:pointer">Revoca</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ STAGIONI ═════════════════════════════════════════════ -->
+      <sc-if value="{{ isStagioni }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+            <h2 style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);text-transform:uppercase;margin:0">Stagioni storiche disponibili</h2>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+
+            <div style="background:var(--surface);border:2px solid var(--accent);box-shadow:3px 3px 0 var(--accent);padding:1.25rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent)">2003/04</span>
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:1px 5px">IN USO</span>
+              </div>
+              <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.7">Serie A · 476 giocatori · Voti completi</div>
+              <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--accent2);text-transform:uppercase;margin-top:0.5rem">Campione: Juventus · Top: Totti 8.1</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--text)">2002/03</span>
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:1px 5px">DISPONIBILE</span>
+              </div>
+              <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.7">Serie A · 488 giocatori · Voti completi</div>
+              <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted);text-transform:uppercase;margin-top:0.5rem">Campione: Juventus · Top: Ronaldo 7.98</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--text)">2000/01</span>
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:1px 5px">DISPONIBILE</span>
+              </div>
+              <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.7">Serie A · 462 giocatori · Voti completi</div>
+              <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted);text-transform:uppercase;margin-top:0.5rem">Campione: Roma · Top: Batistuta 7.91</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--text)">1999/00</span>
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:1px 5px">DISPONIBILE</span>
+              </div>
+              <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.7">Serie A · 441 giocatori · Voti completi</div>
+              <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted);text-transform:uppercase;margin-top:0.5rem">Campione: Lazio · Top: Shevchenko 8.14</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--text)">2009/10</span>
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:1px 5px">DISPONIBILE</span>
+              </div>
+              <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.7">Serie A · 512 giocatori · Voti completi</div>
+              <div style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted);text-transform:uppercase;margin-top:0.5rem">Campione: Inter · Top: Milito 7.85</div>
+            </div>
+
+            <div class="stat-card" style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.25rem;opacity:0.5">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--muted)">2004/05</span>
+                <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--border);color:var(--muted);padding:1px 5px">IN ARRIVO</span>
+              </div>
+              <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);line-height:1.7">Dati in lavorazione — disponibile presto</div>
+            </div>
+
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ IMPORTAZIONE ROSE ════════════════════════════════════ -->
+      <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <h2 style="font-family:var(--font-pixel);font-size:0.65rem;color:var(--accent);text-transform:uppercase;margin:0 0 1.5rem">Importazione rose</h2>
+
+          <!-- Wizard steps -->
+          <div style="display:flex;align-items:center;gap:0;margin-bottom:2rem">
+            <div class="wizard-step" data-active="{{ importStep1 }}" data-enabled="{{ true }}">
+              <span class="wizard-step-num">01</span>
+              <span class="wizard-step-lbl">Piattaforma</span>
+            </div>
+            <div style="width:24px;height:2px;background:var(--border)"></div>
+            <div class="wizard-step" data-active="{{ importStep2 }}" data-enabled="{{ importStepGte2 }}">
+              <span class="wizard-step-num">02</span>
+              <span class="wizard-step-lbl">Upload</span>
+            </div>
+            <div style="width:24px;height:2px;background:var(--border)"></div>
+            <div class="wizard-step" data-active="{{ importStep3 }}" data-enabled="{{ importStepGte3 }}">
+              <span class="wizard-step-num">03</span>
+              <span class="wizard-step-lbl">Anteprima</span>
+            </div>
+          </div>
+
+          <!-- Step 1: piattaforma -->
+          <sc-if value="{{ importStep1 }}" hint-placeholder-val="{{ true }}">
+            <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.75rem;max-width:600px">
+              <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);margin:0 0 1.25rem;line-height:1.75">Seleziona la piattaforma dalla quale vuoi importare le rose. Se usi un file CSV, scegli l'opzione manuale.</p>
+              <div style="display:flex;flex-direction:column;gap:0.65rem;margin-bottom:1.5rem">
+                <label style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1rem;background:var(--bg);border:2px solid var(--accent);cursor:pointer">
+                  <input type="radio" name="platform" defaultChecked style="accent-color:var(--accent)">
+                  <div>
+                    <div style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--accent);text-transform:uppercase">fantacalcio.it</div>
+                    <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);margin-top:0.2rem">Import automatico via codice API</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1rem;background:var(--bg);border:2px solid var(--border);cursor:pointer">
+                  <input type="radio" name="platform" style="accent-color:var(--accent)">
+                  <div>
+                    <div style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--text);text-transform:uppercase">fantacalcioservice.com</div>
+                    <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);margin-top:0.2rem">Import automatico via codice API</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1rem;background:var(--bg);border:2px solid var(--border);cursor:pointer">
+                  <input type="radio" name="platform" style="accent-color:var(--accent)">
+                  <div>
+                    <div style="font-family:var(--font-pixel);font-size:0.45rem;color:var(--text);text-transform:uppercase">CSV manuale</div>
+                    <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted);margin-top:0.2rem">Upload file .csv con colonne: manager, giocatore, ruolo, quotazione</div>
+                  </div>
+                </label>
+              </div>
+              <div style="display:flex;justify-content:flex-end">
+                <button onClick="{{ nextImportStep }}" style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;padding:0.45rem 1rem;cursor:pointer">Avanti →</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Step 2: upload -->
+          <sc-if value="{{ importStep2 }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;padding:1.75rem;max-width:600px">
+              <p style="font-family:var(--font-data);font-size:0.875rem;color:var(--muted);margin:0 0 1.25rem;line-height:1.75">Inserisci il tuo codice API fantacalcio.it oppure il codice lega per recuperare le rose automaticamente.</p>
+              <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem">
+                <label style="font-family:var(--font-pixel);font-size:0.38rem;color:var(--muted);text-transform:uppercase">Codice API / ID lega</label>
+                <input type="text" placeholder="es. FC-XXXX-1234" style="background:var(--bg);border:2px solid var(--border);color:var(--text);font-family:var(--font-data);font-size:0.9rem;padding:0.45rem 0.65rem;outline:none">
+              </div>
+              <div style="background:var(--bg);border:2px dashed var(--border);padding:1.5rem;text-align:center;margin-bottom:1.25rem">
+                <div style="font-family:var(--font-pixel);font-size:0.42rem;color:var(--muted);text-transform:uppercase;margin-bottom:0.4rem">oppure trascina un file .csv</div>
+                <div style="font-family:var(--font-data);font-size:0.78rem;color:var(--muted)">Format: manager, giocatore, ruolo, quotazione</div>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <button onClick="{{ prevImportStep }}" style="background:transparent;border:2px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;padding:0.45rem 1rem;cursor:pointer">← Indietro</button>
+                <button onClick="{{ nextImportStep }}" style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;padding:0.45rem 1rem;cursor:pointer">Carica e analizza →</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Step 3: anteprima -->
+          <sc-if value="{{ importStep3 }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:760px">
+              <div style="background:var(--surface);border:2px solid var(--green);box-shadow:3px 3px 0 var(--green);padding:0.85rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:0.75rem">
+                <span style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--green)">✓</span>
+                <span style="font-family:var(--font-data);font-size:0.875rem;color:var(--text)">124 giocatori rilevati · 10 manager · Mapping automatico pronto al 95%</span>
+              </div>
+              <div style="background:var(--surface);border:2px solid var(--border);box-shadow:3px 3px 0 #000;overflow:hidden;margin-bottom:1.25rem">
+                <div style="display:grid;grid-template-columns:1fr 1fr 60px 80px;padding:0.4rem 1rem;border-bottom:2px solid var(--border);background:var(--accent);gap:0.5rem">
+                  <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase">Manager</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase">Giocatori</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Rosa</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.32rem;color:var(--bg);text-transform:uppercase;text-align:center">Mapping</span>
+                </div>
+                <div class="row-hover" style="display:grid;grid-template-columns:1fr 1fr 60px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+                  <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">Erculo</span>
+                  <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Lautaro, Barella, Theo…</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">25</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">25/25</span>
+                </div>
+                <div class="row-hover" style="display:grid;grid-template-columns:1fr 1fr 60px 80px;padding:0.55rem 1rem;border-bottom:1px solid var(--border);align-items:center;gap:0.5rem">
+                  <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--text)">GliEroi99</span>
+                  <span style="font-family:var(--font-data);font-size:0.8rem;color:var(--muted)">Osimhen, Kvaratskhelia…</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--green);color:#000;padding:2px 5px;text-align:center">25</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.3rem;background:var(--red);color:#fff;padding:2px 5px;text-align:center">23/25</span>
+                </div>
+                <div class="row-hover" style="display:grid;grid-template-columns:1fr 1fr 60px 80px;padding:0.55rem 1rem;align-items:center;gap:0.5rem">
+                  <span style="font-family:var(--font-data);font-size:0.85rem;color:var(--muted)">altri 8 manager…</span>
+                  <span></span>
+                  <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted);text-align:center">25×</span>
+                  <span style="font-family:var(--font-pixel);font-size:0.3rem;color:var(--muted);text-align:center">~94%</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <button onClick="{{ prevImportStep }}" style="background:transparent;border:2px solid var(--border);color:var(--muted);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;padding:0.45rem 1rem;cursor:pointer">← Indietro</button>
+                <div style="display:flex;gap:0.75rem">
+                  <button onClick="{{ goToMapping }}" style="background:transparent;border:2px solid var(--accent2);color:var(--accent2);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;padding:0.45rem 1rem;cursor:pointer">Risolvi mapping mancanti</button>
+                  <button style="background:var(--accent);border:2px solid var(--accent);color:var(--bg);font-family:var(--font-pixel);font-size:0.42rem;text-transform:uppercase;padding:0.45rem 1rem;cursor:pointer">✓ Conferma importazione</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    view: 'dashboard',
+    importStep: 1,
+    mappingEditId: null,
+    mappingEditVal: '',
+    mappingEditName: '',
+    showCreateLega: false,
+  };
+
+  renderVals() {
+    const { view, importStep, mappingEditId, mappingEditVal, mappingEditName, showCreateLega } = this.state;
+
+    const viewLabels = { dashboard: 'Dashboard', leghe: 'Leghe', mapping: 'Mapping Alter Ego', manager: 'Manager', stagioni: 'Stagioni Storiche', import: 'Importa Rose' };
+
+    const mappingData = [
+      { id: 0, name: 'Lautaro M.', val: 'Crespo' },
+      { id: 1, name: 'Osimhen', val: 'Batistuta' },
+      { id: 2, name: 'Barella', val: 'Nedved' },
+      { id: 3, name: 'Maignan', val: 'Buffon' },
+      { id: 4, name: 'Theo Hernández', val: 'Maldini' },
+      { id: 5, name: 'Vlahović', val: '' },
+      { id: 6, name: 'Calhanoglu', val: 'Pirlo' },
+    ];
+
+    const editRow = mappingData.find(r => r.id === mappingEditId);
+    const editHandlers = {};
+    mappingData.forEach(r => {
+      editHandlers[`editMapping${r.id}`] = () => this.setState({ mappingEditId: r.id, mappingEditVal: r.val, mappingEditName: r.name });
+    });
+
+    return {
+      // view
+      viewLabel: viewLabels[view] || '',
+      isDashboard: view === 'dashboard',
+      isLeghe:     view === 'leghe',
+      isMapping:   view === 'mapping',
+      isManager:   view === 'manager',
+      isStagioni:  view === 'stagioni',
+      isImport:    view === 'import',
+      navDashboard: view === 'dashboard',
+      navLeghe:     view === 'leghe',
+      navMapping:   view === 'mapping',
+      navManager:   view === 'manager',
+      navStagioni:  view === 'stagioni',
+      navImport:    view === 'import',
+
+      // nav handlers
+      goToDashboard: () => this.setState({ view: 'dashboard' }),
+      goToLeghe:     () => this.setState({ view: 'leghe' }),
+      goToMapping:   () => this.setState({ view: 'mapping' }),
+      goToManager:   () => this.setState({ view: 'manager' }),
+      goToStagioni:  () => this.setState({ view: 'stagioni' }),
+      goToImport:    () => this.setState({ view: 'import' }),
+
+      // leghe
+      showCreateLega,
+      openCreateLega:  () => this.setState({ showCreateLega: true }),
+      closeCreateLega: () => this.setState({ showCreateLega: false }),
+
+      // mapping edit
+      ...editHandlers,
+      mappingEditActive: mappingEditId !== null,
+      mappingEditName: editRow?.name || mappingEditName,
+      mappingEditVal,
+      setMappingEditVal: (e) => this.setState({ mappingEditVal: e.target.value }),
+      confirmMappingEdit: () => this.setState({ mappingEditId: null, mappingEditVal: '', mappingEditName: '' }),
+      cancelMappingEdit:  () => this.setState({ mappingEditId: null, mappingEditVal: '', mappingEditName: '' }),
+
+      // import wizard
+      importStep,
+      importStep1: importStep === 1,
+      importStep2: importStep === 2,
+      importStep3: importStep === 3,
+      importStepGte2: importStep >= 2,
+      importStepGte3: importStep >= 3,
+      nextImportStep: () => this.setState(s => ({ importStep: Math.min(3, s.importStep + 1) })),
+      prevImportStep: () => this.setState(s => ({ importStep: Math.max(1, s.importStep - 1) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

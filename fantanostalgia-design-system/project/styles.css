@@ -1,0 +1,17 @@
+/* FantaNostalgia Design System — Global Entry Point
+ *
+ * Link this single file to get the complete token set, webfonts, and
+ * global 8-bit resets (no border-radius, CRT scanline overlay, body reset).
+ *
+ * Import order:
+ *   1. fonts      — Google Fonts @import for Press Start 2P
+ *   2. colors     — palette tokens + short aliases
+ *   3. spacing    — 4px-base scale + layout shell constants
+ *   4. typography — font stacks + size scales
+ *   5. effects    — shadow tokens + global resets + CRT scanline
+ */
+@import './tokens/fonts.css';
+@import './tokens/colors.css';
+@import './tokens/spacing.css';
+@import './tokens/typography.css';
+@import './tokens/effects.css';
