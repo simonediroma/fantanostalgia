@@ -29,8 +29,25 @@ def home(request: Request):
         rows = conn.execute(
             "SELECT id, name, season_current, season_historic FROM league ORDER BY id"
         ).fetchall()
+        hof_rows = conn.execute(
+            """
+            SELECT ph.name, ph.role, ph.team, ph.season,
+                   COUNT(hr.matchday) AS n,
+                   ROUND(AVG(hr.rating), 2) AS avg_rating
+            FROM player_historic ph
+            JOIN historic_rating hr ON hr.player_historic_id = ph.id
+            GROUP BY ph.id
+            HAVING n >= 5
+            ORDER BY avg_rating DESC
+            LIMIT 10
+            """
+        ).fetchall()
     leagues = [dict(r) for r in rows]
-    return templates.TemplateResponse("home.html", {"request": request, "leagues": leagues})
+    hall_of_fame = [dict(r) for r in hof_rows]
+    return templates.TemplateResponse(
+        "home.html",
+        {"request": request, "leagues": leagues, "hall_of_fame": hall_of_fame},
+    )
 
 
 @router.get("/lega/{league_id}/classifica")

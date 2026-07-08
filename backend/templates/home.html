@@ -95,7 +95,7 @@
   padding: 1.25rem;
 }
 
-.auth-card .tabs {
+.auth-card .ds-tabs__nav {
   margin-bottom: 1.25rem;
 }
 
@@ -128,20 +128,7 @@
 
 .auth-card button[type="submit"] {
   margin-top: 1rem;
-  width: 100%;
-  justify-content: center;
 }
-
-.auth-msg {
-  font-size: 0.78rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid;
-  margin-bottom: 0.75rem;
-  display: none;
-}
-.auth-msg.ok  { color: var(--green); border-color: var(--green); background: rgba(0,255,85,0.07); }
-.auth-msg.err { color: var(--red);   border-color: var(--red);   background: rgba(255,17,68,0.07); }
-.auth-msg.show { display: block; }
 
 .auth-hint {
   margin-top: 0.85rem;
@@ -152,6 +139,10 @@
 }
 .auth-hint a { color: var(--accent2); text-decoration: none; }
 .auth-hint a:hover { color: var(--accent); }
+
+/* ── Hall of Fame ─────────────────────────────────────────── */
+.hof-section { margin-bottom: 2rem; }
+.hof-section h2 { margin-bottom: 0.3rem; }
 
 /* ── Leagues section ──────────────────────────────────────── */
 .leagues-section { margin-top: 0.5rem; }
@@ -176,6 +167,42 @@
     storici a fare la classifica, non quelli di oggi.
   </p>
 </section>
+
+{% if hall_of_fame %}
+<!-- ── Hall of Fame ──────────────────────────────────────────── -->
+<section class="hof-section">
+  <h2>🏆 Top Player · Hall of Fame</h2>
+  <p class="subtitle">I 10 alter ego storici con la media voto più alta di sempre, su tutte le stagioni in archivio.</p>
+  <div class="ds-table-wrap">
+    <table class="ds-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Giocatore</th>
+          <th>Ruolo</th>
+          <th>Squadra</th>
+          <th>Stagione</th>
+          <th title="Giornate giocate">G.te</th>
+          <th>Media voto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in hall_of_fame %}
+        <tr>
+          <td class="rank">{{ loop.index }}</td>
+          <td class="historic-name" style="text-align:left">{{ p.name }}</td>
+          <td><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
+          <td style="color:var(--muted)">{{ p.team }}</td>
+          <td style="color:var(--muted)">{{ p.season }}</td>
+          <td style="color:var(--muted)">{{ p.n }}</td>
+          <td class="score">{{ '%.2f'|format(p.avg_rating) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 
 <!-- ── Come funziona + Login/Register ──────────────────────── -->
 <div class="home-grid">
@@ -219,26 +246,26 @@
   <section class="auth-section">
     <h2>Area Allenatori</h2>
     <div class="auth-card">
-      <div id="authMsg" class="auth-msg"></div>
+      <div id="authMsg" class="ds-message" hidden></div>
 
-      <div class="tabs" id="authTabs">
-        <button class="tab-btn active" data-tab="login">Accedi</button>
-        <button class="tab-btn" data-tab="register">Registrati</button>
+      <div class="ds-tabs__nav" id="authTabs">
+        <button class="ds-tabs__tab" aria-selected="true" data-tab="login">Accedi</button>
+        <button class="ds-tabs__tab" aria-selected="false" data-tab="register">Registrati</button>
       </div>
 
       <!-- Login -->
-      <div class="tab-panel active" id="tab-login">
+      <div class="ds-tabs__panel" id="tab-login">
         <form id="loginForm" novalidate>
           <label>Email</label>
           <input type="email" id="loginEmail" required autocomplete="email" placeholder="allenatore@esempio.it">
           <label>Password</label>
           <input type="password" id="loginPass" required autocomplete="current-password" placeholder="••••••••">
-          <button type="submit">Accedi</button>
+          <button type="submit" class="ds-button ds-button--default ds-button--full">Accedi</button>
         </form>
       </div>
 
       <!-- Register -->
-      <div class="tab-panel" id="tab-register">
+      <div class="ds-tabs__panel" id="tab-register" hidden>
         <div id="noTokenMsg" class="auth-hint" style="display:none">
           La registrazione richiede un <strong style="color:var(--accent)">link di invito</strong>
           ricevuto dal presidente della tua lega.<br><br>
@@ -252,7 +279,7 @@
           <input type="email" id="regEmail" required autocomplete="email" placeholder="allenatore@esempio.it">
           <label>Password</label>
           <input type="password" id="regPass" required autocomplete="new-password" placeholder="Scegli una password">
-          <button type="submit">Registrati e unisciti</button>
+          <button type="submit" class="ds-button ds-button--default ds-button--full">Registrati e unisciti</button>
         </form>
       </div>
 
@@ -277,8 +304,8 @@
         Stagione storica: {{ league.season_historic }}
       </div>
       <div class="card-actions">
-        <a href="/lega/{{ league.id }}/classifica" class="btn-link">Classifica</a>
-        <a href="/lega/{{ league.id }}/mapping" class="btn-link">Alter Ego</a>
+        <a href="/lega/{{ league.id }}/classifica" class="ds-button ds-button--default">Classifica</a>
+        <a href="/lega/{{ league.id }}/mapping" class="ds-button ds-button--default">Alter Ego</a>
       </div>
     </div>
     {% endfor %}
@@ -301,12 +328,13 @@
   function showMsg(text, type) {
     const el = document.getElementById('authMsg');
     el.textContent = text;
-    el.className = 'auth-msg show ' + type;
+    el.className = 'ds-message ds-message--' + type;
+    el.hidden = false;
   }
 
   function clearMsg() {
     const el = document.getElementById('authMsg');
-    el.className = 'auth-msg';
+    el.hidden = true;
   }
 
   // Parse invite token from URL
@@ -334,13 +362,13 @@
   setupRegisterTab();
 
   // Tab switching
-  document.querySelectorAll('#authTabs .tab-btn').forEach(btn => {
+  document.querySelectorAll('#authTabs .ds-tabs__tab').forEach(btn => {
     btn.addEventListener('click', () => {
       clearMsg();
-      document.querySelectorAll('#authTabs .tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      document.querySelectorAll('#authTabs .ds-tabs__tab').forEach(b => b.setAttribute('aria-selected', 'false'));
+      document.querySelectorAll('.ds-tabs__panel').forEach(p => { p.hidden = true; });
+      btn.setAttribute('aria-selected', 'true');
+      document.getElementById('tab-' + btn.dataset.tab).hidden = false;
       if (btn.dataset.tab === 'register') setupRegisterTab();
     });
   });
