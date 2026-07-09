@@ -250,7 +250,12 @@
 .cal-role { color: var(--accent, #ff0); font-weight: bold; width: 1.2rem; }
 .cal-ns { color: var(--green, #0f0); text-align: right; width: 3rem; }
 .cal-fb { color: var(--muted, #888); text-align: right; width: 3rem; }
-.cal-alter { color: var(--muted, #888); font-size: 0.75em; }
+.cal-nostalgia-name { color: var(--accent, #ff0); font-weight: bold; }
+.cal-alter-team { color: var(--accent, #ff0); font-weight: normal; font-size: 0.85em; }
+.cal-real-name { color: var(--muted, #888); font-size: 0.8em; }
+.cal-icons { display: inline-block; margin-top: 0.15rem; letter-spacing: 0.15em; }
+.cal-icon { font-size: 0.85em; }
+.cal-icon sup { font-size: 0.7em; color: var(--muted, #888); }
 .cal-bench-sep td { color: var(--muted, #666); font-size: 0.7rem; padding-top: 0.4rem; letter-spacing: 0.05em; }
 .cal-empty { color: var(--muted, #888); font-family: var(--font-mono, monospace); padding: 1rem 0; }
 </style>
@@ -300,13 +305,45 @@ function calLoad() {
 
 function fmtScore(v) { return v !== null && v !== undefined ? v.toFixed(1) : '—'; }
 
+function playerName(p, withIcons) {
+  // nostalgia player gets top priority; the real current-team player is secondary
+  if (!p.alter_ego_name) {
+    return esc(p.player_name);
+  }
+  let html = '<span class="cal-nostalgia-name">' + esc(p.alter_ego_name) +
+    (p.alter_ego_team ? ' <span class="cal-alter-team">(' + esc(p.alter_ego_team) + ')</span>' : '') +
+    '</span><br><span class="cal-real-name">' + esc(p.player_name) + '</span>';
+  if (withIcons) {
+    const icons = bonusIcons(p);
+    if (icons) html += '<br>' + icons;
+  }
+  return html;
+}
+
+function bonusIcons(p) {
+  const items = [];
+  if (p.goals) items.push(['⚽', 'Gol', p.goals]);
+  if (p.assists) items.push(['🅰️', 'Assist', p.assists]);
+  if (p.yellow_cards) items.push(['🟨', 'Ammonizione', p.yellow_cards]);
+  if (p.red_cards) items.push(['🟥', 'Espulsione', p.red_cards]);
+  if (p.own_goals) items.push(['⚫', 'Autogol', p.own_goals]);
+  if (p.penalties_missed) items.push(['❌', 'Rigore sbagliato', p.penalties_missed]);
+  if ((p.role === 'P' || p.role === 'D') && p.goals_conceded === 0 && (p.minutes === null || p.minutes === undefined || p.minutes >= 60)) {
+    items.push(['🧤', 'Porta inviolata', 0]);
+  }
+  if (items.length === 0) return '';
+  return '<span class="cal-icons">' + items.map(([icon, label, n]) =>
+    '<span class="cal-icon" title="' + esc(label) + (n > 1 ? ' ×' + n : '') + '">' + icon + (n > 1 ? '<sup>' + n + '</sup>' : '') + '</span>'
+  ).join('') + '</span>';
+}
+
 function playerRows(players, side) {
   let html = '';
   // starters
   players.starters.forEach(p => {
     html += '<tr>';
     html += '<td class="cal-role">' + p.role + '</td>';
-    html += '<td>' + esc(p.player_name) + (p.alter_ego_name ? '<br><span class="cal-alter">→ ' + esc(p.alter_ego_name) + (p.alter_ego_team ? ' (' + esc(p.alter_ego_team) + ')' : '') + '</span>' : '') + '</td>';
+    html += '<td>' + playerName(p, true) + '</td>';
     html += '<td class="cal-ns">' + fmtScore(p.ns_score) + '</td>';
     html += '<td class="cal-fb">' + fmtScore(p.score_bonus) + '</td>';
     html += '</tr>';
@@ -317,7 +354,7 @@ function playerRows(players, side) {
     players.bench.forEach(p => {
       html += '<tr class="bench-row">';
       html += '<td class="cal-role">' + p.role + '</td>';
-      html += '<td>' + esc(p.player_name) + (p.alter_ego_name ? '<br><span class="cal-alter">→ ' + esc(p.alter_ego_name) + '</span>' : '') + '</td>';
+      html += '<td>' + playerName(p, false) + '</td>';
       html += '<td class="cal-ns">' + fmtScore(p.ns_score) + '</td>';
       html += '<td class="cal-fb">' + fmtScore(p.score_bonus) + '</td>';
       html += '</tr>';
@@ -349,12 +386,12 @@ function renderCalMatches(data) {
     html += '<div class="cal-teams-grid">';
     // home
     html += '<div class="cal-team-col">';
-    html += '<table class="cal-team-table"><thead><tr><th></th><th>Giocatore / Alter Ego</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>';
+    html += '<table class="cal-team-table"><thead><tr><th></th><th>Alter Ego / Giocatore</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>';
     html += playerRows(m.home_players, 'home');
     html += '</tbody></table></div>';
     // away
     html += '<div class="cal-team-col">';
-    html += '<table class="cal-team-table"><thead><tr><th></th><th>Giocatore / Alter Ego</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>';
+    html += '<table class="cal-team-table"><thead><tr><th></th><th>Alter Ego / Giocatore</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>';
     html += playerRows(m.away_players, 'away');
     html += '</tbody></table></div>';
     html += '</div></div>';
