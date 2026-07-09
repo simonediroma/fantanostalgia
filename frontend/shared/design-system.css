@@ -403,6 +403,48 @@
   border-bottom-color: var(--accent2);
 }
 
+/* ── Accordion ────────────────────────────────────────────────────── */
+.ds-accordion {
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.ds-accordion__item + .ds-accordion__item {
+  border-top: 1px solid var(--border);
+}
+.ds-accordion__trigger {
+  width: 100%;
+  background: var(--surface);
+  border: none;
+  box-shadow: none;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel-sm);
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ds-accordion__trigger:hover { color: var(--accent); }
+.ds-accordion__icon {
+  font-family: var(--font-pixel);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.ds-accordion__panel {
+  padding: 0 var(--space-5) var(--space-4);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-data);
+  font-size: var(--fs-data-md);
+  color: var(--muted);
+  line-height: 1.7;
+}
+.ds-accordion__panel[hidden] { display: none; }
+
 /* ── Modal ────────────────────────────────────────────────────────── */
 .ds-modal-overlay {
   position: fixed;

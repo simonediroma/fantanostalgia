@@ -50,6 +50,11 @@ def home(request: Request):
     )
 
 
+@router.get("/come-funziona", include_in_schema=False)
+def come_funziona(request: Request):
+    return templates.TemplateResponse("come-funziona.html", {"request": request})
+
+
 @router.get("/lega/{league_id}/classifica")
 def classifica(request: Request, league_id: int):
     with get_db() as conn:

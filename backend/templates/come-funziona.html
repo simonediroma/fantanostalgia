@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Come funziona — FantaNostalgia{% endblock %}
+{% block og_title %}Come funziona FantaNostalgia{% endblock %}
+{% block og_description %}Asta, mapping alter ego, punteggi storici e regole di FantaNostalgia spiegati passo per passo.{% endblock %}
+
+{% block head %}
+<style>
+.cf-hero { text-align: center; padding: 1.5rem 0 2rem; border-bottom: 2px solid var(--border); margin-bottom: 2rem; }
+.cf-hero h1 { margin-bottom: 0.75rem; }
+.cf-hero p { max-width: 620px; margin: 0 auto; line-height: 1.7; }
+
+.cf-step { margin-bottom: 2.5rem; }
+.cf-step-num {
+  font-family: var(--font-pixel);
+  font-size: 2rem;
+  color: var(--accent);
+  opacity: 0.25;
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+.cf-step h2 { margin-bottom: 0.75rem; }
+.cf-step p { line-height: 1.8; font-size: 0.9rem; }
+
+.cf-formula {
+  text-align: center;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0 1.25rem;
+  font-family: var(--font-data);
+  font-size: 1.05rem;
+}
+.cf-formula .v { color: var(--text); }
+.cf-formula .b { color: var(--green); }
+.cf-formula .m { color: var(--red); }
+.cf-formula-legend { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.5rem; }
+.cf-formula-legend div { display: flex; gap: 0.75rem; align-items: baseline; font-size: 0.85rem; }
+.cf-formula-legend .key { font-family: var(--font-data); min-width: 1.2rem; }
+.cf-formula-legend span.desc { color: var(--muted); }
+
+.cf-example-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1.25rem; align-items: start; margin-bottom: 1rem; }
+@media (max-width: 700px) { .cf-example-grid { grid-template-columns: 1fr; } }
+.cf-example-team h3 { font-size: 0.6rem; margin-bottom: 0.5rem; }
+.cf-example-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.75rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.cf-example-total { display: flex; justify-content: space-between; font-family: var(--font-pixel); font-size: 0.6rem; color: var(--accent); padding-top: 0.5rem; text-transform: uppercase; }
+.cf-example-vs { display: flex; align-items: center; justify-content: center; font-family: var(--font-pixel); font-size: 0.7rem; color: var(--accent2); padding-top: 1.5rem; }
+
+.cf-rules-table th, .cf-rules-table td { vertical-align: top; }
+.cf-rules-table th { white-space: normal; text-align: left; }
+
+.ds-accordion { margin-bottom: 0; }
+</style>
+{% endblock %}
+
+{% block nav %}
+<a href="/">Home</a>
+<a href="#regole">Regole</a>
+<a href="#faq">FAQ</a>
+<a href="/coach/">Area Allenatori</a>
+<a href="/admin/">Admin</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="cf-hero">
+  <h1>Come funziona FantaNostalgia</h1>
+  <p>
+    FantaNostalgia si affianca alla tua lega di fantacalcio classica: stessa rosa,
+    stessa asta. In più, ogni giocatore che compri riceve un alter ego di una
+    stagione storica, e i suoi voti di allora alimentano una classifica parallela.
+  </p>
+</section>
+
+<section id="step1" class="cf-step">
+  <div class="cf-step-num">01</div>
+  <h2>Fai l'asta come sempre</h2>
+  <p>
+    FantaNostalgia non sostituisce la tua piattaforma di fantacalcio: l'asta si
+    svolge normalmente, con il budget e le regole della tua lega. Finita l'asta,
+    l'admin carica il listone con le rose (formato Excel) e il sistema popola
+    automaticamente i giocatori di ogni manager.
+  </p>
+</section>
+
+<section id="step2" class="cf-step">
+  <div class="cf-step-num">02</div>
+  <h2>L'apertura buste: ogni giocatore ha il suo alter ego</h2>
+  <p>
+    Dopo il caricamento delle rose, l'admin sceglie una stagione storica per la
+    lega. Ogni tuo giocatore riceve a sorte un alter ego di quella stagione, dello
+    stesso ruolo (portiere → portiere, difensore → difensore, e così via) — senza
+    alcun criterio di valore: la riserva da pochi crediti potrebbe finire con un
+    fuoriclasse della stagione storica.
+  </p>
+  <p>
+    Il mapping resta segreto fino all'<strong>apertura buste</strong>, il momento
+    in cui l'admin lo rivela a tutti i manager della lega.
+  </p>
+</section>
+
+<section id="step3" class="cf-step">
+  <div class="cf-step-num">03</div>
+  <h2>Il sorteggio di giornata e il calcolo dei punteggi</h2>
+  <p>
+    Ogni settimana viene sorteggiata una giornata della stagione storica: il
+    punteggio della tua rosa FantaNostalgia dipende dai voti reali che i tuoi
+    alter ego presero in quella precisa partita, non da come giocano oggi. Se un
+    tuo giocatore non ha un alter ego assegnato, riceve il voto reale della
+    giornata corrente senza bonus (solo i malus restano validi).
+  </p>
+
+  <div class="ds-panel ds-panel--accent">
+    <div class="cf-formula">
+      <span class="v">P</span> = <span class="v">V</span> + <span class="b">B</span> − <span class="m">M</span>
+    </div>
+    <div class="cf-formula-legend">
+      <div><span class="key" style="color:var(--text)">V</span><span class="desc">Voto storico della giornata sorteggiata</span></div>
+      <div><span class="key" style="color:var(--green)">B</span><span class="desc">Bonus: gol (+3/+3.5/+4 secondo il ruolo), assist (+1), clean sheet portiere/difensore</span></div>
+      <div><span class="key" style="color:var(--red)">M</span><span class="desc">Malus: ammonizione (−0.5), espulsione (−1), autogol (−1), rigore sbagliato (−3)</span></div>
+    </div>
+  </div>
+
+  <p>
+    Ogni giornata sei abbinato a un altro manager della lega (come nella tua lega
+    classica). Il totale dei tuoi titolari si converte in gol storici (66 punti =
+    0 gol, poi +1 gol ogni 6 punti in più): chi segna più gol vince lo scontro
+    diretto (3 punti in classifica FantaNostalgia), pareggio se il punteggio è
+    identico.
+  </p>
+
+  <div class="cf-example-grid">
+    <div class="ds-panel ds-panel--default cf-example-team">
+      <h3>Erculo Tuo</h3>
+      <div class="cf-example-row"><span>Buffon</span><span style="color:var(--muted)">7.5</span><span style="color:var(--accent)">8.5</span></div>
+      <div class="cf-example-row"><span>Nedved</span><span style="color:var(--muted)">8.0</span><span style="color:var(--accent)">9.0</span></div>
+      <div class="cf-example-row"><span>Crespo</span><span style="color:var(--muted)">8.5</span><span style="color:var(--accent)">11.5</span></div>
+      <div class="cf-example-row" style="opacity:0.6"><span>altri 8…</span><span></span><span style="color:var(--accent)">54.5</span></div>
+      <div class="cf-example-total"><span>Totale</span><span style="color:var(--green)">83.5 → 2 gol</span></div>
+    </div>
+    <div class="cf-example-vs">VS</div>
+    <div class="ds-panel ds-panel--default cf-example-team">
+      <h3>Gli Eroi</h3>
+      <div class="cf-example-row"><span>Toldo</span><span style="color:var(--muted)">6.5</span><span style="color:var(--accent)">6.5</span></div>
+      <div class="cf-example-row"><span>Nesta</span><span style="color:var(--muted)">7.5</span><span style="color:var(--accent)">7.5</span></div>
+      <div class="cf-example-row"><span>Batistuta</span><span style="color:var(--muted)">7.0</span><span style="color:var(--accent)">10.0</span></div>
+      <div class="cf-example-row" style="opacity:0.6"><span>altri 8…</span><span></span><span style="color:var(--accent)">49.5</span></div>
+      <div class="cf-example-total"><span>Totale</span><span style="color:var(--muted)">73.5 → 1 gol</span></div>
+    </div>
+  </div>
+  <div class="ds-message ds-message--ok" role="status">
+    <span>Risultato scontro diretto: Erculo Tuo 2 − 1 Gli Eroi → vittoria +3 punti in classifica FantaNostalgia.</span>
+  </div>
+</section>
+
+<section id="regole" class="cf-step">
+  <h2>Regole principali</h2>
+  <div class="ds-table-wrap">
+    <table class="ds-table cf-rules-table">
+      <tbody>
+        <tr><th style="width:30%">Voti</th><td>Per le stagioni storiche dal 2003/04 in poi si usano i voti reali; per le stagioni precedenti si usano voti sintetici calcolati da statistiche di gioco (gol, assist, cartellini, minuti).</td></tr>
+        <tr><th>Bonus/Malus</th><td>Gli stessi bonus e malus del fantacalcio classico si applicano ai dati storici dell'alter ego.</td></tr>
+        <tr><th>Giocatore senza alter ego</th><td>Se non è stato assegnato un alter ego, il giocatore riceve il voto reale della giornata corrente senza bonus — solo i malus restano applicati.</td></tr>
+        <tr><th>Copertura minima rosa</th><td>Ogni rosa riceve alter ego per almeno 1 portiere, 4 difensori, 4 centrocampisti e 3 attaccanti.</td></tr>
+        <tr><th>Duplicati</th><td>Se i giocatori storici disponibili non bastano a coprire tutta la rosa, lo stesso alter ego può essere assegnato a più giocatori reali.</td></tr>
+        <tr><th>Reveal</th><td>Il mapping alter ego non è visibile ai manager fino all'apertura buste da parte dell'admin.</td></tr>
+        <tr><th>Sorteggio giornata</th><td>Ogni settimana viene sorteggiata una giornata della stagione storica. Il ciclo è infinito: esaurite le giornate storiche, si riparte dalla prima.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="faq" class="cf-step">
+  <h2>FAQ</h2>
+  <div class="ds-accordion">
+    <div class="ds-accordion__item">
+      <button type="button" class="ds-accordion__trigger" aria-expanded="false" aria-controls="faq-panel-0" onclick="toggleFaq(this)">
+        <span>Devo usare una piattaforma specifica per l'asta?</span>
+        <span class="ds-accordion__icon" aria-hidden="true">+</span>
+      </button>
+      <div id="faq-panel-0" class="ds-accordion__panel" hidden>
+        No. L'asta si svolge dove la fa già la tua lega classica — l'admin carica
+        successivamente il listone con le rose in formato Excel.
+      </div>
+    </div>
+    <div class="ds-accordion__item">
+      <button type="button" class="ds-accordion__trigger" aria-expanded="false" aria-controls="faq-panel-1" onclick="toggleFaq(this)">
+        <span>Quante stagioni storiche sono disponibili?</span>
+        <span class="ds-accordion__icon" aria-hidden="true">+</span>
+      </button>
+      <div id="faq-panel-1" class="ds-accordion__panel" hidden>
+        Dipende dalle stagioni che l'admin ha importato nel database della lega
+        tramite gli scraper integrati — in generale è disponibile tutta la Serie A
+        dal 1990 ad oggi.
+      </div>
+    </div>
+    <div class="ds-accordion__item">
+      <button type="button" class="ds-accordion__trigger" aria-expanded="false" aria-controls="faq-panel-2" onclick="toggleFaq(this)">
+        <span>Chi può creare una lega?</span>
+        <span class="ds-accordion__icon" aria-hidden="true">+</span>
+      </button>
+      <div id="faq-panel-2" class="ds-accordion__panel" hidden>
+        Oggi la creazione di una lega è riservata all'amministratore della
+        piattaforma. I coach si registrano tramite invito e gestiscono la propria
+        rosa dall'area allenatori.
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleFaq(btn) {
+  var open = btn.getAttribute('aria-expanded') === 'true';
+  var panel = document.getElementById(btn.getAttribute('aria-controls'));
+  btn.setAttribute('aria-expanded', String(!open));
+  btn.querySelector('.ds-accordion__icon').textContent = open ? '+' : '−';
+  panel.hidden = open;
+}
+</script>
+{% endblock %}
