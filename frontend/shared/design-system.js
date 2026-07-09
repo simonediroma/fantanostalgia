@@ -147,7 +147,7 @@
   }
 
   /* ── FileSpec ───────────────────────────────────────────────────── */
-  function FileSpec({ format, structure, note } = {}) {
+  function FileSpec({ format, structure, note, link, linkText = 'Scarica esempio →' } = {}) {
     const wrap = document.createElement('div');
     wrap.className = 'ds-file-spec';
 
@@ -176,6 +176,14 @@
       p.className = 'ds-file-spec__note';
       appendChildren(p, note);
       wrap.appendChild(p);
+    }
+    if (link) {
+      const a = document.createElement('a');
+      a.className = 'ds-file-spec__link';
+      a.href = link;
+      a.textContent = linkText;
+      a.setAttribute('download', '');
+      wrap.appendChild(a);
     }
     return wrap;
   }
