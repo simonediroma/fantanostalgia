@@ -31,6 +31,7 @@
 <div id="pg-app" style="display:none;flex-direction:column;min-height:100vh">
   <div class="topbar">
     <span class="logo">⚽ FantaNostalgia <span class="ds-badge ds-badge--default">admin</span></span>
+    <button type="button" class="nav-toggle" id="asideToggle" aria-label="Menu" aria-expanded="false" aria-controls="adminAside">☰</button>
     <div style="display:flex;align-items:center;gap:0.75rem">
       <span id="userLabel" style="font-size:0.8rem;color:var(--muted)"></span>
       <button class="ds-button ds-button--secondary" id="logoutBtn">Esci</button>
@@ -38,7 +39,7 @@
   </div>
 
   <div class="app-body">
-    <aside>
+    <aside id="adminAside">
       <div class="section-label">Leghe</div>
       <nav id="leagueNav"></nav>
       <nav>
@@ -56,7 +57,7 @@
       <div id="pg-dashboard" class="page">
         <h2>Leghe</h2>
         <div id="dashMsg"></div>
-        <div id="leagueList" class="ds-table-wrap">
+        <div id="leagueList">
           <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
         </div>
       </div>
@@ -91,13 +92,8 @@
           <button class="ds-button ds-button--secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
         </div>
 
-        <!-- Step indicator -->
-        <div class="ds-wizard-steps" id="wizardSteps">
-          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-1" data-step="1">1 — Listone</div>
-          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-2" data-step="2">2 — Mapping</div>
-          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-3" data-step="3">3 — Buste</div>
-          <div class="ds-wizard-steps__step ds-wizard-steps__step--clickable" id="step-ind-4" data-step="4">4 — Giornate</div>
-        </div>
+        <!-- Step indicator (montato da DS.WizardSteps) -->
+        <div id="wizardStepsSlot"></div>
 
         <!-- ── Step 1: Listone ───────────────────────────────────────────── -->
         <div id="ws-1" class="wizard-step">
@@ -106,7 +102,7 @@
           <!-- Manager della lega -->
           <div class="ds-panel ds-panel--default">
             <h4 class="ds-panel__title">Manager della lega</h4>
-            <div id="managerList" class="ds-table-wrap mt-sm">
+            <div id="managerList" class="mt-sm">
               <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
             </div>
             <details style="margin-top:0.75rem">
@@ -142,10 +138,7 @@
               <p class="ds-file-spec__structure">Foglio unico "TutteLeRose", due squadre affiancate (colonne A-D e F-I). Ogni blocco: Ruolo | Calciatore | Squadra | Costo, terminato da "Crediti Residui: X".</p>
             </div>
             <div class="col-gap mt-sm">
-              <div id="dropZoneListone" class="ds-dropzone">
-                <span id="dzListoneText" class="ds-dropzone__label">Trascina .xlsx qui o clicca per selezionare</span>
-                <input type="file" id="listonFile" accept=".xlsx" style="display:none">
-              </div>
+              <div id="dropZoneListoneSlot"></div>
               <button id="uploadListoneBtn" class="ds-button ds-button--default">Carica listone</button>
             </div>
           </div>
@@ -157,7 +150,7 @@
           <div id="assignPanel" style="display:none">
             <div class="ds-panel ds-panel--default">
               <h4 class="ds-panel__title">Assegna giocatori ai manager</h4>
-              <div id="assignTable" class="ds-table-wrap mt-sm"></div>
+              <div id="assignTable" class="mt-sm"></div>
               <div class="mt-md">
                 <button id="saveAssignBtn" class="ds-button ds-button--default">Salva assegnazioni</button>
               </div>
@@ -259,10 +252,7 @@
             <div class="col-gap mt-sm">
               <label>Giornata corrente</label>
               <input type="number" id="formazioniGiornata" min="1" placeholder="es. 1" style="width:120px">
-              <div id="dropZoneFormazioni" class="ds-dropzone">
-                <span id="dzFormText" class="ds-dropzone__label">Trascina .xlsx qui o clicca per selezionare</span>
-                <input type="file" id="formazioniFile" accept=".xlsx" style="display:none">
-              </div>
+              <div id="dropZoneFormazioniSlot"></div>
               <button id="uploadFormazioniBtn" class="ds-button ds-button--default">Carica formazioni</button>
             </div>
           </div>
@@ -358,6 +348,26 @@ let currentLeagueId = null;
 let currentStep = 1;
 let allLeagues = [];
 let leagueManagers = [];
+let stepDone = [false, false, false, false];
+let listonFile = null;
+let formazioniFile = null;
+
+// ── Mobile nav toggle ─────────────────────────────────────────────────────────
+(function () {
+  const btn = document.getElementById('asideToggle');
+  const aside = document.getElementById('adminAside');
+  if (!btn || !aside) return;
+  btn.addEventListener('click', () => {
+    const open = aside.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  aside.addEventListener('click', (e) => {
+    if (e.target.closest('a')) {
+      aside.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
 
 // ── Utils ───────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -423,28 +433,28 @@ async function loadDashboard() {
 
   const wrap = document.getElementById('leagueList');
   if (!allLeagues.length) {
-    wrap.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessuna lega. Usa "+ Nuova lega" per crearne una.</div></div>';
+    wrap.replaceChildren(DS.EmptyState({ message: 'Nessuna lega. Usa "+ Nuova lega" per crearne una.' }));
   } else {
-    wrap.innerHTML = `<table class="ds-table">
-      <thead><tr>
-        <th>#</th><th>Nome</th><th>Corrente</th><th>Storica</th><th>Budget</th><th></th>
-      </tr></thead>
-      <tbody>${allLeagues.map(l => `<tr>
-        <td style="font-family:monospace">${l.id}</td>
-        <td>${esc(l.name)}</td>
-        <td>${esc(l.season_current)}</td>
-        <td>${esc(l.season_historic)}</td>
-        <td>${l.budget ?? '—'}</td>
-        <td style="display:flex;gap:0.4rem;justify-content:flex-end">
-          <button class="ds-button ds-button--secondary"
-            style="font-size:0.78rem;padding:0.25rem 0.6rem"
-            data-manage="${l.id}">Gestisci</button>
-          <button class="ds-button ds-button--secondary"
-            style="font-size:0.78rem;padding:0.25rem 0.6rem"
-            data-edit="${l.id}">Modifica</button>
-        </td>
-      </tr>`).join('')}
-      </tbody></table>`;
+    const rows = allLeagues.map((l) => {
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:0.4rem;justify-content:flex-end';
+      actions.appendChild(DS.Button({
+        children: 'Gestisci', variant: 'secondary',
+        onClick: () => openManage(l.id),
+      }));
+      actions.appendChild(DS.Button({
+        children: 'Modifica', variant: 'secondary',
+        onClick: () => openEditForm(l.id),
+      }));
+      return [String(l.id), l.name, l.season_current, l.season_historic, String(l.budget ?? '—'), actions];
+    });
+    wrap.replaceChildren(DS.Table({
+      columns: [
+        { label: '#', nowrap: true }, { label: 'Nome' }, { label: 'Corrente' },
+        { label: 'Storica' }, { label: 'Budget' }, { label: '' },
+      ],
+      rows,
+    }));
   }
 
   // Sidebar league links
@@ -453,14 +463,6 @@ async function loadDashboard() {
     `<a href="#" class="nav-link" data-navmanage="${l.id}">${esc(l.name)}</a>`
   ).join('');
 }
-
-// Delegated click handlers for dashboard table
-document.getElementById('leagueList').addEventListener('click', (e) => {
-  const manageBtn = e.target.closest('[data-manage]');
-  const editBtn = e.target.closest('[data-edit]');
-  if (manageBtn) openManage(parseInt(manageBtn.dataset.manage));
-  if (editBtn) openEditForm(parseInt(editBtn.dataset.edit));
-});
 
 // Sidebar manage links
 document.getElementById('leagueNav').addEventListener('click', (e) => {
@@ -590,35 +592,29 @@ async function loadManagePage() {
 }
 
 function updateStepIndicators(hasListone, hasMapping, bustAperte) {
-  const states = [hasListone, hasMapping, bustAperte, false];
-  states.forEach((done, i) => {
-    const el = document.getElementById(`step-ind-${i + 1}`);
-    el.dataset.done = done ? '1' : '';
-    if (done) {
-      el.textContent = el.textContent.replace(/^\d+ — /, (m) => m.replace('—', '✓'));
-    }
-  });
-  applyStepStates();
+  stepDone = [hasListone, hasMapping, bustAperte, false];
+  renderWizardSteps();
 }
 
-function applyStepStates() {
-  for (let i = 1; i <= 4; i++) {
-    const el = document.getElementById(`step-ind-${i}`);
-    if (i === currentStep) {
-      el.dataset.state = 'active';
-    } else if (el.dataset.done === '1') {
-      el.dataset.state = 'done';
-    } else {
-      delete el.dataset.state;
-    }
-  }
+function renderWizardSteps() {
+  const wizard = DS.WizardSteps({
+    steps: ['Listone', 'Mapping', 'Buste', 'Giornate'],
+    current: currentStep,
+    onNavigate: (num) => setWizardStep(num),
+  });
+  wizard.querySelectorAll('.ds-wizard-steps__step').forEach((el, i) => {
+    const num = i + 1;
+    if (num !== currentStep) el.dataset.state = stepDone[i] ? 'done' : 'pending';
+    if (stepDone[i]) el.textContent = el.textContent.replace('—', '✓');
+  });
+  document.getElementById('wizardStepsSlot').replaceChildren(wizard);
 }
 
 function setWizardStep(step) {
   currentStep = step;
 
-  // Update step indicators active state
-  applyStepStates();
+  // Rebuild step indicator with the new active step
+  renderWizardSteps();
 
   // Show/hide wizard steps
   for (let i = 1; i <= 4; i++) {
@@ -631,14 +627,6 @@ function setWizardStep(step) {
   window.scrollTo(0, 0);
 }
 
-// Step click
-document.getElementById('wizardSteps').addEventListener('click', (e) => {
-  const stepEl = e.target.closest('.ds-wizard-steps__step');
-  if (stepEl && stepEl.dataset.step) {
-    setWizardStep(parseInt(stepEl.dataset.step));
-  }
-});
-
 document.getElementById('prevStepBtn').addEventListener('click', () => setWizardStep(currentStep - 1));
 document.getElementById('nextStepBtn').addEventListener('click', () => setWizardStep(currentStep + 1));
 
@@ -646,22 +634,27 @@ document.getElementById('nextStepBtn').addEventListener('click', () => setWizard
 function renderManagerList() {
   const el = document.getElementById('managerList');
   if (!leagueManagers.length) {
-    el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessun manager. Aggiungine uno.</div></div>';
+    el.replaceChildren(DS.EmptyState({ message: 'Nessun manager. Aggiungine uno.' }));
     return;
   }
-  el.innerHTML = `<table class="ds-table">
-    <thead><tr><th>Nome</th><th>Squadra</th><th></th></tr></thead>
-    <tbody>${leagueManagers.map(m =>
-      `<tr id="mgr-row-${m.id}">
-        <td id="mgr-name-${m.id}">${esc(m.name)}</td>
-        <td id="mgr-team-${m.id}">${esc(m.team_name)}</td>
-        <td><button class="btn-edit-mgr ds-button ds-button--secondary" data-id="${m.id}" style="font-size:0.75rem;padding:2px 8px">Modifica</button></td>
-      </tr>`
-    ).join('')}</tbody></table>`;
 
-  el.querySelectorAll('.btn-edit-mgr').forEach(btn => {
-    btn.addEventListener('click', () => startEditManager(parseInt(btn.dataset.id)));
+  const rows = leagueManagers.map((m) => {
+    const nameCell = document.createElement('span');
+    nameCell.id = `mgr-name-${m.id}`;
+    nameCell.textContent = m.name;
+    const teamCell = document.createElement('span');
+    teamCell.id = `mgr-team-${m.id}`;
+    teamCell.textContent = m.team_name;
+    const editBtn = DS.Button({ children: 'Modifica', variant: 'secondary', onClick: () => startEditManager(m.id) });
+    editBtn.id = `mgr-edit-${m.id}`;
+    editBtn.style.cssText = 'font-size:0.75rem;padding:2px 8px';
+    return [nameCell, teamCell, editBtn];
   });
+
+  el.replaceChildren(DS.Table({
+    columns: [{ label: 'Nome' }, { label: 'Squadra' }, { label: '' }],
+    rows,
+  }));
 }
 
 function startEditManager(id) {
@@ -669,32 +662,47 @@ function startEditManager(id) {
   if (!m) return;
   const nameCell = document.getElementById(`mgr-name-${id}`);
   const teamCell = document.getElementById(`mgr-team-${id}`);
-  const row = document.getElementById(`mgr-row-${id}`);
+  const editBtn = document.getElementById(`mgr-edit-${id}`);
 
-  nameCell.innerHTML = `<input type="text" id="edit-name-${id}" value="${esc(m.name)}" style="width:140px">`;
-  teamCell.innerHTML = `<input type="text" id="edit-team-${id}" value="${esc(m.team_name)}" style="width:140px">`;
-  row.querySelector('.btn-edit-mgr').replaceWith((() => {
-    const wrap = document.createElement('span');
-    wrap.innerHTML = `<button id="save-mgr-${id}" class="ds-button ds-button--default" style="font-size:0.75rem;padding:2px 8px">Salva</button>
-                      <button id="cancel-mgr-${id}" class="ds-button ds-button--secondary" style="font-size:0.75rem;padding:2px 8px;margin-left:4px">Annulla</button>`;
-    return wrap;
-  })());
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.id = `edit-name-${id}`;
+  nameInput.value = m.name;
+  nameInput.style.width = '140px';
+  nameCell.replaceWith(nameInput);
 
-  document.getElementById(`cancel-mgr-${id}`).addEventListener('click', renderManagerList);
-  document.getElementById(`save-mgr-${id}`).addEventListener('click', async () => {
-    const newName = document.getElementById(`edit-name-${id}`).value.trim();
-    const newTeam = document.getElementById(`edit-team-${id}`).value.trim();
-    if (!newName || !newTeam) { showMsg('listonMsg', 'Nome e squadra obbligatori.', true); return; }
-    try {
-      const updated = await apiUpdateManager(currentLeagueId, id, { name: newName, team_name: newTeam });
-      const idx = leagueManagers.findIndex(x => x.id === id);
-      leagueManagers[idx] = updated;
-      renderManagerList();
-      showMsg('listonMsg', `Manager "${updated.name}" aggiornato.`);
-    } catch (err) {
-      showMsg('listonMsg', err.message, true);
-    }
+  const teamInput = document.createElement('input');
+  teamInput.type = 'text';
+  teamInput.id = `edit-team-${id}`;
+  teamInput.value = m.team_name;
+  teamInput.style.width = '140px';
+  teamCell.replaceWith(teamInput);
+
+  const saveBtn = DS.Button({
+    children: 'Salva', variant: 'default',
+    onClick: async () => {
+      const newName = document.getElementById(`edit-name-${id}`).value.trim();
+      const newTeam = document.getElementById(`edit-team-${id}`).value.trim();
+      if (!newName || !newTeam) { showMsg('listonMsg', 'Nome e squadra obbligatori.', true); return; }
+      try {
+        const updated = await apiUpdateManager(currentLeagueId, id, { name: newName, team_name: newTeam });
+        const idx = leagueManagers.findIndex(x => x.id === id);
+        leagueManagers[idx] = updated;
+        renderManagerList();
+        showMsg('listonMsg', `Manager "${updated.name}" aggiornato.`);
+      } catch (err) {
+        showMsg('listonMsg', err.message, true);
+      }
+    },
   });
+  saveBtn.style.cssText = 'font-size:0.75rem;padding:2px 8px';
+  const cancelBtn = DS.Button({ children: 'Annulla', variant: 'secondary', onClick: renderManagerList });
+  cancelBtn.style.cssText = 'font-size:0.75rem;padding:2px 8px;margin-left:4px';
+
+  const wrap = document.createElement('span');
+  wrap.appendChild(saveBtn);
+  wrap.appendChild(cancelBtn);
+  editBtn.replaceWith(wrap);
 }
 
 document.getElementById('addMgrBtn').addEventListener('click', async () => {
@@ -714,33 +722,39 @@ document.getElementById('addMgrBtn').addEventListener('click', async () => {
 });
 
 // ── Listone ──────────────────────────────────────────────────────────────────
-setupDropZone('dropZoneListone', 'listonFile', 'dzListoneText');
-
-document.getElementById('listonFile').addEventListener('change', function () {
-  document.getElementById('dzListoneText').textContent =
-    this.files[0] ? this.files[0].name : 'Trascina .xlsx qui o clicca per selezionare';
-});
+document.getElementById('dropZoneListoneSlot').appendChild(DS.DropZone({
+  accept: '.xlsx',
+  label: 'Trascina .xlsx qui o clicca per selezionare',
+  onFile: (file) => { listonFile = file; },
+}));
 
 document.getElementById('uploadListoneBtn').addEventListener('click', async () => {
-  const file = document.getElementById('listonFile').files[0];
-  if (!file) { showMsg('listonMsg', 'Seleziona un file Excel.', true); return; }
+  if (!listonFile) { showMsg('listonMsg', 'Seleziona un file Excel.', true); return; }
   try {
-    const res = await apiUploadListone(currentLeagueId, file);
+    const res = await apiUploadListone(currentLeagueId, listonFile);
     const br = res.by_role || {};
     const created = res.teams_created || [];
-    document.getElementById('listonPreview').innerHTML = `
-      <div class="ds-panel ds-panel--default mt-md">
-        <h4 class="ds-panel__title">Riepilogo importazione</h4>
-        <p style="margin-top:0.5rem">
-          Importati: <strong>${res.imported}</strong> giocatori &nbsp;—&nbsp;
-          P: ${br.P || 0} &nbsp; D: ${br.D || 0} &nbsp; C: ${br.C || 0} &nbsp; A: ${br.A || 0}
-        </p>
-        ${created.length ? `<p style="color:var(--accent);font-size:0.82rem;margin-top:0.5rem">
-          Squadre create automaticamente (${created.length}): ${created.map(esc).join(', ')}<br>
-          <span style="color:var(--muted)">Clicca "Modifica" su ogni squadra per impostare il nome del manager.</span>
-        </p>` : ''}
-        ${res.warnings?.length ? `<p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">${res.warnings.map(esc).join('<br>')}</p>` : ''}
-      </div>`;
+    const panel = DS.Panel({ title: 'Riepilogo importazione', variant: 'default' });
+    panel.classList.add('mt-md');
+    const summary = document.createElement('p');
+    summary.style.marginTop = '0.5rem';
+    summary.innerHTML = `Importati: <strong>${res.imported}</strong> giocatori &nbsp;—&nbsp;
+      P: ${br.P || 0} &nbsp; D: ${br.D || 0} &nbsp; C: ${br.C || 0} &nbsp; A: ${br.A || 0}`;
+    panel.appendChild(summary);
+    if (created.length) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:var(--accent);font-size:0.82rem;margin-top:0.5rem';
+      p.innerHTML = `Squadre create automaticamente (${created.length}): ${created.map(esc).join(', ')}<br>
+        <span style="color:var(--muted)">Clicca "Modifica" su ogni squadra per impostare il nome del manager.</span>`;
+      panel.appendChild(p);
+    }
+    if (res.warnings?.length) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:var(--muted);font-size:0.82rem;margin-top:0.5rem';
+      p.innerHTML = res.warnings.map(esc).join('<br>');
+      panel.appendChild(p);
+    }
+    document.getElementById('listonPreview').replaceChildren(panel);
 
     // Reload manager list (teams may have been auto-created)
     leagueManagers = await apiListManagers(currentLeagueId).catch(() => []);
@@ -761,25 +775,24 @@ document.getElementById('uploadListoneBtn').addEventListener('click', async () =
 function renderAssignTable(players) {
   const el = document.getElementById('assignTable');
   if (!leagueManagers.length) {
-    el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Aggiungi manager prima di assegnare i giocatori.</div></div>';
+    el.replaceChildren(DS.EmptyState({ message: 'Aggiungi manager prima di assegnare i giocatori.' }));
     return;
   }
-  const opts = `<option value="">—</option>` +
-    leagueManagers.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
 
-  el.innerHTML = `<table class="ds-table">
-    <thead><tr><th>Giocatore</th><th>Ruolo</th><th>Squadra</th><th>Manager</th></tr></thead>
-    <tbody>${players.map(p => `<tr>
-      <td>${esc(p.name)}</td>
-      <td><span class="ds-badge ds-badge--cyan">${p.role}</span></td>
-      <td>${esc(p.team)}</td>
-      <td><select data-pid="${p.id}" class="assign-sel"
-            style="background:var(--bg);border:1px solid var(--border);border-radius:3px;
-                   color:var(--text);padding:0.25rem 0.4rem;font-size:0.82rem;width:auto">
-          ${opts.replace(`value="${p.manager_id}"`, `value="${p.manager_id}" selected`)}
-        </select></td>
-    </tr>`).join('')}
-    </tbody></table>`;
+  const rows = players.map((p) => {
+    const sel = document.createElement('select');
+    sel.dataset.pid = p.id;
+    sel.className = 'assign-sel';
+    sel.style.cssText = 'background:var(--bg);border:1px solid var(--border);color:var(--text);padding:0.25rem 0.4rem;font-size:0.82rem;width:auto';
+    sel.innerHTML = `<option value="">—</option>` +
+      leagueManagers.map(m => `<option value="${m.id}"${m.id === p.manager_id ? ' selected' : ''}>${esc(m.name)}</option>`).join('');
+    return [p.name, DS.Badge({ children: p.role, variant: 'cyan' }), p.team, sel];
+  });
+
+  el.replaceChildren(DS.Table({
+    columns: [{ label: 'Giocatore' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Manager' }],
+    rows,
+  }));
 }
 
 document.getElementById('saveAssignBtn').addEventListener('click', async () => {
@@ -802,23 +815,19 @@ document.getElementById('saveAssignBtn').addEventListener('click', async () => {
 document.getElementById('assignPoolsBtn').addEventListener('click', async () => {
   try {
     const res = await apiAssignPools(currentLeagueId);
-    const rows = (res.assigned_by_manager || []).map(m =>
-      `<tr>
-        <td>${esc(m.manager)}</td>
-        <td style="text-align:center">${m.P}</td>
-        <td style="text-align:center">${m.D}</td>
-        <td style="text-align:center">${m.C}</td>
-        <td style="text-align:center">${m.A}</td>
-      </tr>`
-    ).join('');
-    document.getElementById('poolAssignPreview').innerHTML = `
-      <div class="ds-panel ds-panel--default mt-md">
-        <h4 class="ds-panel__title">Pool assegnati</h4>
-        <div class="ds-table-wrap mt-sm"><table class="ds-table">
-          <thead><tr><th>Manager</th><th>P</th><th>D</th><th>C</th><th>A</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-      </div>`;
+    const rows = (res.assigned_by_manager || []).map(m => [m.manager, String(m.P), String(m.D), String(m.C), String(m.A)]);
+    const panel = DS.Panel({ title: 'Pool assegnati', variant: 'default' });
+    panel.classList.add('mt-md');
+    const table = DS.Table({
+      columns: [
+        { label: 'Manager' }, { label: 'P', align: 'center' }, { label: 'D', align: 'center' },
+        { label: 'C', align: 'center' }, { label: 'A', align: 'center' },
+      ],
+      rows,
+    });
+    table.classList.add('mt-sm');
+    panel.appendChild(table);
+    document.getElementById('poolAssignPreview').replaceChildren(panel);
     showMsg('mappingMsg', 'Pool nostalgia assegnati agli allenatori.');
     await refreshCoachStatus();
   } catch (err) {
@@ -831,46 +840,50 @@ async function refreshCoachStatus() {
     const rows = await apiCoachesStatus(currentLeagueId);
     const el = document.getElementById('coachStatusTable');
     if (!rows.length) {
-      el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessun manager.</div></div>';
+      el.replaceChildren(DS.EmptyState({ message: 'Nessun manager.' }));
       return;
     }
-    el.innerHTML = `<table class="ds-table">
-      <thead><tr>
-        <th>Manager</th><th>Squadra</th><th>Account</th>
-        <th>Pool</th><th>Assegnati</th><th>Stato</th><th>Invito</th>
-      </tr></thead>
-      <tbody>${rows.map(r => {
-        const linked = r.user_linked ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--muted)">—</span>';
-        const stato = r.is_locked
-          ? '<span style="color:var(--green)">Bloccato</span>'
-          : `${r.assigned_count}/${r.pool_size}`;
-        return `<tr>
-          <td>${esc(r.manager_name)}</td>
-          <td>${esc(r.team_name)}</td>
-          <td>${linked}</td>
-          <td style="text-align:center">${r.pool_size}</td>
-          <td style="text-align:center">${r.assigned_count}</td>
-          <td>${stato}</td>
-          <td><button class="ds-button ds-button--secondary btn-invite" data-mid="${r.manager_id}"
-              style="font-size:0.65rem;padding:2px 8px">Genera link</button></td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table>`;
+    const tableRows = rows.map((r) => {
+      const linked = document.createElement('span');
+      linked.style.color = r.user_linked ? 'var(--green)' : 'var(--muted)';
+      linked.textContent = r.user_linked ? '✓' : '—';
 
-    el.querySelectorAll('.btn-invite').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        try {
-          const inv = await apiCreateInvite(currentLeagueId, parseInt(btn.dataset.mid));
-          const url = inv.join_url;
-          btn.textContent = 'Copiato!';
-          await navigator.clipboard.writeText(url).catch(() => {});
-          window.showInviteModal(url);
-          setTimeout(() => { btn.textContent = 'Genera link'; }, 2000);
-        } catch (err) {
-          showMsg('mappingMsg', err.message, true);
-        }
+      let stato;
+      if (r.is_locked) {
+        stato = document.createElement('span');
+        stato.style.color = 'var(--green)';
+        stato.textContent = 'Bloccato';
+      } else {
+        stato = `${r.assigned_count}/${r.pool_size}`;
+      }
+
+      const inviteBtn = DS.Button({
+        children: 'Genera link', variant: 'secondary',
+        onClick: async () => {
+          try {
+            const inv = await apiCreateInvite(currentLeagueId, r.manager_id);
+            const url = inv.join_url;
+            inviteBtn.textContent = 'Copiato!';
+            await navigator.clipboard.writeText(url).catch(() => {});
+            window.showInviteModal(url);
+            setTimeout(() => { inviteBtn.textContent = 'Genera link'; }, 2000);
+          } catch (err) {
+            showMsg('mappingMsg', err.message, true);
+          }
+        },
       });
+      inviteBtn.style.cssText = 'font-size:0.65rem;padding:2px 8px';
+
+      return [r.manager_name, r.team_name, linked, String(r.pool_size), String(r.assigned_count), stato, inviteBtn];
     });
+
+    el.replaceChildren(DS.Table({
+      columns: [
+        { label: 'Manager' }, { label: 'Squadra' }, { label: 'Account' },
+        { label: 'Pool', align: 'center' }, { label: 'Assegnati', align: 'center' }, { label: 'Stato' }, { label: 'Invito' },
+      ],
+      rows: tableRows,
+    }));
   } catch (err) {
     showMsg('mappingMsg', err.message, true);
   }
@@ -902,12 +915,19 @@ document.getElementById('generateMappingBtn').addEventListener('click', async ()
     const cov = Object.entries(res.coverage_by_manager || {})
       .map(([name, c]) => `${esc(name)}: ${c.covered}/${c.total}`)
       .join(' &nbsp; ');
-    document.getElementById('mappingPreview').innerHTML = `
-      <div class="ds-panel ds-panel--default mt-md">
-        <h4 class="ds-panel__title">Riepilogo mapping</h4>
-        <p style="margin-top:0.5rem">Mappati: <strong>${res.mapped}</strong> &nbsp; Duplicati: ${res.duplicates}</p>
-        ${cov ? `<p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem">Copertura: ${cov}</p>` : ''}
-      </div>`;
+    const panel = DS.Panel({ title: 'Riepilogo mapping', variant: 'default' });
+    panel.classList.add('mt-md');
+    const summary = document.createElement('p');
+    summary.style.marginTop = '0.5rem';
+    summary.innerHTML = `Mappati: <strong>${res.mapped}</strong> &nbsp; Duplicati: ${res.duplicates}`;
+    panel.appendChild(summary);
+    if (cov) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:var(--muted);font-size:0.82rem;margin-top:0.5rem';
+      p.innerHTML = `Copertura: ${cov}`;
+      panel.appendChild(p);
+    }
+    document.getElementById('mappingPreview').replaceChildren(panel);
     showMsg('mappingMsg', `Mapping generato: ${res.mapped} giocatori.`);
   } catch (err) {
     showMsg('mappingMsg', err.message, true);
@@ -942,42 +962,57 @@ async function loadAndRenderPublicMapping() {
 function renderFullMapping(data) {
   const managers = data.managers || [];
   if (!managers.length) return;
-  document.getElementById('mappingFull').innerHTML = managers.map(mgr => `
-    <div class="ds-panel ds-panel--default" style="margin-bottom:0.75rem">
-      <h4 class="ds-panel__title">${esc(mgr.name || 'N/A')}</h4>
-      <div class="ds-table-wrap mt-sm"><table class="ds-table">
-        <thead><tr>
-          <th>Attuale</th><th>R</th><th>Squadra</th>
-          <th>Alter Ego</th><th>Squadra storica</th>
-        </tr></thead>
-        <tbody>${mgr.players.map(p => `<tr>
-          <td>${esc(p.current.name)}</td>
-          <td><span class="ds-badge ds-badge--cyan">${p.current.role}</span></td>
-          <td>${esc(p.current.team)}</td>
-          <td style="font-family:Georgia;color:var(--accent)">
-            ${esc(p.historic.name)}${p.is_duplicate ? ' <span style="color:var(--muted);font-size:0.72rem">(dup)</span>' : ''}
-          </td>
-          <td>${esc(p.historic.team)}</td>
-        </tr>`).join('')}
-        </tbody>
-      </table></div>
-    </div>`).join('');
+
+  const panels = managers.map((mgr) => {
+    const panel = DS.Panel({ title: mgr.name || 'N/A', variant: 'default' });
+    panel.style.marginBottom = '0.75rem';
+
+    const rows = mgr.players.map((p) => {
+      const historic = document.createElement('span');
+      historic.style.cssText = 'font-family:Georgia;color:var(--accent)';
+      historic.textContent = p.historic.name;
+      if (p.is_duplicate) {
+        const dup = document.createElement('span');
+        dup.style.cssText = 'color:var(--muted);font-size:0.72rem';
+        dup.textContent = ' (dup)';
+        historic.appendChild(dup);
+      }
+      return [
+        p.current.name,
+        DS.Badge({ children: p.current.role, variant: 'cyan' }),
+        p.current.team,
+        historic,
+        p.historic.team,
+      ];
+    });
+
+    const table = DS.Table({
+      columns: [
+        { label: 'Attuale' }, { label: 'R' }, { label: 'Squadra' },
+        { label: 'Alter Ego' }, { label: 'Squadra storica' },
+      ],
+      rows,
+    });
+    table.classList.add('mt-sm');
+    panel.appendChild(table);
+    return panel;
+  });
+
+  document.getElementById('mappingFull').replaceChildren(...panels);
 }
 
 // ── Giornate ──────────────────────────────────────────────────────────────────
-setupDropZone('dropZoneFormazioni', 'formazioniFile', 'dzFormText');
-
-document.getElementById('formazioniFile').addEventListener('change', function () {
-  document.getElementById('dzFormText').textContent =
-    this.files[0] ? this.files[0].name : 'Trascina .xlsx qui o clicca per selezionare';
-});
+document.getElementById('dropZoneFormazioniSlot').appendChild(DS.DropZone({
+  accept: '.xlsx',
+  label: 'Trascina .xlsx qui o clicca per selezionare',
+  onFile: (file) => { formazioniFile = file; },
+}));
 
 document.getElementById('uploadFormazioniBtn').addEventListener('click', async () => {
   const matchday = parseInt(document.getElementById('formazioniGiornata').value);
-  const file = document.getElementById('formazioniFile').files[0];
-  if (!matchday || !file) { showMsg('giornataMsg', 'Giornata e file obbligatori.', true); return; }
+  if (!matchday || !formazioniFile) { showMsg('giornataMsg', 'Giornata e file obbligatori.', true); return; }
   try {
-    const res = await apiUploadFormazioni(currentLeagueId, matchday, file);
+    const res = await apiUploadFormazioni(currentLeagueId, matchday, formazioniFile);
     let msg = `Formazioni G${matchday} caricate — manager: ${res.managers_imported}.`;
     if (res.warnings?.length) msg += ` Avvisi: ${res.warnings.length}.`;
     showMsg('giornataMsg', msg);
@@ -993,15 +1028,15 @@ document.getElementById('drawBtn').addEventListener('click', async () => {
   if (!matchday) { showMsg('giornataMsg', 'Inserisci la giornata.', true); return; }
   try {
     const res = await apiDrawMatchday(currentLeagueId, matchday);
-    document.getElementById('giornataResult').innerHTML = `
-      <div class="ds-panel ds-panel--default mt-md">
-        <h4 class="ds-panel__title">Sorteggio completato</h4>
-        <p style="margin-top:0.5rem">
-          Giornata corrente: <strong>${res.matchday_current}</strong> &nbsp;→&nbsp;
-          Giornata storica: <strong style="color:var(--accent)">${res.matchday_historic}</strong>
-          (ciclo ${res.cycle})
-        </p>
-      </div>`;
+    const panel = DS.Panel({ title: 'Sorteggio completato', variant: 'default' });
+    panel.classList.add('mt-md');
+    const p = document.createElement('p');
+    p.style.marginTop = '0.5rem';
+    p.innerHTML = `Giornata corrente: <strong>${res.matchday_current}</strong> &nbsp;→&nbsp;
+      Giornata storica: <strong style="color:var(--accent)">${res.matchday_historic}</strong>
+      (ciclo ${res.cycle})`;
+    panel.appendChild(p);
+    document.getElementById('giornataResult').replaceChildren(panel);
     showMsg('giornataMsg', `Giornata storica ${res.matchday_historic} sorteggiata.`);
   } catch (err) {
     showMsg('giornataMsg', err.message, true);
@@ -1013,19 +1048,24 @@ document.getElementById('scoresBtn').addEventListener('click', async () => {
   if (!matchday) { showMsg('giornataMsg', 'Inserisci la giornata.', true); return; }
   try {
     const res = await apiCalculateScores(currentLeagueId, matchday);
-    const rows = (res.scores || []).map(s => `<tr>
-      <td>${esc(s.manager)}</td>
-      <td style="font-family:monospace;text-align:right">${(s.score_normal || 0).toFixed(2)}</td>
-      <td style="font-family:monospace;color:var(--accent);text-align:right">${(s.score_nostalgia || 0).toFixed(2)}</td>
-    </tr>`).join('');
-    document.getElementById('giornataResult').innerHTML = `
-      <div class="ds-panel ds-panel--default mt-md">
-        <h4 class="ds-panel__title">Punteggi giornata ${res.matchday}</h4>
-        <div class="ds-table-wrap mt-sm"><table class="ds-table">
-          <thead><tr><th>Manager</th><th style="text-align:right">Normale</th><th style="text-align:right">Nostalgia</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-      </div>`;
+    const rows = (res.scores || []).map((s) => {
+      const normal = document.createElement('span');
+      normal.style.cssText = 'font-family:monospace';
+      normal.textContent = (s.score_normal || 0).toFixed(2);
+      const nostalgia = document.createElement('span');
+      nostalgia.style.cssText = 'font-family:monospace;color:var(--accent)';
+      nostalgia.textContent = (s.score_nostalgia || 0).toFixed(2);
+      return [s.manager, normal, nostalgia];
+    });
+    const panel = DS.Panel({ title: `Punteggi giornata ${res.matchday}`, variant: 'default' });
+    panel.classList.add('mt-md');
+    const table = DS.Table({
+      columns: [{ label: 'Manager' }, { label: 'Normale', align: 'right' }, { label: 'Nostalgia', align: 'right' }],
+      rows,
+    });
+    table.classList.add('mt-sm');
+    panel.appendChild(table);
+    document.getElementById('giornataResult').replaceChildren(panel);
     showMsg('giornataMsg', 'Punteggi calcolati.');
   } catch (err) {
     showMsg('giornataMsg', err.message, true);
@@ -1061,33 +1101,50 @@ async function loadGpList() {
   const el = document.getElementById('gpList');
   try {
     const all = await apiListGranPremi(currentLeagueId);
-    if (!all.length) { el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessun Gran Premio creato.</div></div>'; return; }
-    el.innerHTML = `<div class="ds-table-wrap"><table class="ds-table">
-      <thead><tr><th>G</th><th>Criterio</th><th>In palio</th><th>Stato</th><th>Vincitore</th><th></th></tr></thead>
-      <tbody>${all.map(gp => {
-        const resolved = gp.status === 'resolved';
-        return `<tr>
-          <td style="font-family:monospace">${gp.matchday}</td>
-          <td>${esc(GP_CRITERIA_LABELS[gp.criterion] || gp.criterion)}</td>
-          <td>${esc(gp.prize_name)} (${gp.prize_role})</td>
-          <td>${resolved ? '<span style="color:var(--green)">Risolto</span>' : '<span style="color:var(--muted)">Attivo</span>'}</td>
-          <td>${gp.winner_name ? esc(gp.winner_name) : '—'}</td>
-          <td>${resolved ? '' : `<button class="gp-resolve ds-button ds-button--secondary" data-gid="${gp.id}" style="font-size:0.7rem;padding:2px 8px">Risolvi</button>`}</td>
-        </tr>`;
-      }).join('')}</tbody></table></div>`;
+    if (!all.length) { el.replaceChildren(DS.EmptyState({ message: 'Nessun Gran Premio creato.' })); return; }
 
-    el.querySelectorAll('.gp-resolve').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        try {
-          const res = await apiResolveGranPremio(currentLeagueId, parseInt(btn.dataset.gid));
-          showMsg('giornataMsg', `Gran Premio risolto — vincitore: ${res.winner}.`);
-          await loadGpList();
-          await loadGpPrizeOptions();
-        } catch (err) {
-          showMsg('giornataMsg', err.message, true);
-        }
-      });
+    const rows = all.map((gp) => {
+      const resolved = gp.status === 'resolved';
+      const matchday = document.createElement('span');
+      matchday.style.fontFamily = 'monospace';
+      matchday.textContent = gp.matchday;
+      const stato = document.createElement('span');
+      stato.style.color = resolved ? 'var(--green)' : 'var(--muted)';
+      stato.textContent = resolved ? 'Risolto' : 'Attivo';
+      let action = '';
+      if (!resolved) {
+        action = DS.Button({
+          children: 'Risolvi', variant: 'secondary',
+          onClick: async () => {
+            try {
+              const res = await apiResolveGranPremio(currentLeagueId, gp.id);
+              showMsg('giornataMsg', `Gran Premio risolto — vincitore: ${res.winner}.`);
+              await loadGpList();
+              await loadGpPrizeOptions();
+            } catch (err) {
+              showMsg('giornataMsg', err.message, true);
+            }
+          },
+        });
+        action.style.cssText = 'font-size:0.7rem;padding:2px 8px';
+      }
+      return [
+        matchday,
+        GP_CRITERIA_LABELS[gp.criterion] || gp.criterion,
+        `${gp.prize_name} (${gp.prize_role})`,
+        stato,
+        gp.winner_name || '—',
+        action,
+      ];
     });
+
+    el.replaceChildren(DS.Table({
+      columns: [
+        { label: 'G' }, { label: 'Criterio' }, { label: 'In palio' },
+        { label: 'Stato' }, { label: 'Vincitore' }, { label: '' },
+      ],
+      rows,
+    }));
   } catch (err) {
     showMsg('giornataMsg', err.message, true);
   }
@@ -1117,29 +1174,40 @@ document.getElementById('gpCreateBtn').addEventListener('click', async () => {
   }
 });
 
-// ── Drop Zone helper ──────────────────────────────────────────────────────────
-function setupDropZone(zoneId, inputId, textId) {
-  const zone = document.getElementById(zoneId);
-  const input = document.getElementById(inputId);
-  if (!zone || !input) return;
-
-  zone.addEventListener('click', () => input.click());
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.dataset.dragging = 'true'; });
-  zone.addEventListener('dragleave', () => delete zone.dataset.dragging);
-  zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    delete zone.dataset.dragging;
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
+// ── Modal link invito ──────────────────────────────────────────────────────────
+let inviteUrlText = '';
+const inviteCopyBtn = DS.Button({
+  children: 'Copia link', variant: 'default',
+  onClick: async () => {
     try {
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-    } catch {}
-    if (textId) document.getElementById(textId).textContent = file.name;
-    input.dispatchEvent(new Event('change'));
-  });
-}
+      await navigator.clipboard.writeText(inviteUrlText);
+      inviteCopyBtn.textContent = '✓ Copiato!';
+    } catch {
+      inviteCopyBtn.textContent = 'Errore copia';
+    }
+  },
+});
+const inviteModal = DS.Modal({
+  title: 'Link invito allenatore',
+  actions: [
+    inviteCopyBtn,
+    DS.Button({ children: 'Chiudi', variant: 'secondary', onClick: () => inviteModal.close() }),
+  ],
+});
+const inviteIntro = document.createElement('p');
+inviteIntro.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem';
+inviteIntro.textContent = "Condividi questo link con l'allenatore per farlo registrare direttamente nella lega.";
+const inviteUrlEl = document.createElement('code');
+inviteUrlEl.className = 'modal-url';
+inviteModal.querySelector('.ds-modal__body').replaceChildren(inviteIntro, inviteUrlEl);
+document.body.appendChild(inviteModal);
+
+window.showInviteModal = function (url) {
+  inviteUrlText = url;
+  inviteUrlEl.textContent = url;
+  inviteCopyBtn.textContent = 'Copia link';
+  inviteModal.open();
+};
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async function init() {
@@ -1152,44 +1220,6 @@ function setupDropZone(zoneId, inputId, textId) {
 })();
 </script>
 
-<!-- ── Modal link invito ──────────────────────────────────────────────────── -->
-<div class="ds-modal-overlay" id="inviteModal" role="dialog" aria-modal="true" hidden>
-  <div class="ds-modal">
-    <h3 class="ds-modal__title">Link invito allenatore</h3>
-    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem" class="ds-modal__body">Condividi questo link con l'allenatore per farlo registrare direttamente nella lega.</p>
-    <code class="modal-url" id="inviteUrl"></code>
-    <div class="ds-modal__actions">
-      <button id="inviteCopyBtn" class="ds-button ds-button--default">Copia link</button>
-      <button class="ds-button ds-button--secondary" id="inviteCloseBtn">Chiudi</button>
-    </div>
-  </div>
-</div>
-
-<script>
-(function() {
-  const overlay = document.getElementById('inviteModal');
-  const urlEl   = document.getElementById('inviteUrl');
-  const copyBtn = document.getElementById('inviteCopyBtn');
-  const closeBtn = document.getElementById('inviteCloseBtn');
-
-  window.showInviteModal = function(url) {
-    urlEl.textContent = url;
-    copyBtn.textContent = 'Copia link';
-    overlay.hidden = false;
-  };
-
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(urlEl.textContent);
-      copyBtn.textContent = '✓ Copiato!';
-    } catch {
-      copyBtn.textContent = 'Errore copia';
-    }
-  });
-
-  closeBtn.addEventListener('click', () => overlay.hidden = true);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.hidden = true; });
-})();
-</script>
+<!-- Il modal "Link invito allenatore" è montato via DS.Modal() nello script principale. -->
 </body>
 </html>
