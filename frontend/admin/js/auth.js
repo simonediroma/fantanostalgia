@@ -6,6 +6,7 @@ async function doLogin(username, password) {
 
 async function doLogout() {
   try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
+  try { await apiFetch('/auth/user/logout', { method: 'POST' }); } catch {}
   sessionStorage.removeItem('fn_user');
 }
 

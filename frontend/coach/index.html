@@ -28,6 +28,8 @@
   </h2>
 
   <div id="leagueList"><div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div></div>
+
+  <div id="elevationSlot" style="margin-top:2rem"></div>
 </div>
 
 <script>
@@ -46,6 +48,50 @@ const DS = window.FantaNostalgiaDS;
   });
 })();
 
+function renderElevationPanel(me) {
+  const slot = document.getElementById('elevationSlot');
+  const helpBox = DS.HelpBox({
+    title: 'Permessi amministratore',
+    children: "L'amministratore gestisce tutte le leghe: import rose e formazioni, apertura buste, sorteggi e punteggi. Puoi richiedere questi permessi al presidente esistente, che dovrà approvarli esplicitamente.",
+  });
+
+  let footer;
+  if (me.is_admin) {
+    footer = document.createElement('p');
+    footer.style.cssText = 'margin-top:0.75rem;font-size:0.82rem';
+    footer.append('Sei amministratore. ');
+    const link = document.createElement('a');
+    link.href = '/admin';
+    link.textContent = 'Vai al pannello admin →';
+    link.style.color = 'var(--accent)';
+    footer.appendChild(link);
+  } else if (me.elevation_status === 'pending') {
+    footer = DS.Badge({ children: 'Richiesta in attesa di approvazione', variant: 'default' });
+    footer.style.marginTop = '0.75rem';
+  } else {
+    const btn = DS.Button({
+      children: 'Richiedi permessi admin', variant: 'secondary',
+      onClick: async () => {
+        btn.disabled = true;
+        try {
+          const res = await fetch('/auth/user/elevation-request', { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+          renderElevationPanel({ ...me, elevation_status: 'pending' });
+        } catch (e) {
+          btn.disabled = false;
+          document.getElementById('msgBox').innerHTML =
+            `<div class="ds-message ds-message--err">${e.message}</div>`;
+        }
+      },
+    });
+    btn.style.cssText = 'margin-top:0.75rem;font-size:0.75rem';
+    footer = btn;
+  }
+
+  slot.replaceChildren(DS.Panel({ children: [helpBox, footer] }));
+}
+
 async function init() {
   let me;
   try {
@@ -61,6 +107,7 @@ async function init() {
   }
 
   document.getElementById('userName').textContent = me.name;
+  renderElevationPanel(me);
 
   const list = document.getElementById('leagueList');
 

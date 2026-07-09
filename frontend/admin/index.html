@@ -61,6 +61,13 @@
           <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
         </div>
 
+        <div class="ds-panel ds-panel--default" style="margin-top:1.5rem">
+          <h4 class="ds-panel__title">Richieste di elevazione admin</h4>
+          <div id="elevationRequestsList" class="mt-sm">
+            <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
+          </div>
+        </div>
+
         <details style="margin-top:1.5rem">
           <summary>Dati storici (avanzato)</summary>
           <div class="ds-help-box ds-help-box--info" style="margin-top:0.75rem">
@@ -335,6 +342,7 @@
 <script src="js/listone.js"></script>
 <script src="js/mapping.js"></script>
 <script src="js/matchday.js"></script>
+<script src="js/elevation.js"></script>
 <script>
 'use strict';
 
@@ -467,6 +475,75 @@ async function loadDashboard() {
   nav.innerHTML = allLeagues.map(l =>
     `<a href="#" class="nav-link" data-navmanage="${l.id}">${esc(l.name)}</a>`
   ).join('');
+
+  loadElevationRequests().catch(() => {});
+}
+
+// ── Richieste elevazione admin ─────────────────────────────────────────────
+async function loadElevationRequests() {
+  const el = document.getElementById('elevationRequestsList');
+  const requests = await apiListElevationRequests();
+  const pending = requests.filter(r => r.status === 'pending');
+
+  if (!pending.length) {
+    el.replaceChildren(DS.EmptyState({ message: 'Nessuna richiesta in attesa.' }));
+    return;
+  }
+
+  const rows = pending.map((r) => {
+    const approveBtn = DS.Button({
+      children: 'Approva', variant: 'default',
+      onClick: async () => {
+        const ok = await DS.confirmDialog({
+          title: 'Approva richiesta admin',
+          message: `${r.name} (${r.email}) otterrà i permessi di amministratore.`,
+          consequence: 'Potrà accedere e modificare tutte le leghe.',
+          confirmLabel: 'Approva',
+          danger: false,
+        });
+        if (!ok) return;
+        try {
+          await apiApproveElevationRequest(r.id);
+          showMsg('dashMsg', `Richiesta di ${r.name} approvata.`);
+          await loadElevationRequests();
+        } catch (err) {
+          showMsg('dashMsg', err.message, true);
+        }
+      },
+    });
+    approveBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
+
+    const rejectBtn = DS.Button({
+      children: 'Rifiuta', variant: 'danger',
+      onClick: async () => {
+        const ok = await DS.confirmDialog({
+          title: 'Rifiuta richiesta admin',
+          message: `${r.name} (${r.email}) non otterrà i permessi di amministratore.`,
+          confirmLabel: 'Rifiuta',
+        });
+        if (!ok) return;
+        try {
+          await apiRejectElevationRequest(r.id);
+          showMsg('dashMsg', `Richiesta di ${r.name} rifiutata.`);
+          await loadElevationRequests();
+        } catch (err) {
+          showMsg('dashMsg', err.message, true);
+        }
+      },
+    });
+    rejectBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:0.4rem;justify-content:flex-end';
+    actions.append(approveBtn, rejectBtn);
+
+    return [r.name, r.email, actions];
+  });
+
+  el.replaceChildren(DS.Table({
+    columns: [{ label: 'Nome' }, { label: 'Email' }, { label: '' }],
+    rows,
+  }));
 }
 
 // Sidebar manage links
