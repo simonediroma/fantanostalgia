@@ -9,6 +9,7 @@ COPY backend/ ./backend/
 COPY database/schema.sql ./database/schema.sql
 COPY frontend/admin/ ./frontend/admin/
 COPY frontend/coach/ ./frontend/coach/
+COPY frontend/shared/ ./frontend/shared/
 COPY docs/webscraper/ ./docs/webscraper/
 
 ENV ENV=production
