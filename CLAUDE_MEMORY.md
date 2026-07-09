@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-09
 **Branch attivo:** `claude/sotto-a-chi-tocca-9onli8` (imposto dall'harness per questa sessione — non `task/30-elevazione-coach-admin` come da convenzione)
-**PR in corso:** task 30 (Elevazione coach → admin) completato su questo branch, commit fatto, push da effettuare — PR non ancora aperta (nessuna richiesta esplicita dell'utente in sessione). Task 29 (PR #88) e task 31 (PR #89) risultano ora entrambe mergiate in `main` (la sessione precedente non l'aveva verificato). Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83) e i follow-up 25 (PR #84), 26 (PR #85), 27 (PR #86), 28 (PR #87) restano mergiati.
+**PR in corso:** [#93](https://github.com/simonediroma/fantanostalgia/pull/93) — task 30 (Elevazione coach → admin), aperta (creata dall'utente da Claude Code UI), non ancora mergiata. Nel frattempo altre 3 sessioni parallele hanno mergiato in `main`: PR #90 (fix `Dockerfile.backend` — `frontend/shared/` mancante nell'immagine Docker di produzione), PR #91 (tab Calendario: priorità nome nostalgia + icone bonus/malus), PR #92 (refactor motore voti: algoritmo sintetico unificato per tutte le stagioni storiche, rimosso `fantagiaveno.py`, `synthetic_ratings.py` → `rating.py`). Nessuna di queste 3 tocca i file di questo task (`db.py`, `auth.py`, `frontend/admin/*`, `frontend/coach/*`) — merge di `main` in questo branch effettuato senza conflitti di codice, solo su questo file di memoria. Task 29 (PR #88) e task 31 (PR #89) restano mergiate. Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83) e i follow-up 25 (PR #84), 26 (PR #85), 27 (PR #86), 28 (PR #87) restano mergiati. Non ancora riverificato in produzione che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (azione di follow-up lasciata in sospeso da una sessione precedente).
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,7 +11,9 @@
 
 ## Prossima sessione — inizia da qui
 
-dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
+Verificare l'esito di PR #93 (task 30). Se richiesto, verificare che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (mai testato contro un deploy reale).
+
+Poi: dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
 
 ### Scraper disponibili (scegli uno)
 
@@ -185,3 +187,5 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 - [#39](https://github.com/simonediroma/fantanostalgia/pull/39) — Scraper calcio-seriea.net con ruoli reali (`claude/upbeat-fermat-98un5f`) ✓ mergiata
 - [#80](https://github.com/simonediroma/fantanostalgia/pull/80) — task/25-restyle pagine pubbliche + Hall of Fame (`claude/prossimo-task-1wzl48`) ✓ mergiata
 - [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task/29-gestione multi-lega in Admin (`claude/prossimo-task-oga3tp`) — aperta
+- [#90](https://github.com/simonediroma/fantanostalgia/pull/90) — fix Dockerfile.backend, `frontend/shared/` mancante in produzione (`claude/homepage-display-issue-k5nby2`) ✓ mergiata
+- branch `claude/ranking-calendar-team-display-7l5l18` — priorità nome nostalgia + icone bonus/malus nel tab Calendario — pushato, PR non ancora aperta

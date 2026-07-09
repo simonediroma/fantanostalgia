@@ -38,10 +38,10 @@ fantanostalgia/
 │   │       ├── matchday.py      # Sorteggio giornata + calcolo punteggi
 │   │       └── standings.py     # Classifiche normale e nostalgia
 │   ├── scrapers/
-│   │   ├── fantagiaveno.py      # Voti storici 2003+ da fantagiaveno.it
-│   │   └── fbref.py             # Statistiche pre-2003 da fbref.com
+│   │   ├── fbref.py             # Statistiche match-by-match da fbref.com (con varianti fbref_pw.py Playwright)
+│   │   └── calcioseriea.py      # Statistiche con ruoli reali da calcio-seriea.net
 │   └── engine/
-│       ├── synthetic_ratings.py # Calcolo voti sintetici da statistiche fbref
+│       ├── rating.py            # Algoritmo interno voti sintetici (RatingWeights) da statistiche
 │       ├── mapping.py           # Algoritmo mapping alter ego
 │       └── scoring.py           # Calcolo punteggi entrambe le leghe
 ├── frontend/
@@ -81,16 +81,16 @@ fantanostalgia/
 
 | Fonte | Cosa contiene | Stagioni |
 |-------|--------------|---------|
-| fantagiaveno.it | Voti reali per giornata | 2003/04 → oggi |
 | fbref.com | Statistiche match-by-match (gol, assist, cartellini, minuti) | 1990 → oggi |
+| calcio-seriea.net | Statistiche match-by-match con ruoli reali (no Cloudflare) | dipende dal sito |
 
-**Regola:** stagioni >= 2003/04 usano voti reali da fantagiaveno. Stagioni < 2003/04 usano voti sintetici calcolati dall'engine con i dati fbref.
+**Regola:** per ogni stagione storica i voti sono calcolati dall'algoritmo interno di FantaNostalgia (`backend/engine/rating.py`) a partire dalle statistiche scrapate — non esistono "voti reali" importati da nessuna fonte, nemmeno per le stagioni più recenti.
 
 ---
 
-## Algoritmo Voti Sintetici (pre-2003)
+## Algoritmo Voti Sintetici (tutte le stagioni)
 
-Formula standard Gazzetta dello Sport applicata a statistiche fbref:
+Formula standard Gazzetta dello Sport applicata alle statistiche scrapate:
 
 ```
 voto_base = 6.0  (se minuti >= 60) | 5.5 (se minuti < 60) | None (se non giocato)
