@@ -17,7 +17,8 @@
     <a href="/coach/" style="color:var(--muted);font-size:0.7rem;text-decoration:none">← Leghe</a>
     <span class="logo" id="teamTitle">Gestione Rosa</span>
   </div>
-  <div class="row-gap">
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="topbarActions">☰</button>
+  <div class="row-gap topbar-actions" id="topbarActions">
     <span id="statusBadge"></span>
     <a id="punteggiLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Punteggi</a>
     <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
@@ -49,9 +50,7 @@
 <div class="lock-bar" id="lockBar" style="display:none">
   <div>
     <span class="progress-text" id="progressText">0/12 assegnati</span>
-    <div class="ds-progress-bar__track">
-      <div class="ds-progress-bar__fill" id="progressFill" style="width:0%"></div>
-    </div>
+    <div id="progressBarSlot"></div>
   </div>
   <button id="lockBtn" disabled class="ds-button ds-button--danger">Conferma e Blocca</button>
 </div>
@@ -60,6 +59,20 @@
 'use strict';
 
 const DS = window.FantaNostalgiaDS;
+
+// Mobile nav toggle
+(function () {
+  const btn = document.getElementById('navToggle');
+  const nav = document.getElementById('topbarActions');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', () => {
+    const open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+})();
+
+const progressBar = DS.ProgressBar({ value: 0, max: 1 });
+document.getElementById('progressBarSlot').replaceChildren(progressBar);
 
 const leagueId = (() => {
   const m = location.pathname.match(/\/coach\/lega\/(\d+)/);
@@ -104,11 +117,10 @@ function updateLockBar() {
   const lockBar = document.getElementById('lockBar');
   const lockBtn = document.getElementById('lockBtn');
   const progressText = document.getElementById('progressText');
-  const progressFill = document.getElementById('progressFill');
 
   lockBar.style.display = (locked || closed) ? 'none' : 'flex';
   progressText.textContent = `${assigned}/${total} assegnati`;
-  progressFill.style.width = total > 0 ? `${(assigned/total)*100}%` : '0%';
+  progressBar.update(assigned, total || 1);
   lockBtn.disabled = assigned < total;
 }
 
@@ -135,11 +147,11 @@ function render() {
   // Status badge
   const badge = document.getElementById('statusBadge');
   if (locked) {
-    badge.innerHTML = '<span class="ds-badge ds-badge--green">Bloccato</span>';
+    badge.replaceChildren(DS.Badge({ children: 'Bloccato', variant: 'green' }));
   } else if (closed) {
-    badge.innerHTML = '<span class="ds-badge ds-badge--red">Periodo chiuso</span>';
+    badge.replaceChildren(DS.Badge({ children: 'Periodo chiuso', variant: 'red' }));
   } else {
-    badge.innerHTML = '<span class="ds-badge ds-badge--default">In corso</span>';
+    badge.replaceChildren(DS.Badge({ children: 'In corso', variant: 'default' }));
   }
 
   // Gran Premio won banner (only while the rosa is still editable)
