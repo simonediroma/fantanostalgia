@@ -481,6 +481,53 @@
     return wrap;
   }
 
+  /* ── Accordion ──────────────────────────────────────────────────── */
+  function Accordion({ items = [] } = {}) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ds-accordion';
+
+    items.forEach((item, i) => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'ds-accordion__item';
+
+      const panelId = `ds-accordion-panel-${Math.random().toString(36).slice(2)}-${i}`;
+
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'ds-accordion__trigger';
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('aria-controls', panelId);
+
+      const label = document.createElement('span');
+      label.textContent = item.question;
+      const icon = document.createElement('span');
+      icon.className = 'ds-accordion__icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = '+';
+      trigger.appendChild(label);
+      trigger.appendChild(icon);
+
+      const panel = document.createElement('div');
+      panel.className = 'ds-accordion__panel';
+      panel.id = panelId;
+      panel.hidden = true;
+      appendChildren(panel, item.answer);
+
+      trigger.addEventListener('click', () => {
+        const open = trigger.getAttribute('aria-expanded') === 'true';
+        trigger.setAttribute('aria-expanded', String(!open));
+        icon.textContent = open ? '+' : '−';
+        panel.hidden = open;
+      });
+
+      itemEl.appendChild(trigger);
+      itemEl.appendChild(panel);
+      wrap.appendChild(itemEl);
+    });
+
+    return wrap;
+  }
+
   /* ── Modal ──────────────────────────────────────────────────────── */
   function Modal({ open = false, title, children, onClose, actions } = {}) {
     const overlay = document.createElement('div');
@@ -585,6 +632,7 @@
     Input,
     WizardSteps,
     Tabs,
+    Accordion,
     Modal,
     confirmDialog,
   });

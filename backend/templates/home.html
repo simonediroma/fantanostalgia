@@ -52,37 +52,6 @@
 /* ── How it works ─────────────────────────────────────────── */
 .how-section h2 { margin-bottom: 1rem; }
 
-.step-list { display: flex; flex-direction: column; gap: 0.75rem; }
-
-.step {
-  margin-bottom: 0;
-  padding: 0.85rem 1rem;
-  display: flex;
-  gap: 0.85rem;
-  align-items: flex-start;
-}
-.step-num {
-  font-family: var(--font-pixel);
-  font-size: 0.75rem;
-  color: var(--accent);
-  min-width: 1.5rem;
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-}
-.step-body strong {
-  display: block;
-  font-family: var(--font-pixel);
-  font-size: 0.5rem;
-  text-transform: uppercase;
-  color: var(--accent2);
-  letter-spacing: 0.08em;
-  margin-bottom: 0.3rem;
-}
-.step-body span {
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
 /* ── Auth box ─────────────────────────────────────────────── */
 .auth-section h2 { margin-bottom: 1rem; }
 
@@ -201,35 +170,13 @@
   <!-- Come funziona -->
   <section class="how-section">
     <h2>Come funziona</h2>
-    <div class="step-list">
-      <div class="step ds-panel ds-panel--default">
-        <span class="step-num">01</span>
-        <div class="step-body">
-          <strong>Stessa Rosa</strong>
-          <span>FantaNostalgia usa la stessa rosa del tuo fantacalcio normale. Nessun draft separato — chi compri all'asta vale in entrambe le leghe.</span>
-        </div>
-      </div>
-      <div class="step ds-panel ds-panel--default">
-        <span class="step-num">02</span>
-        <div class="step-body">
-          <strong>L'Apertura Buste</strong>
-          <span>Dopo il draft, ogni tuo giocatore riceve un alter ego storico estratto a caso per ruolo (P→P, D→D…). L'abbinamento è segreto fino all'apertura buste: la riserva da 5 crediti potrebbe avere Ronaldo il Fenomeno.</span>
-        </div>
-      </div>
-      <div class="step ds-panel ds-panel--default">
-        <span class="step-num">03</span>
-        <div class="step-body">
-          <strong>Il Sorteggio di Giornata</strong>
-          <span>Ogni settimana viene estratta una giornata della stagione storica. Il punteggio dipende dai voti che quell'alter ego ha preso in quella precisa partita — non da come gioca oggi.</span>
-        </div>
-      </div>
-      <div class="step ds-panel ds-panel--default">
-        <span class="step-num">04</span>
-        <div class="step-body">
-          <strong>Classifica Parallela</strong>
-          <span>Accanto alla classifica normale esiste quella FantaNostalgia, con montepremi dedicato. Vince chi ha (anche) fortuna nell'abbinamento.</span>
-        </div>
-      </div>
+    <div class="ds-panel ds-panel--default">
+      <p style="margin-bottom:0.75rem">
+        Stessa rosa, stessa asta. Ogni giocatore che compri riceve in più un
+        alter ego di una stagione storica: i suoi voti alimentano una
+        classifica parallela, con montepremi dedicato.
+      </p>
+      <a href="/come-funziona" class="ds-button ds-button--default">Scopri come funziona →</a>
     </div>
   </section>
 
