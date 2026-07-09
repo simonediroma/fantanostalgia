@@ -295,6 +295,17 @@ def calendario_dati(league_id: int, matchday: int):
             "ns_score": round(ns_score, 1) if ns_score is not None else None,
         }
         if r["is_starter"]:
+            # bonus/malus breakdown only shown for starters
+            entry.update({
+                "goals": r["goals"],
+                "assists": r["assists"],
+                "yellow_cards": r["yellow_cards"],
+                "red_cards": r["red_cards"],
+                "own_goals": r["own_goals"],
+                "penalties_missed": r["penalties_missed"],
+                "goals_conceded": r["goals_conceded"],
+                "minutes": r["minutes"],
+            })
             mgr_map[key]["starters"].append(entry)
         else:
             mgr_map[key]["bench"].append(entry)
