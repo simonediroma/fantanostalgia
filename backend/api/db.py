@@ -111,6 +111,8 @@ def init_db() -> None:
         for _col, _def in [
             ("associations_closed", "INTEGER DEFAULT 0"),
             ("associations_closed_at", "TIMESTAMP"),
+            ("max_manager", "INTEGER"),
+            ("platform", "TEXT"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE league ADD COLUMN {_col} {_def}")

@@ -77,23 +77,7 @@
       <div id="pg-league-form" class="page">
         <h2 id="leagueFormTitle">Nuova Lega</h2>
         <div id="leagueFormMsg"></div>
-        <div class="ds-panel ds-panel--default">
-          <form id="leagueForm">
-            <input type="hidden" id="leagueFormId">
-            <label>Nome</label>
-            <input type="text" id="lfName" required>
-            <label>Stagione corrente (es. 2024/25)</label>
-            <input type="text" id="lfCurrent" required>
-            <label>Stagione storica (es. 2003/04)</label>
-            <input type="text" id="lfHistoric" required>
-            <label>Budget (crediti)</label>
-            <input type="number" id="lfBudget" value="500" min="100" required>
-            <div class="row-gap mt-sm">
-              <button type="submit" class="ds-button ds-button--default" id="leagueSubmitBtn">Crea lega</button>
-              <button type="button" class="ds-button ds-button--secondary" id="leagueFormCancel">Annulla</button>
-            </div>
-          </form>
-        </div>
+        <div id="leagueFormSlot"></div>
       </div>
 
       <!-- Gestione lega — wizard -->
@@ -112,7 +96,7 @@
 
           <!-- Manager della lega -->
           <div class="ds-panel ds-panel--default">
-            <h4 class="ds-panel__title">Manager della lega</h4>
+            <h4 class="ds-panel__title" id="managerListTitle">Manager della lega</h4>
             <div id="managerList" class="mt-sm">
               <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
             </div>
@@ -358,6 +342,7 @@ const DS = window.FantaNostalgiaDS;
 
 // ── State ───────────────────────────────────────────────────────────────────
 let currentLeagueId = null;
+let currentLeagueMaxManager = null;
 let currentStep = 1;
 let allLeagues = [];
 let leagueManagers = [];
@@ -463,12 +448,15 @@ async function loadDashboard() {
         children: 'Modifica', variant: 'secondary',
         onClick: () => openEditForm(l.id),
       }));
-      return [String(l.id), l.name, l.season_current, l.season_historic, String(l.budget ?? '—'), actions];
+      return [
+        String(l.id), l.name, l.season_current, l.season_historic,
+        String(l.budget ?? '—'), l.platform || '—', actions,
+      ];
     });
     wrap.replaceChildren(DS.Table({
       columns: [
         { label: '#', nowrap: true }, { label: 'Nome' }, { label: 'Corrente' },
-        { label: 'Storica' }, { label: 'Budget' }, { label: '' },
+        { label: 'Storica' }, { label: 'Budget' }, { label: 'Piattaforma' }, { label: '' },
       ],
       rows,
     }));
@@ -487,12 +475,33 @@ document.getElementById('leagueNav').addEventListener('click', (e) => {
   if (link) { e.preventDefault(); openManage(parseInt(link.dataset.navmanage)); }
 });
 
-// ── League Form ──────────────────────────────────────────────────────────────
+// ── League Form (DS.Input/Button/Panel) ────────────────────────────────────────
+let leagueFormId = '';
+const lfName = DS.Input({ label: 'Nome', id: 'lfName', required: true });
+const lfCurrent = DS.Input({ label: 'Stagione corrente (es. 2024/25)', id: 'lfCurrent', required: true });
+const lfHistoric = DS.Input({ label: 'Stagione storica (es. 2003/04)', id: 'lfHistoric', required: true });
+const lfBudget = DS.Input({ label: 'Budget (crediti)', id: 'lfBudget', type: 'number', value: '500', required: true });
+lfBudget.input.min = '100';
+const lfMaxManager = DS.Input({ label: 'Numero massimo manager', id: 'lfMaxManager', type: 'number', placeholder: 'facoltativo' });
+lfMaxManager.input.min = '1';
+const lfPlatform = DS.Input({ label: 'Piattaforma', id: 'lfPlatform', placeholder: 'es. Fantacalcio.it (facoltativo)' });
+const leagueSubmitBtn = DS.Button({ children: 'Crea lega', variant: 'default', type: 'submit' });
+const leagueForm = document.createElement('form');
+leagueForm.id = 'leagueForm';
+leagueForm.append(lfName, lfCurrent, lfHistoric, lfBudget, lfMaxManager, lfPlatform);
+const leagueFormBtnRow = document.createElement('div');
+leagueFormBtnRow.className = 'row-gap mt-sm';
+const leagueFormCancel = DS.Button({ children: 'Annulla', variant: 'secondary', onClick: () => showPage('pg-dashboard') });
+leagueFormBtnRow.append(leagueSubmitBtn, leagueFormCancel);
+leagueForm.appendChild(leagueFormBtnRow);
+document.getElementById('leagueFormSlot').appendChild(DS.Panel({ children: [leagueForm] }));
+
 function openNewLeagueForm() {
   document.getElementById('leagueFormTitle').textContent = 'Nuova Lega';
-  document.getElementById('leagueFormId').value = '';
-  document.getElementById('leagueSubmitBtn').textContent = 'Crea lega';
-  document.getElementById('leagueForm').reset();
+  leagueFormId = '';
+  leagueSubmitBtn.textContent = 'Crea lega';
+  leagueForm.reset();
+  lfBudget.input.value = '500';
   document.getElementById('leagueFormMsg').innerHTML = '';
   showPage('pg-league-form');
 }
@@ -502,36 +511,35 @@ document.getElementById('newLeagueLink').addEventListener('click', (e) => {
   openNewLeagueForm();
 });
 
-document.getElementById('leagueFormCancel').addEventListener('click', () => {
-  showPage('pg-dashboard');
-});
-
 function openEditForm(id) {
   const league = allLeagues.find(l => l.id === id);
   if (!league) return;
   document.getElementById('leagueFormTitle').textContent = 'Modifica Lega';
-  document.getElementById('leagueFormId').value = league.id;
-  document.getElementById('lfName').value = league.name;
-  document.getElementById('lfCurrent').value = league.season_current;
-  document.getElementById('lfHistoric').value = league.season_historic;
-  document.getElementById('lfBudget').value = league.budget || 500;
-  document.getElementById('leagueSubmitBtn').textContent = 'Salva';
+  leagueFormId = league.id;
+  lfName.input.value = league.name;
+  lfCurrent.input.value = league.season_current;
+  lfHistoric.input.value = league.season_historic;
+  lfBudget.input.value = league.budget || 500;
+  lfMaxManager.input.value = league.max_manager ?? '';
+  lfPlatform.input.value = league.platform ?? '';
+  leagueSubmitBtn.textContent = 'Salva';
   document.getElementById('leagueFormMsg').innerHTML = '';
   showPage('pg-league-form');
 }
 
-document.getElementById('leagueForm').addEventListener('submit', async (e) => {
+leagueForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const id = document.getElementById('leagueFormId').value;
   const body = {
-    name: document.getElementById('lfName').value.trim(),
-    season_current: document.getElementById('lfCurrent').value.trim(),
-    season_historic: document.getElementById('lfHistoric').value.trim(),
-    budget: parseInt(document.getElementById('lfBudget').value),
+    name: lfName.input.value.trim(),
+    season_current: lfCurrent.input.value.trim(),
+    season_historic: lfHistoric.input.value.trim(),
+    budget: parseInt(lfBudget.input.value),
+    max_manager: lfMaxManager.input.value ? parseInt(lfMaxManager.input.value) : null,
+    platform: lfPlatform.input.value.trim() || null,
   };
   try {
-    if (id) {
-      await apiUpdateLeague(parseInt(id), body);
+    if (leagueFormId) {
+      await apiUpdateLeague(parseInt(leagueFormId), body);
     } else {
       await apiCreateLeague(body);
     }
@@ -568,6 +576,7 @@ async function loadManagePage() {
 
     document.getElementById('manageLegaNome').textContent = league.name;
     document.getElementById('standingsLink').href = `/lega/${currentLeagueId}/classifica`;
+    currentLeagueMaxManager = league.max_manager ?? null;
 
     // Determine wizard state
     const hasListone = Array.isArray(players) && players.length > 0;
@@ -659,6 +668,11 @@ function focusAddManager() {
 }
 
 function renderManagerList() {
+  const titleEl = document.getElementById('managerListTitle');
+  titleEl.textContent = currentLeagueMaxManager
+    ? `Manager della lega (${leagueManagers.length}/${currentLeagueMaxManager})`
+    : 'Manager della lega';
+
   const el = document.getElementById('managerList');
   if (!leagueManagers.length) {
     el.replaceChildren(DS.EmptyState({
