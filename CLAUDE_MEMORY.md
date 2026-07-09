@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-09
 **Branch attivo:** `claude/prossimo-task-oga3tp`
-**PR in corso:** [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task 29 (Gestione multi-lega in Admin), aperta, non ancora mergiata. Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83) e i follow-up di allineamento ai prompt aggiunti a posteriori per 25 (PR #84), 26 (PR #85), 27 (PR #86) e 28 (PR #87) sono tutti mergiati in `main`.
+**PR in corso:** nessuna. Task 29 (PR #88) mergiata in `main`. Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83) e i follow-up di allineamento ai prompt aggiunti a posteriori per 25 (PR #84), 26 (PR #85), 27 (PR #86) e 28 (PR #87) sono anch'essi mergiati.
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -184,4 +184,4 @@ Ordine di esecuzione: 24 (fatto) → 25 (fatto) → 26 (fatto) → 27 (fatto) �
 - [#38](https://github.com/simonediroma/fantanostalgia/pull/38) — Guida seasons.html per multi-season scraping (`task/seasons-html-links`) ✓ mergiata
 - [#39](https://github.com/simonediroma/fantanostalgia/pull/39) — Scraper calcio-seriea.net con ruoli reali (`claude/upbeat-fermat-98un5f`) ✓ mergiata
 - [#80](https://github.com/simonediroma/fantanostalgia/pull/80) — task/25-restyle pagine pubbliche + Hall of Fame (`claude/prossimo-task-1wzl48`) ✓ mergiata
-- [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task/29-gestione multi-lega in Admin (`claude/prossimo-task-oga3tp`) — aperta
+- [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task/29-gestione multi-lega in Admin (`claude/prossimo-task-oga3tp`) ✓ mergiata
