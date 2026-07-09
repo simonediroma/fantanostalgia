@@ -232,6 +232,14 @@
   line-height: 1.6;
 }
 .ds-file-spec__note { margin-top: var(--space-2); font-style: italic; }
+.ds-file-spec__link {
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel-xs);
+  color: var(--accent2);
+  text-decoration: none;
+  display: block;
+  margin-top: var(--space-2);
+}
 
 /* ── Message ──────────────────────────────────────────────────────── */
 .ds-message {

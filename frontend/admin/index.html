@@ -60,6 +60,17 @@
         <div id="leagueList">
           <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
         </div>
+
+        <details style="margin-top:1.5rem">
+          <summary>Dati storici (avanzato)</summary>
+          <div class="ds-help-box ds-help-box--info" style="margin-top:0.75rem">
+            <span class="ds-help-box__icon" aria-hidden="true">i</span>
+            <div class="ds-help-box__body">
+              <strong class="ds-help-box__title">Import dati storici</strong>
+              <p class="ds-help-box__text">I voti storici (usati per generare i pool nostalgia) vengono raccolti con uno scraper da riga di comando e poi importati nel database. Non c'è ancora un'interfaccia di caricamento: genera il CSV con uno degli scraper in <code>backend/scrapers/</code> (vedi <code>CLAUDE_MEMORY.md</code>), poi caricalo con una chiamata a <code>POST /admin/historic/import</code>. Questa lega non richiede l'import se i dati storici sono già presenti nel database.</p>
+            </div>
+          </div>
+        </details>
       </div>
 
       <!-- Crea / Modifica lega -->
@@ -105,7 +116,7 @@
             <div id="managerList" class="mt-sm">
               <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
             </div>
-            <details style="margin-top:0.75rem">
+            <details id="addManagerDetails" style="margin-top:0.75rem">
               <summary>+ Aggiungi manager</summary>
               <div class="row-gap" style="margin-top:0.25rem">
                 <div>
@@ -136,6 +147,7 @@
                 <span class="ds-file-spec__format">.xlsx</span>
               </div>
               <p class="ds-file-spec__structure">Foglio unico "TutteLeRose", due squadre affiancate (colonne A-D e F-I). Ogni blocco: Ruolo | Calciatore | Squadra | Costo, terminato da "Crediti Residui: X".</p>
+              <a class="ds-file-spec__link" href="/static/examples/Rose_esempio.xlsx" download>Scarica esempio →</a>
             </div>
             <div class="col-gap mt-sm">
               <div id="dropZoneListoneSlot"></div>
@@ -248,6 +260,7 @@
                 <span class="ds-file-spec__format">.xlsx</span>
               </div>
               <p class="ds-file-spec__structure">Foglio per giornata (es. "Formazioni 36 giornata"), due match affiancati (colonne A-E e G-K, risultato in F). Colonne: Ruolo | Calciatore | Voto_no_bonus | Voto_con_bonus. "Panchina" separa i titolari; "TOTALE: XX,YY" chiude la squadra; "-" indica un giocatore senza voto.</p>
+              <a class="ds-file-spec__link" href="/static/examples/Formazioni_esempio.xlsx" download>Scarica esempio →</a>
             </div>
             <div class="col-gap mt-sm">
               <label>Giornata corrente</label>
@@ -433,7 +446,11 @@ async function loadDashboard() {
 
   const wrap = document.getElementById('leagueList');
   if (!allLeagues.length) {
-    wrap.replaceChildren(DS.EmptyState({ message: 'Nessuna lega. Usa "+ Nuova lega" per crearne una.' }));
+    wrap.replaceChildren(DS.EmptyState({
+      message: 'Nessuna lega. Usa "+ Nuova lega" per crearne una.',
+      action: '+ Nuova lega',
+      onAction: openNewLeagueForm,
+    }));
   } else {
     const rows = allLeagues.map((l) => {
       const actions = document.createElement('div');
@@ -471,14 +488,18 @@ document.getElementById('leagueNav').addEventListener('click', (e) => {
 });
 
 // ── League Form ──────────────────────────────────────────────────────────────
-document.getElementById('newLeagueLink').addEventListener('click', (e) => {
-  e.preventDefault();
+function openNewLeagueForm() {
   document.getElementById('leagueFormTitle').textContent = 'Nuova Lega';
   document.getElementById('leagueFormId').value = '';
   document.getElementById('leagueSubmitBtn').textContent = 'Crea lega';
   document.getElementById('leagueForm').reset();
   document.getElementById('leagueFormMsg').innerHTML = '';
   showPage('pg-league-form');
+}
+
+document.getElementById('newLeagueLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  openNewLeagueForm();
 });
 
 document.getElementById('leagueFormCancel').addEventListener('click', () => {
@@ -631,10 +652,20 @@ document.getElementById('prevStepBtn').addEventListener('click', () => setWizard
 document.getElementById('nextStepBtn').addEventListener('click', () => setWizardStep(currentStep + 1));
 
 // ── Managers ─────────────────────────────────────────────────────────────────
+function focusAddManager() {
+  const details = document.getElementById('addManagerDetails');
+  details.open = true;
+  document.getElementById('mgrName').focus();
+}
+
 function renderManagerList() {
   const el = document.getElementById('managerList');
   if (!leagueManagers.length) {
-    el.replaceChildren(DS.EmptyState({ message: 'Nessun manager. Aggiungine uno.' }));
+    el.replaceChildren(DS.EmptyState({
+      message: 'Nessun manager. Aggiungine uno.',
+      action: '+ Aggiungi manager',
+      onAction: focusAddManager,
+    }));
     return;
   }
 
@@ -775,7 +806,11 @@ document.getElementById('uploadListoneBtn').addEventListener('click', async () =
 function renderAssignTable(players) {
   const el = document.getElementById('assignTable');
   if (!leagueManagers.length) {
-    el.replaceChildren(DS.EmptyState({ message: 'Aggiungi manager prima di assegnare i giocatori.' }));
+    el.replaceChildren(DS.EmptyState({
+      message: 'Aggiungi manager prima di assegnare i giocatori.',
+      action: '+ Aggiungi manager',
+      onAction: focusAddManager,
+    }));
     return;
   }
 
@@ -840,7 +875,11 @@ async function refreshCoachStatus() {
     const rows = await apiCoachesStatus(currentLeagueId);
     const el = document.getElementById('coachStatusTable');
     if (!rows.length) {
-      el.replaceChildren(DS.EmptyState({ message: 'Nessun manager.' }));
+      el.replaceChildren(DS.EmptyState({
+        message: 'Nessun manager.',
+        action: 'Vai a Step 1',
+        onAction: () => setWizardStep(1),
+      }));
       return;
     }
     const tableRows = rows.map((r) => {
@@ -1101,7 +1140,14 @@ async function loadGpList() {
   const el = document.getElementById('gpList');
   try {
     const all = await apiListGranPremi(currentLeagueId);
-    if (!all.length) { el.replaceChildren(DS.EmptyState({ message: 'Nessun Gran Premio creato.' })); return; }
+    if (!all.length) {
+      el.replaceChildren(DS.EmptyState({
+        message: 'Nessun Gran Premio creato.',
+        action: 'Crea Gran Premio',
+        onAction: () => document.getElementById('gpGiornata').focus(),
+      }));
+      return;
+    }
 
     const rows = all.map((gp) => {
       const resolved = gp.status === 'resolved';
