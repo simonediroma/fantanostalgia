@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-07-09
-**Branch attivo:** `claude/dove-simao-adesso-inmhjg` (imposto dall'harness per questa sessione — non `task/31-pagina-come-funziona` come da convenzione)
-**PR in corso:** task 31 (Pagina pubblica "Come Funziona") completato su questo branch, commit fatto, push da effettuare — PR non ancora aperta (nessuna richiesta esplicita dell'utente in sessione). [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task 29 (Gestione multi-lega in Admin), aperta, non ancora mergiata (stato non riverificato in questa sessione). Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83) e i follow-up di allineamento ai prompt aggiunti a posteriori per 25 (PR #84), 26 (PR #85), 27 (PR #86) e 28 (PR #87) sono tutti mergiati in `main`.
+**Branch attivo:** `claude/homepage-display-issue-k5nby2` (imposto dall'harness per questa sessione)
+**PR in corso:** fix bug produzione — homepage in produzione (Cloud Run) mostrava HTML non stilizzato (font serif di default, nessun tema dark, nessun colore/badge/tabella formattata). Causa: `Dockerfile.backend` copiava `frontend/admin/` e `frontend/coach/` ma non `frontend/shared/` (dove vivono `design-system.css`/`.js` + i token colori/font/spacing introdotti dall'epica 4). In produzione la cartella non esiste nel container → il mount `/shared` in `backend/api/main.py` è condizionato da `os.path.isdir(_shared_dir)` e viene silenziosamente saltato → `/shared/design-system.css` risponde 404 → tutte le CSS custom properties (`--border`, `--accent`, `--font-pixel`, ecc.) sono undefined → il browser usa lo stile di default. **Non è un bug nel codice del task 25** (verificato: sul branch, in locale con FastAPI, il mount e i file esistono correttamente — il problema esisteva solo nell'immagine Docker di produzione, presumibilmente da quando è stato introdotto `frontend/shared/` nel task 24). Fix: aggiunta la riga `COPY frontend/shared/ ./frontend/shared/` in `Dockerfile.backend` (stesso pattern già usato per admin/coach). Non è stato possibile fare un build Docker end-to-end in sessione (demone Docker non disponibile nel sandbox) — verificato per ispezione che il path calcolato da `main.py` (`/app/frontend/shared` con `WORKDIR /app`) corrisponde esattamente a dove la nuova riga COPY posiziona i file. Commit fatto e pushato su questo branch — PR non ancora aperta (nessuna richiesta esplicita dell'utente). **Da verificare alla prossima sessione dopo il merge:** che il deploy Cloud Run risultante mostri effettivamente la homepage stilizzata (il fix non è stato testato contro un deploy reale, solo per ispezione statica). [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task 29 (Gestione multi-lega in Admin), aperta, non ancora mergiata (stato non riverificato in questa sessione). Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83), 29 (PR #88) e i follow-up di allineamento ai prompt aggiunti a posteriori per 25 (PR #84), 26 (PR #85), 27 (PR #86) e 28 (PR #87) sono tutti mergiati in `main`, così come task 31 (Pagina "Come Funziona", PR #89, mergiata).
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,7 +11,9 @@
 
 ## Prossima sessione — inizia da qui
 
-dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
+**Priorità immediata:** verificare, dopo il merge del branch `claude/homepage-display-issue-k5nby2`, che il deploy Cloud Run mostri la homepage correttamente stilizzata (fix `Dockerfile.backend` non testato contro un deploy reale, vedi "PR in corso" sopra). Se il problema persiste dopo il deploy, controllare anche se serve un redeploy manuale (il fix corregge solo le build future, non il container già in esecuzione).
+
+Poi: dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
 
 ### Scraper disponibili (scegli uno)
 
