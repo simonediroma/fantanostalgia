@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
+  <script src="/shared/design-system.js"></script>
 </head>
 <body>
 
@@ -16,7 +17,8 @@
     <a href="/coach/" style="color:var(--muted);font-size:0.7rem;text-decoration:none">← Leghe</a>
     <span class="logo" id="pageTitle">I miei punteggi</span>
   </div>
-  <div class="row-gap">
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="topbarActions">☰</button>
+  <div class="row-gap topbar-actions" id="topbarActions">
     <a id="rosaLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Rosa</a>
     <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
@@ -46,6 +48,19 @@
 
 <script>
 'use strict';
+
+const DS = window.FantaNostalgiaDS;
+
+// Mobile nav toggle
+(function () {
+  const btn = document.getElementById('navToggle');
+  const nav = document.getElementById('topbarActions');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', () => {
+    const open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+})();
 
 const leagueId = (() => {
   const m = location.pathname.match(/\/coach\/lega\/(\d+)/);
@@ -90,29 +105,31 @@ async function load() {
 
     const el = document.getElementById('matchdayTable');
     if (!data.matchdays.length) {
-      el.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessuna giornata disputata ancora.</div></div>';
+      el.replaceChildren(DS.EmptyState({ message: 'Nessuna giornata disputata ancora.' }));
     } else {
-      el.innerHTML = `
-        <div class="ds-table-wrap">
-        <table class="ds-table">
-          <thead><tr>
-            <th>Giornata</th>
-            <th>Storica</th>
-            <th>FantaNostalgia</th>
-            <th>Normale</th>
-            <th></th>
-          </tr></thead>
-          <tbody>
-            ${data.matchdays.map(md => `<tr class="ds-table__row">
-              <td style="font-family:var(--font-pixel);font-size:0.6rem;color:var(--accent2)">G${md.matchday_current}</td>
-              <td style="color:var(--muted)">G${md.matchday_historic}</td>
-              <td style="color:var(--green);font-family:var(--font-data)">${md.score_nostalgia != null ? md.score_nostalgia.toFixed(1) : '—'}</td>
-              <td style="color:var(--accent2);font-family:var(--font-data)">${md.score_normal != null ? md.score_normal.toFixed(1) : '—'}</td>
-              <td><a href="/lega/${leagueId}/giornata/${md.matchday_current}" style="color:var(--accent);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase">Dettaglio →</a></td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-        </div>`;
+      const dettaglioLink = md => {
+        const a = document.createElement('a');
+        a.href = `/lega/${leagueId}/giornata/${md.matchday_current}`;
+        a.style.cssText = 'color:var(--accent);font-family:var(--font-pixel);font-size:0.5rem;text-transform:uppercase';
+        a.textContent = 'Dettaglio →';
+        return a;
+      };
+      el.replaceChildren(DS.Table({
+        columns: [
+          { label: 'Giornata', pixel: true, color: 'var(--accent2)' },
+          { label: 'Storica', color: 'var(--muted)' },
+          { label: 'FantaNostalgia', color: 'var(--green)' },
+          { label: 'Normale', color: 'var(--accent2)' },
+          { label: '' },
+        ],
+        rows: data.matchdays.map(md => [
+          `G${md.matchday_current}`,
+          `G${md.matchday_historic}`,
+          md.score_nostalgia != null ? md.score_nostalgia.toFixed(1) : '—',
+          md.score_normal != null ? md.score_normal.toFixed(1) : '—',
+          dettaglioLink(md),
+        ]),
+      }));
     }
 
     document.getElementById('main').style.display = 'block';

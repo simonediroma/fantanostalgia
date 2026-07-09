@@ -8,12 +8,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/shared/design-system.css">
   <link rel="stylesheet" href="/coach/css/coach.css">
+  <script src="/shared/design-system.js"></script>
 </head>
 <body>
 
 <div class="topbar">
   <span class="logo">⚽ FantaNostalgia <span class="ds-badge ds-badge--default">allenatore</span></span>
-  <div class="row-gap">
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="topbarActions">☰</button>
+  <div class="row-gap topbar-actions" id="topbarActions">
     <span id="userName" style="font-size:0.8rem;color:var(--muted)"></span>
     <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
@@ -31,10 +33,18 @@
 <script>
 'use strict';
 
-function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+const DS = window.FantaNostalgiaDS;
+
+// Mobile nav toggle
+(function () {
+  const btn = document.getElementById('navToggle');
+  const nav = document.getElementById('topbarActions');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', () => {
+    const open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+})();
 
 async function init() {
   let me;
@@ -55,30 +65,49 @@ async function init() {
   const list = document.getElementById('leagueList');
 
   if (!me.leagues || me.leagues.length === 0) {
-    list.innerHTML = '<div class="ds-empty-state"><div class="ds-empty-state__message">Nessuna lega trovata. Chiedi al presidente di inviarti un link.</div></div>';
+    list.replaceChildren(DS.EmptyState({ message: 'Nessuna lega trovata. Chiedi al presidente di inviarti un link.' }));
     return;
   }
 
-  list.innerHTML = me.leagues.map(l => {
-    const locked = l.assignments_locked ? '<span class="ds-badge ds-badge--green">Bloccato</span>' : '';
-    const closed = l.associations_closed ? '<span class="ds-badge ds-badge--red">Periodo chiuso</span>' : '';
-    return `
-      <a href="/coach/lega/${l.league_id}" style="text-decoration:none">
-        <div class="league-card">
-          <div>
-            <div class="league-name">${esc(l.league_name)} ${locked}${closed}</div>
-            <div class="league-team">Squadra: ${esc(l.team_name)}</div>
-          </div>
-          <div style="display:flex;gap:0.5rem">
-            <button class="ds-button ds-button--default" style="font-size:0.5rem">Rosa →</button>
-            <a href="/coach/lega/${l.league_id}/punteggi" style="text-decoration:none" onclick="event.stopPropagation()">
-              <button class="ds-button ds-button--secondary" style="font-size:0.5rem">Punteggi</button>
-            </a>
-          </div>
-        </div>
-      </a>
-    `;
-  }).join('');
+  list.replaceChildren(...me.leagues.map(l => {
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'league-name';
+    nameDiv.append(`${l.league_name} `);
+    if (l.assignments_locked) nameDiv.appendChild(DS.Badge({ children: 'Bloccato', variant: 'green' }));
+    if (l.associations_closed) nameDiv.appendChild(DS.Badge({ children: 'Periodo chiuso', variant: 'red' }));
+
+    const teamDiv = document.createElement('div');
+    teamDiv.className = 'league-team';
+    teamDiv.textContent = `Squadra: ${l.team_name}`;
+
+    const infoDiv = document.createElement('div');
+    infoDiv.append(nameDiv, teamDiv);
+
+    const rosaBtn = DS.Button({ children: 'Rosa →', variant: 'default' });
+    rosaBtn.style.fontSize = '0.5rem';
+
+    const punteggiBtn = DS.Button({ children: 'Punteggi', variant: 'secondary' });
+    punteggiBtn.style.fontSize = '0.5rem';
+    const punteggiLink = document.createElement('a');
+    punteggiLink.href = `/coach/lega/${l.league_id}/punteggi`;
+    punteggiLink.style.textDecoration = 'none';
+    punteggiLink.addEventListener('click', e => e.stopPropagation());
+    punteggiLink.appendChild(punteggiBtn);
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.style.cssText = 'display:flex;gap:0.5rem';
+    actionsDiv.append(rosaBtn, punteggiLink);
+
+    const card = document.createElement('div');
+    card.className = 'league-card';
+    card.append(infoDiv, actionsDiv);
+
+    const cardLink = document.createElement('a');
+    cardLink.href = `/coach/lega/${l.league_id}`;
+    cardLink.style.textDecoration = 'none';
+    cardLink.appendChild(card);
+    return cardLink;
+  }));
 }
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
