@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-09
 **Branch attivo:** `claude/task-25-responsive-followup`
-**PR in corso:** nessuna — branch pushato, PR non ancora aperta (follow-up al task 25, in attesa di richiesta esplicita). Nota: task 25 (PR #80), task 26 (PR #81) e task 27 (PR #82) sono stati mergiati da Simone direttamente.
+**PR in corso:** [#84](https://github.com/simonediroma/fantanostalgia/pull/84) — follow-up al task 25 (Panel, hamburger, tabelle dense), creata dall'utente da Claude Code UI. Nota: task 25 (PR #80), task 26 (PR #81) e task 27 (PR #82) sono stati mergiati da Simone direttamente.
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
