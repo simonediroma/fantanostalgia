@@ -41,7 +41,7 @@
 {% if scores %}
 <h2 style="margin-top:1.5rem">Punteggi</h2>
 <div class="ds-table-wrap" style="margin-bottom:2rem">
-  <table class="ds-table">
+  <table class="ds-table ds-table-stack">
     <thead>
       <tr>
         <th>#</th>
@@ -53,10 +53,10 @@
     <tbody>
       {% for s in scores %}
       <tr>
-        <td class="rank">{{ loop.index }}</td>
-        <td>{{ s.manager_name }}</td>
-        <td class="score">{{ '%.1f'|format(s.score_nostalgia or 0) }}</td>
-        <td class="score">
+        <td class="rank" data-label="#">{{ loop.index }}</td>
+        <td data-label="Manager">{{ s.manager_name }}</td>
+        <td class="score" data-label="FantaNostalgia">{{ '%.1f'|format(s.score_nostalgia or 0) }}</td>
+        <td class="score" data-label="Normale">
           {% if s.score_normal is not none %}{{ '%.1f'|format(s.score_normal) }}{% else %}—{% endif %}
         </td>
       </tr>
@@ -71,7 +71,7 @@
 {% if gran_premi %}
 <h2 style="margin-top:1.5rem">🏆 Gran Premi</h2>
 <div class="ds-table-wrap" style="margin-bottom:2rem">
-  <table class="ds-table">
+  <table class="ds-table ds-table-stack">
     <thead>
       <tr>
         <th>Criterio</th>
@@ -83,13 +83,13 @@
     <tbody>
       {% for gp in gran_premi %}
       <tr>
-        <td>{{ gp.criterion_label }}</td>
-        <td class="historic-name" style="text-align:left">
+        <td data-label="Criterio">{{ gp.criterion_label }}</td>
+        <td class="historic-name" style="text-align:left" data-label="In palio">
           {{ gp.prize_name }} <span class="ds-badge ds-badge--cyan">{{ gp.prize_role }}</span>
           <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ gp.prize_team }}</span>
         </td>
-        <td>{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
-        <td>{% if gp.winner_name %}{{ gp.winner_name }}{% else %}—{% endif %}</td>
+        <td data-label="Stato">{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
+        <td data-label="Vincitore">{% if gp.winner_name %}{{ gp.winner_name }}{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -110,7 +110,7 @@
 <div id="tab-mgr{{ loop.index }}" class="ds-tabs__panel" {% if not loop.first %}hidden{% endif %}>
   {% if mgr.starters %}
   <div class="ds-table-wrap">
-    <table class="ds-table">
+    <table class="ds-table ds-table-stack">
       <thead>
         <tr>
           <th>Ruolo</th>
@@ -123,21 +123,21 @@
       <tbody>
         {% for p in mgr.starters %}
         <tr>
-          <td><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
-          <td>
+          <td data-label="Ruolo"><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
+          <td data-label="Giocatore">
             {{ p.player_name }}
             <span style="color:var(--muted);font-size:0.8rem"> {{ p.current_team }}</span>
           </td>
-          <td class="historic-name" style="text-align:left">
+          <td class="historic-name" style="text-align:left" data-label="Alter Ego">
             {% if p.alter_ego_name %}
               {{ p.alter_ego_name }}
               <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ p.alter_ego_team }}</span>
             {% else %}—{% endif %}
           </td>
-          <td class="score">
+          <td class="score" data-label="Voto storico">
             {% if p.rating is not none %}{{ '%.1f'|format(p.rating) }}{% else %}sv{% endif %}
           </td>
-          <td class="score">
+          <td class="score" data-label="Punteggio">
             {% if p.ns_score is not none %}{{ '%.1f'|format(p.ns_score) }}{% else %}—{% endif %}
           </td>
         </tr>
@@ -153,16 +153,16 @@
       Panchina ({{ mgr.bench|length }})
     </summary>
     <div class="ds-table-wrap" style="margin-top:0.5rem">
-      <table class="ds-table">
+      <table class="ds-table ds-table-stack">
         <thead>
           <tr><th>Ruolo</th><th>Giocatore</th><th>Alter Ego</th></tr>
         </thead>
         <tbody>
           {% for p in mgr.bench %}
           <tr>
-            <td><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
-            <td>{{ p.player_name }}</td>
-            <td class="historic-name" style="text-align:left">
+            <td data-label="Ruolo"><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
+            <td data-label="Giocatore">{{ p.player_name }}</td>
+            <td class="historic-name" style="text-align:left" data-label="Alter Ego">
               {% if p.alter_ego_name %}{{ p.alter_ego_name }}{% else %}—{% endif %}
             </td>
           </tr>
