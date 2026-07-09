@@ -29,7 +29,7 @@
 <div id="tab-nostalgia" class="ds-tabs__panel">
   {% if nostalgia %}
   <div class="ds-table-wrap">
-    <table class="ds-table">
+    <table class="ds-table ds-table-stack">
       <thead>
         <tr>
           <th>#</th>
@@ -41,10 +41,10 @@
       <tbody>
         {% for row in nostalgia %}
         <tr>
-          <td class="rank">{{ row.rank or '—' }}</td>
-          <td>{{ row.manager }}</td>
-          <td class="total">{{ '%.1f'|format(row.total or 0) }}</td>
-          <td class="score">
+          <td class="rank" data-label="#">{{ row.rank or '—' }}</td>
+          <td data-label="Manager">{{ row.manager }}</td>
+          <td class="total" data-label="Totale">{{ '%.1f'|format(row.total or 0) }}</td>
+          <td class="score" data-label="Ultima giornata">
             {% if row.last_matchday is not none %}
               {{ '%.1f'|format(row.last_matchday) }}
             {% else %}—{% endif %}
@@ -62,7 +62,7 @@
 <div id="tab-normale" class="ds-tabs__panel" hidden>
   {% if normal %}
   <div class="ds-table-wrap">
-    <table class="ds-table">
+    <table class="ds-table ds-table-stack">
       <thead>
         <tr>
           <th>#</th>
@@ -74,10 +74,10 @@
       <tbody>
         {% for row in normal %}
         <tr>
-          <td class="rank">{{ row.rank or '—' }}</td>
-          <td>{{ row.manager }}</td>
-          <td class="total">{{ '%.1f'|format(row.total or 0) }}</td>
-          <td class="score">
+          <td class="rank" data-label="#">{{ row.rank or '—' }}</td>
+          <td data-label="Manager">{{ row.manager }}</td>
+          <td class="total" data-label="Totale">{{ '%.1f'|format(row.total or 0) }}</td>
+          <td class="score" data-label="Ultima giornata">
             {% if row.last_matchday is not none %}
               {{ '%.1f'|format(row.last_matchday) }}
             {% else %}—{% endif %}
@@ -95,7 +95,7 @@
 <div id="tab-h2h" class="ds-tabs__panel" hidden>
   {% if h2h %}
   <div class="ds-table-wrap">
-    <table class="ds-table">
+    <table class="ds-table ds-table-stack">
       <thead>
         <tr>
           <th>#</th>
@@ -113,16 +113,16 @@
       <tbody>
         {% for row in h2h %}
         <tr>
-          <td class="rank">{{ row.rank }}</td>
-          <td>{{ row.manager }}</td>
-          <td>{{ row.played }}</td>
-          <td>{{ row.wins }}</td>
-          <td>{{ row.draws }}</td>
-          <td>{{ row.losses }}</td>
-          <td class="score">{{ row.gf }}</td>
-          <td class="score">{{ row.gs }}</td>
-          <td class="score">{{ '%+d'|format(row.gdr) }}</td>
-          <td class="total">{{ row.points }}</td>
+          <td class="rank" data-label="#">{{ row.rank }}</td>
+          <td data-label="Manager">{{ row.manager }}</td>
+          <td data-label="Giocate">{{ row.played }}</td>
+          <td data-label="Vittorie">{{ row.wins }}</td>
+          <td data-label="Pareggi">{{ row.draws }}</td>
+          <td data-label="Sconfitte">{{ row.losses }}</td>
+          <td class="score" data-label="Gol fatti">{{ row.gf }}</td>
+          <td class="score" data-label="Gol subiti">{{ row.gs }}</td>
+          <td class="score" data-label="Diff. reti">{{ '%+d'|format(row.gdr) }}</td>
+          <td class="total" data-label="Punti">{{ row.points }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -145,7 +145,7 @@
 {% if all_draws %}
 <h2 style="margin-top:2rem">Archivio giornate</h2>
 <div class="ds-table-wrap" style="margin-top:0.75rem">
-  <table class="ds-table">
+  <table class="ds-table ds-table-stack">
     <thead>
       <tr>
         <th>Giornata</th>
@@ -157,10 +157,10 @@
     <tbody>
       {% for d in all_draws %}
       <tr>
-        <td class="rank">G{{ d.matchday_current }}</td>
-        <td style="color:var(--muted)">G{{ d.matchday_historic }} — {{ league.season_historic }}</td>
-        <td style="color:var(--muted)">{{ d.drawn_at_fmt or '—' }}</td>
-        <td><a href="/lega/{{ league.id }}/giornata/{{ d.matchday_current }}" class="ds-button ds-button--default">Dettaglio</a></td>
+        <td class="rank" data-label="Giornata">G{{ d.matchday_current }}</td>
+        <td style="color:var(--muted)" data-label="Storica">G{{ d.matchday_historic }} — {{ league.season_historic }}</td>
+        <td style="color:var(--muted)" data-label="Data sorteggio">{{ d.drawn_at_fmt or '—' }}</td>
+        <td data-label=""><a href="/lega/{{ league.id }}/giornata/{{ d.matchday_current }}" class="ds-button ds-button--default">Dettaglio</a></td>
       </tr>
       {% endfor %}
     </tbody>

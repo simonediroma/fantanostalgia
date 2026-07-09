@@ -55,9 +55,7 @@
 .step-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .step {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  box-shadow: 3px 3px 0 #000;
+  margin-bottom: 0;
   padding: 0.85rem 1rem;
   display: flex;
   gap: 0.85rem;
@@ -87,13 +85,6 @@
 
 /* ── Auth box ─────────────────────────────────────────────── */
 .auth-section h2 { margin-bottom: 1rem; }
-
-.auth-card {
-  background: var(--surface);
-  border: 2px solid var(--accent);
-  box-shadow: 4px 4px 0 #000;
-  padding: 1.25rem;
-}
 
 .auth-card .ds-tabs__nav {
   margin-bottom: 1.25rem;
@@ -211,28 +202,28 @@
   <section class="how-section">
     <h2>Come funziona</h2>
     <div class="step-list">
-      <div class="step">
+      <div class="step ds-panel ds-panel--default">
         <span class="step-num">01</span>
         <div class="step-body">
           <strong>Stessa Rosa</strong>
           <span>FantaNostalgia usa la stessa rosa del tuo fantacalcio normale. Nessun draft separato — chi compri all'asta vale in entrambe le leghe.</span>
         </div>
       </div>
-      <div class="step">
+      <div class="step ds-panel ds-panel--default">
         <span class="step-num">02</span>
         <div class="step-body">
           <strong>L'Apertura Buste</strong>
           <span>Dopo il draft, ogni tuo giocatore riceve un alter ego storico estratto a caso per ruolo (P→P, D→D…). L'abbinamento è segreto fino all'apertura buste: la riserva da 5 crediti potrebbe avere Ronaldo il Fenomeno.</span>
         </div>
       </div>
-      <div class="step">
+      <div class="step ds-panel ds-panel--default">
         <span class="step-num">03</span>
         <div class="step-body">
           <strong>Il Sorteggio di Giornata</strong>
           <span>Ogni settimana viene estratta una giornata della stagione storica. Il punteggio dipende dai voti che quell'alter ego ha preso in quella precisa partita — non da come gioca oggi.</span>
         </div>
       </div>
-      <div class="step">
+      <div class="step ds-panel ds-panel--default">
         <span class="step-num">04</span>
         <div class="step-body">
           <strong>Classifica Parallela</strong>
@@ -245,7 +236,7 @@
   <!-- Login / Register -->
   <section class="auth-section">
     <h2>Area Allenatori</h2>
-    <div class="auth-card">
+    <div class="auth-card ds-panel ds-panel--accent">
       <div id="authMsg" class="ds-message" hidden></div>
 
       <div class="ds-tabs__nav" id="authTabs">
@@ -297,7 +288,7 @@
   <h2>Leghe attive</h2>
   <div class="league-list">
     {% for league in leagues %}
-    <div class="league-card">
+    <div class="league-card ds-panel ds-panel--default">
       <h3>{{ league.name }}</h3>
       <div class="seasons">
         Stagione corrente: {{ league.season_current }} &nbsp;·&nbsp;
