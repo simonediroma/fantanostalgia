@@ -34,6 +34,8 @@ class LeagueCreate(BaseModel):
     season_current: str
     season_historic: str
     budget: int = 500
+    max_manager: Optional[int] = None
+    platform: Optional[str] = None
 
     @field_validator("season_current", "season_historic")
     @classmethod
@@ -53,12 +55,21 @@ class LeagueCreate(BaseModel):
             raise ValueError("Il budget deve essere almeno 100")
         return v
 
+    @field_validator("max_manager")
+    @classmethod
+    def validate_max_manager(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("Il numero massimo di manager deve essere almeno 1")
+        return v
+
 
 class LeagueUpdate(BaseModel):
     name: Optional[str] = None
     season_current: Optional[str] = None
     season_historic: Optional[str] = None
     budget: Optional[int] = None
+    max_manager: Optional[int] = None
+    platform: Optional[str] = None
 
     @field_validator("season_current", "season_historic")
     @classmethod
@@ -74,6 +85,13 @@ class LeagueUpdate(BaseModel):
             raise ValueError("Il budget deve essere almeno 100")
         return v
 
+    @field_validator("max_manager")
+    @classmethod
+    def validate_max_manager(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("Il numero massimo di manager deve essere almeno 1")
+        return v
+
 
 def _league_row_to_dict(row) -> dict:
     return dict(row)
@@ -84,9 +102,7 @@ def _league_row_to_dict(row) -> dict:
 @router.get("/league")
 def list_leagues():
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT id, name, season_current, season_historic FROM league ORDER BY id"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM league ORDER BY id").fetchall()
     return [_league_row_to_dict(r) for r in rows]
 
 
@@ -105,8 +121,9 @@ def get_league(league_id: int):
 def create_league(body: LeagueCreate, _: str = Depends(get_current_admin)):
     with get_db() as conn:
         cur = conn.execute(
-            "INSERT INTO league (name, season_current, season_historic, budget) VALUES (?, ?, ?, ?)",
-            (body.name, body.season_current, body.season_historic, body.budget),
+            """INSERT INTO league (name, season_current, season_historic, budget, max_manager, platform)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (body.name, body.season_current, body.season_historic, body.budget, body.max_manager, body.platform),
         )
         league_id = cur.lastrowid
         row = conn.execute("SELECT * FROM league WHERE id = ?", (league_id,)).fetchone()
@@ -131,13 +148,15 @@ def update_league(league_id: int, body: LeagueUpdate, _: str = Depends(get_curre
 
         conn.execute(
             """UPDATE league
-               SET name = ?, season_current = ?, season_historic = ?, budget = ?
+               SET name = ?, season_current = ?, season_historic = ?, budget = ?, max_manager = ?, platform = ?
                WHERE id = ?""",
             (
                 body.name or current["name"],
                 new_season_current,
                 new_season_historic,
                 body.budget if body.budget is not None else current["budget"],
+                body.max_manager if body.max_manager is not None else current["max_manager"],
+                body.platform if body.platform is not None else current["platform"],
                 league_id,
             ),
         )
@@ -209,9 +228,15 @@ def create_manager(
     _: str = Depends(get_current_admin),
 ):
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM league WHERE id = ?", (league_id,)).fetchone()
+        row = conn.execute("SELECT id, max_manager FROM league WHERE id = ?", (league_id,)).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Lega non trovata")
+        if row["max_manager"] is not None:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM manager WHERE league_id = ?", (league_id,)
+            ).fetchone()[0]
+            if count >= row["max_manager"]:
+                raise HTTPException(status_code=422, detail="Numero massimo di manager raggiunto")
         cur = conn.execute(
             "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
             (league_id, body.name, body.team_name),

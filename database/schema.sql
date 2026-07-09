@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS league (
     season_current TEXT NOT NULL,
     season_historic TEXT NOT NULL,
     budget INTEGER DEFAULT 500,
+    max_manager INTEGER,
+    platform TEXT,
     buste_aperte INTEGER DEFAULT 0,
     buste_aperte_at TIMESTAMP,
     mapping_seed TEXT,
