@@ -118,6 +118,13 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE league ADD COLUMN {_col} {_def}")
             except sqlite3.OperationalError:
                 pass
+        for _col, _def in [
+            ("is_admin", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE user ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS h2h_match (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,6 +139,7 @@ def init_db() -> None:
                 email TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
+                is_admin INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS league_invite (
@@ -162,6 +170,14 @@ def init_db() -> None:
                 winner_manager_id INTEGER REFERENCES manager(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 resolved_at TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS admin_elevation_request (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER REFERENCES user(id),
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+                requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP,
+                resolved_by TEXT
             );
         """)
         conn.commit()

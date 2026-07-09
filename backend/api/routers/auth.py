@@ -31,15 +31,48 @@ def _verify_session_cookie(token: str) -> str:
     return username.decode()
 
 
-def get_current_admin(session: str | None = Cookie(default=None, alias=COOKIE_NAME)) -> str:
-    if not session:
-        raise HTTPException(status_code=401, detail="Non autenticato")
-    try:
-        return _verify_session_cookie(session)
-    except SignatureExpired:
-        raise HTTPException(status_code=401, detail="Sessione scaduta")
-    except BadSignature:
-        raise HTTPException(status_code=401, detail="Sessione non valida")
+USER_COOKIE_NAME = "user_session"
+
+
+def _make_user_session_cookie(user_id: int) -> str:
+    return _signer.sign(f"user:{user_id}").decode()
+
+
+def _verify_user_session_cookie(token: str) -> int:
+    max_age = SESSION_EXPIRE_HOURS * 3600
+    raw = _signer.unsign(token, max_age=max_age).decode()
+    if not raw.startswith("user:"):
+        raise BadSignature("not a user token")
+    return int(raw[5:])
+
+
+def get_current_admin(
+    session: str | None = Cookie(default=None, alias=COOKIE_NAME),
+    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
+) -> str:
+    if session:
+        try:
+            return _verify_session_cookie(session)
+        except SignatureExpired:
+            raise HTTPException(status_code=401, detail="Sessione scaduta")
+        except BadSignature:
+            raise HTTPException(status_code=401, detail="Sessione non valida")
+    if user_session:
+        try:
+            user_id = _verify_user_session_cookie(user_session)
+        except SignatureExpired:
+            raise HTTPException(status_code=401, detail="Sessione scaduta")
+        except (BadSignature, ValueError):
+            raise HTTPException(status_code=401, detail="Sessione non valida")
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT email, COALESCE(is_admin, 0) AS is_admin FROM user WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+        if row and row["is_admin"]:
+            return row["email"]
+        raise HTTPException(status_code=403, detail="Permessi amministratore richiesti")
+    raise HTTPException(status_code=401, detail="Non autenticato")
 
 
 def get_current_admin_or_bearer(
@@ -61,21 +94,6 @@ def get_current_admin_or_bearer(
     raise HTTPException(status_code=401, detail="Non autenticato")
 
 
-USER_COOKIE_NAME = "user_session"
-
-
-def _make_user_session_cookie(user_id: int) -> str:
-    return _signer.sign(f"user:{user_id}").decode()
-
-
-def _verify_user_session_cookie(token: str) -> int:
-    max_age = SESSION_EXPIRE_HOURS * 3600
-    raw = _signer.unsign(token, max_age=max_age).decode()
-    if not raw.startswith("user:"):
-        raise BadSignature("not a user token")
-    return int(raw[5:])
-
-
 def get_current_user(
     session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
 ) -> dict:
@@ -89,7 +107,8 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Sessione non valida")
     with get_db() as conn:
         row = conn.execute(
-            "SELECT id, email, name FROM user WHERE id = ?", (user_id,)
+            "SELECT id, email, name, COALESCE(is_admin, 0) AS is_admin FROM user WHERE id = ?",
+            (user_id,),
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=401, detail="Utente non trovato")
@@ -229,10 +248,16 @@ def user_me(user: dict = Depends(get_current_user)):
             """,
             (user["id"],),
         ).fetchall()
+        elevation = conn.execute(
+            "SELECT status FROM admin_elevation_request WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+            (user["id"],),
+        ).fetchone()
     return {
         "id": user["id"],
         "name": user["name"],
         "email": user["email"],
+        "is_admin": bool(user["is_admin"]),
+        "elevation_status": elevation["status"] if elevation else None,
         "leagues": [dict(r) for r in rows],
     }
 
@@ -260,3 +285,96 @@ def user_join_league(body: dict, user: dict = Depends(get_current_user)):
             (user["id"], invite["manager_id"]),
         )
     return {"detail": "Unito alla lega con successo"}
+
+
+# ── Elevazione coach → admin ─────────────────────────────────────────────────
+
+def _elevation_request_dict(row) -> dict:
+    return {
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "name": row["name"],
+        "email": row["email"],
+        "status": row["status"],
+        "requested_at": row["requested_at"],
+        "resolved_at": row["resolved_at"],
+        "resolved_by": row["resolved_by"],
+    }
+
+
+@router.post("/user/elevation-request", status_code=201)
+def request_elevation(user: dict = Depends(get_current_user)):
+    if user["is_admin"]:
+        raise HTTPException(status_code=400, detail="Sei già amministratore")
+    with get_db() as conn:
+        pending = conn.execute(
+            "SELECT id FROM admin_elevation_request WHERE user_id = ? AND status = 'pending'",
+            (user["id"],),
+        ).fetchone()
+        if pending is not None:
+            raise HTTPException(status_code=400, detail="Hai già una richiesta in attesa")
+        cur = conn.execute(
+            "INSERT INTO admin_elevation_request (user_id) VALUES (?)", (user["id"],)
+        )
+        row = conn.execute(
+            """
+            SELECT r.id, r.user_id, u.name, u.email, r.status, r.requested_at, r.resolved_at, r.resolved_by
+            FROM admin_elevation_request r JOIN user u ON u.id = r.user_id
+            WHERE r.id = ?
+            """,
+            (cur.lastrowid,),
+        ).fetchone()
+    return _elevation_request_dict(row)
+
+
+@router.get("/admin/elevation-requests")
+def list_elevation_requests(_: str = Depends(get_current_admin)):
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT r.id, r.user_id, u.name, u.email, r.status, r.requested_at, r.resolved_at, r.resolved_by
+            FROM admin_elevation_request r JOIN user u ON u.id = r.user_id
+            ORDER BY r.requested_at DESC
+            """
+        ).fetchall()
+    return [_elevation_request_dict(r) for r in rows]
+
+
+def _resolve_elevation_request(request_id: int, approve: bool, admin: str) -> dict:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT id, user_id, status FROM admin_elevation_request WHERE id = ?",
+            (request_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Richiesta non trovata")
+        if row["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Richiesta già evasa")
+
+        new_status = "approved" if approve else "rejected"
+        conn.execute(
+            "UPDATE admin_elevation_request SET status = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?",
+            (new_status, admin, request_id),
+        )
+        if approve:
+            conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (row["user_id"],))
+
+        updated = conn.execute(
+            """
+            SELECT r.id, r.user_id, u.name, u.email, r.status, r.requested_at, r.resolved_at, r.resolved_by
+            FROM admin_elevation_request r JOIN user u ON u.id = r.user_id
+            WHERE r.id = ?
+            """,
+            (request_id,),
+        ).fetchone()
+    return _elevation_request_dict(updated)
+
+
+@router.post("/admin/elevation-requests/{request_id}/approve")
+def approve_elevation_request(request_id: int, admin: str = Depends(get_current_admin)):
+    return _resolve_elevation_request(request_id, approve=True, admin=admin)
+
+
+@router.post("/admin/elevation-requests/{request_id}/reject")
+def reject_elevation_request(request_id: int, admin: str = Depends(get_current_admin)):
+    return _resolve_elevation_request(request_id, approve=False, admin=admin)
