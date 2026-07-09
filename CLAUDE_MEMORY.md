@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-09
 **Branch attivo:** `claude/task-26-ds-factories-followup`
-**PR in corso:** nessuna — branch pushato, PR non ancora aperta (follow-up al task 26, in attesa di richiesta esplicita). Nota: task 25 (PR #80), task 26 (PR #81) e task 27 (PR #82) sono stati mergiati da Simone direttamente; la #84 (follow-up task 25) è stata mergiata.
+**PR in corso:** [#85](https://github.com/simonediroma/fantanostalgia/pull/85) — follow-up al task 26 (componentizzazione JS factory + hamburger mobile), aperta dalla UI Claude Code, non ancora mergiata. Nota: task 25 (PR #80), task 26 (PR #81) e task 27 (PR #82) sono stati mergiati da Simone direttamente; la #84 (follow-up task 25) è stata mergiata.
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
