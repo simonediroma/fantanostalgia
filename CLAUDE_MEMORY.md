@@ -18,6 +18,15 @@ Verificato end-to-end con Playwright headless contro un server locale (non i tes
 
 Non verificato: comportamento su mobile/viewport stretto per le 2 nuove pagine (non modificate le regole responsive esistenti — riusano `.page`/`.ds-panel`/`.ds-table` già responsive dalle sessioni 25-28, nessuna ragione per attendersi regressioni ma non testato esplicitamente questa volta per limiti di tempo).
 
+**Follow-up nella stessa sessione — ricarica formazioni dal dettaglio giornata:**
+Richiesta utente successiva: nel dettaglio di una singola giornata (`pg-giornata-detail`), poter ricaricare il file Excel delle formazioni senza tornare all'elenco. Aggiunto un pannello collassabile (`<details id="gtReloadDetails">`, pattern coerente con "Dati storici (avanzato)" della dashboard) con dropzone + bottone dedicati (`gtDetailDropZoneSlot`/`gtDetailUploadBtn`), che riusa l'endpoint di upload già esistente `POST /admin/league/{id}/lineups/{matchday}` (idempotente, nessun nuovo endpoint) passando `detailMatchday` fisso invece di un campo numerico libero.
+
+Vincolo aggiunto dall'utente a metà implementazione: **il ricaricamento va bloccato se per quella giornata esiste già un Gran Premio risolto** (il vincitore ha già ricevuto il premio in base ai dati correnti — ricaricare formazioni/voti dopo la risoluzione creerebbe un disallineamento tra l'esito assegnato e i dati sottostanti). Applicato **lato backend** in `upload_lineups` (`backend/api/routers/lineups.py`) con una query su `gran_premio WHERE status = 'resolved'` prima di processare il file — 400 esplicito se presente. Scelta deliberata di mettere il check nell'endpoint condiviso (non solo nel nuovo pannello frontend) perché lo stesso endpoint è usato anche dallo Step 4 del wizard e dall'upload nell'elenco Giornate: il vincolo deve valere per qualunque re-upload dello stesso `matchday`, non solo per questa nuova UI. Frontend: `gtUpdateReloadState()` disabilita il pannello (bottone disabled + testo "🔒 non disponibile") controllando lo stato dei Gran Premi già caricato da `loadGtGpList()` (nessuna chiamata API aggiuntiva) — difesa in profondità, il backend è comunque la fonte di verità.
+
+Nuovi test: 4 in `backend/tests/test_lineups.py` (upload bloccato con GP risolto sulla stessa giornata, upload consentito su un'altra giornata della stessa lega, upload consentito con GP ancora attivo/non risolto) — 194 passed totali, stessi fallimenti pre-esistenti non correlati.
+
+Verificato end-to-end con Playwright headless: creata una lega con una giornata sorteggiata+calcolata+Gran Premio risolto (inserito direttamente via query SQL, bypassando il flusso di risoluzione completo — non era necessario testare `resolve_gran_premio` stesso, già coperto da `test_granpremio.py`) e una seconda giornata senza Gran Premio — il pannello di ricarica risulta bloccato (bottone disabled, testo con 🔒) sulla prima e utilizzabile sulla seconda; upload reale eseguito con successo sulla seconda tramite file chooser Playwright, messaggio di conferma corretto. Nessun errore console/JS.
+
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
 ---
