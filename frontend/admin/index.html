@@ -91,7 +91,10 @@
       <div id="pg-manage" class="page">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
           <h2 id="manageLegaNome">Gestione Lega</h2>
-          <button class="ds-button ds-button--secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
+          <div style="display:flex;gap:0.5rem">
+            <button class="ds-button ds-button--secondary" id="openGiornateBtn" style="font-size:0.8rem">📅 Giornate</button>
+            <button class="ds-button ds-button--secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
+          </div>
         </div>
 
         <!-- Step indicator (montato da DS.WizardSteps) -->
@@ -331,6 +334,110 @@
         </div>
       </div>
 
+      <!-- Giornate — vista di gestione lega (elenco) ─────────────────────── -->
+      <div id="pg-giornate" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2 id="giornateLegaNome">Giornate</h2>
+          <div style="display:flex;gap:0.5rem">
+            <button class="ds-button ds-button--secondary" id="giornateToSetupBtn" style="font-size:0.8rem">⚙ Setup</button>
+            <button class="ds-button ds-button--secondary" id="giornateToDashBtn" style="font-size:0.8rem">← Leghe</button>
+          </div>
+        </div>
+
+        <div id="giornateListMsg"></div>
+
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Carica formazioni</h4>
+          <div class="ds-help-box ds-help-box--info">
+            <span class="ds-help-box__icon" aria-hidden="true">i</span>
+            <div class="ds-help-box__body">
+              <p class="ds-help-box__text">Importa i risultati di una nuova giornata: voti, titolari e panchina di ogni squadra.</p>
+            </div>
+          </div>
+          <div class="ds-file-spec">
+            <div class="ds-file-spec__header">
+              <strong class="ds-file-spec__title">Formato atteso</strong>
+              <span class="ds-file-spec__format">.xlsx</span>
+            </div>
+            <p class="ds-file-spec__structure">Foglio per giornata (es. "Formazioni 36 giornata"), due match affiancati (colonne A-E e G-K, risultato in F). Colonne: Ruolo | Calciatore | Voto_no_bonus | Voto_con_bonus. "Panchina" separa i titolari; "TOTALE: XX,YY" chiude la squadra; "-" indica un giocatore senza voto.</p>
+            <a class="ds-file-spec__link" href="/static/examples/Formazioni_esempio.xlsx" download>Scarica esempio →</a>
+          </div>
+          <div class="col-gap mt-sm">
+            <label>Giornata corrente</label>
+            <input type="number" id="gtUploadGiornata" min="1" placeholder="es. 1" style="width:120px">
+            <div id="gtDropZoneSlot"></div>
+            <button id="gtUploadBtn" class="ds-button ds-button--default">Carica formazioni</button>
+          </div>
+        </div>
+
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Giornate caricate</h4>
+          <div id="giornateList" class="mt-sm"></div>
+        </div>
+      </div>
+
+      <!-- Giornata — dettaglio ─────────────────────────────────────────────── -->
+      <div id="pg-giornata-detail" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2 id="giornataDetailTitle">Giornata</h2>
+          <button class="ds-button ds-button--secondary" id="giornataDetailBackBtn" style="font-size:0.8rem">← Giornate</button>
+        </div>
+
+        <div id="giornataDetailMsg"></div>
+        <div id="giornataDetailStatus"></div>
+
+        <details id="gtReloadDetails">
+          <summary>↻ Ricarica formazioni di questa giornata</summary>
+          <div class="ds-panel ds-panel--default" style="margin-top:0.5rem">
+            <div class="ds-help-box ds-help-box--warn">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Sovrascrive titolari, panchina e voti già caricati per questa giornata. Se sorteggio o punteggi sono già stati calcolati, valuta di ricalcolarli dopo il ricaricamento.</p>
+              </div>
+            </div>
+            <div class="col-gap mt-sm">
+              <div id="gtDetailDropZoneSlot"></div>
+              <button id="gtDetailUploadBtn" class="ds-button ds-button--default">Ricarica formazioni</button>
+            </div>
+          </div>
+        </details>
+
+        <div id="giornataDetailResults"></div>
+
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Gran Premi</h4>
+          <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
+            Massimo 2 a giornata. Scegli un criterio e il giocatore storico in palio (dal pool dei liberi), poi risolvi per assegnarlo al vincitore.
+          </p>
+          <div class="col-gap mt-sm" style="max-width:540px">
+            <label>Criterio</label>
+            <select id="gtGpCriterion"
+              style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem">
+              <option value="best_score">Miglior punteggio di giornata</option>
+              <option value="worst_defense">Peggior difesa</option>
+              <option value="best_player">Miglior giocatore</option>
+              <option value="worst_player">Peggior giocatore</option>
+            </select>
+            <label>Giocatore in palio</label>
+            <div class="row-gap">
+              <select id="gtGpRole"
+                style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem;width:90px">
+                <option value="">Tutti</option>
+                <option value="P">P</option>
+                <option value="D">D</option>
+                <option value="C">C</option>
+                <option value="A">A</option>
+              </select>
+              <select id="gtGpPrize"
+                style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem;flex:1;min-width:180px"></select>
+              <button class="ds-button ds-button--secondary" id="gtGpRefreshPrizeBtn" style="font-size:0.72rem" title="Aggiorna liberi">↻</button>
+            </div>
+            <button id="gtGpCreateBtn" class="ds-button ds-button--default">Crea Gran Premio</button>
+          </div>
+          <div id="gtGpList" class="mt-md"></div>
+        </div>
+      </div>
+
     </div><!-- .content -->
   </div><!-- .app-body -->
 </div><!-- #pg-app -->
@@ -406,7 +513,7 @@ function showApp(username) {
 }
 
 function showPage(id) {
-  ['pg-dashboard', 'pg-league-form', 'pg-manage'].forEach(pid => {
+  ['pg-dashboard', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail'].forEach(pid => {
     const el = document.getElementById(pid);
     if (el) el.classList.toggle('active', pid === id);
   });
@@ -1308,6 +1415,418 @@ document.getElementById('gpCreateBtn').addEventListener('click', async () => {
     await loadGpPrizeOptions();
   } catch (err) {
     showMsg('giornataMsg', err.message, true);
+  }
+});
+
+// ── Giornate — vista di gestione lega (elenco + dettaglio) ────────────────────
+let gtUploadFile = null;
+let gtReloadFile = null;
+let detailMatchday = null;
+
+document.getElementById('openGiornateBtn').addEventListener('click', openGiornateTab);
+document.getElementById('giornateToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
+document.getElementById('giornateToSetupBtn').addEventListener('click', () => showPage('pg-manage'));
+document.getElementById('giornataDetailBackBtn').addEventListener('click', () => showPage('pg-giornate'));
+
+async function openGiornateTab() {
+  const league = allLeagues.find(l => l.id === currentLeagueId);
+  document.getElementById('giornateLegaNome').textContent = league ? `Giornate — ${league.name}` : 'Giornate';
+  showPage('pg-giornate');
+  await loadGiornateList();
+}
+
+document.getElementById('gtDropZoneSlot').appendChild(DS.DropZone({
+  accept: '.xlsx',
+  label: 'Trascina .xlsx qui o clicca per selezionare',
+  onFile: (file) => { gtUploadFile = file; },
+}));
+
+document.getElementById('gtUploadBtn').addEventListener('click', async () => {
+  const matchday = parseInt(document.getElementById('gtUploadGiornata').value);
+  if (!matchday || !gtUploadFile) { showMsg('giornateListMsg', 'Giornata e file obbligatori.', true); return; }
+  try {
+    const res = await apiUploadFormazioni(currentLeagueId, matchday, gtUploadFile);
+    let msg = `Formazioni G${matchday} caricate — manager: ${res.managers_imported}.`;
+    if (res.warnings?.length) msg += ` Avvisi: ${res.warnings.length}.`;
+    showMsg('giornateListMsg', msg);
+    gtUploadFile = null;
+    document.getElementById('gtUploadGiornata').value = '';
+    await loadGiornateList();
+  } catch (err) {
+    showMsg('giornateListMsg', err.message, true);
+  }
+});
+
+const gtDetailDropZone = DS.DropZone({
+  accept: '.xlsx',
+  label: 'Trascina .xlsx qui o clicca per selezionare',
+  onFile: (file) => { gtReloadFile = file; },
+});
+document.getElementById('gtDetailDropZoneSlot').appendChild(gtDetailDropZone);
+
+document.getElementById('gtDetailUploadBtn').addEventListener('click', async () => {
+  if (!detailMatchday || !gtReloadFile) { showMsg('giornataDetailMsg', 'Seleziona un file.', true); return; }
+  try {
+    const res = await apiUploadFormazioni(currentLeagueId, detailMatchday, gtReloadFile);
+    let msg = `Formazioni G${detailMatchday} ricaricate — manager: ${res.managers_imported}.`;
+    if (res.warnings?.length) msg += ` Avvisi: ${res.warnings.length}.`;
+    showMsg('giornataDetailMsg', msg);
+    gtReloadFile = null;
+    document.getElementById('gtReloadDetails').open = false;
+    await loadGiornataDetail();
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
+  }
+});
+
+function gtUpdateReloadState(hasResolvedGp) {
+  const details = document.getElementById('gtReloadDetails');
+  const btn = document.getElementById('gtDetailUploadBtn');
+  const summary = details.querySelector('summary');
+  btn.disabled = hasResolvedGp;
+  summary.textContent = hasResolvedGp
+    ? '🔒 Ricarica formazioni — non disponibile (Gran Premio già assegnato per questa giornata)'
+    : '↻ Ricarica formazioni di questa giornata';
+}
+
+async function loadGiornateList() {
+  const el = document.getElementById('giornateList');
+  let matchdays;
+  try {
+    matchdays = await apiListMatchdays(currentLeagueId);
+  } catch (err) {
+    showMsg('giornateListMsg', err.message, true);
+    el.replaceChildren(DS.EmptyState({ message: 'Errore nel caricamento.' }));
+    return;
+  }
+
+  if (!matchdays.length) {
+    el.replaceChildren(DS.EmptyState({
+      message: 'Nessuna giornata caricata. Carica un file formazioni per iniziare.',
+      action: 'Carica formazioni',
+      onAction: () => document.getElementById('gtUploadGiornata').focus(),
+    }));
+    return;
+  }
+
+  const rows = matchdays.map((md) => {
+    const drawn = md.matchday_historic !== null && md.matchday_historic !== undefined;
+    const calculated = md.scores_count > 0;
+
+    const storica = drawn ? `G${md.matchday_historic}` : '—';
+    const stato = calculated
+      ? DS.Badge({ children: 'Calcolata', variant: 'green' })
+      : (drawn ? DS.Badge({ children: 'Sorteggiata', variant: 'cyan' }) : DS.Badge({ children: 'Caricata', variant: 'default' }));
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:0.4rem;justify-content:flex-end';
+
+    if (!drawn) {
+      const drawBtn = DS.Button({
+        children: 'Sorteggia', variant: 'secondary',
+        onClick: async (e) => {
+          e.stopPropagation();
+          try {
+            await apiDrawMatchday(currentLeagueId, md.matchday);
+            showMsg('giornateListMsg', `Giornata storica sorteggiata per G${md.matchday}.`);
+            await loadGiornateList();
+          } catch (err) {
+            showMsg('giornateListMsg', err.message, true);
+          }
+        },
+      });
+      drawBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
+      actions.appendChild(drawBtn);
+    } else {
+      const calcBtn = DS.Button({
+        children: calculated ? 'Ricalcola' : 'Calcola punteggi', variant: 'secondary',
+        onClick: async (e) => {
+          e.stopPropagation();
+          try {
+            await apiCalculateScores(currentLeagueId, md.matchday);
+            showMsg('giornateListMsg', `Punteggi calcolati per G${md.matchday}.`);
+            await loadGiornateList();
+          } catch (err) {
+            showMsg('giornateListMsg', err.message, true);
+          }
+        },
+      });
+      calcBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
+      actions.appendChild(calcBtn);
+    }
+
+    return [String(md.matchday), storica, `${md.managers_count}`, stato, actions];
+  });
+
+  el.replaceChildren(DS.Table({
+    columns: [
+      { label: 'Giornata', nowrap: true }, { label: 'Storica' },
+      { label: 'Manager' }, { label: 'Stato' }, { label: '' },
+    ],
+    rows,
+    onRowClick: (row, i) => openGiornataDetail(matchdays[i].matchday),
+  }));
+}
+
+async function openGiornataDetail(matchday) {
+  detailMatchday = matchday;
+  document.getElementById('giornataDetailTitle').textContent = `Giornata ${matchday}`;
+  gtReloadFile = null;
+  gtDetailDropZone.setFile(null);
+  document.getElementById('gtReloadDetails').open = false;
+  showPage('pg-giornata-detail');
+  await loadGiornataDetail();
+}
+
+async function loadGiornataDetail() {
+  const statusEl = document.getElementById('giornataDetailStatus');
+  const resultsEl = document.getElementById('giornataDetailResults');
+  statusEl.replaceChildren(DS.EmptyState({ message: 'Caricamento…' }));
+  resultsEl.innerHTML = '';
+
+  let matchdays;
+  try {
+    matchdays = await apiListMatchdays(currentLeagueId);
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
+    return;
+  }
+  const info = matchdays.find(m => m.matchday === detailMatchday);
+  if (!info) {
+    statusEl.replaceChildren(DS.EmptyState({ message: 'Giornata non trovata.' }));
+    return;
+  }
+
+  const drawn = info.matchday_historic !== null && info.matchday_historic !== undefined;
+  const calculated = info.scores_count > 0;
+
+  const statusPanel = DS.Panel({ variant: 'default' });
+  const statusRow = document.createElement('div');
+  statusRow.style.cssText = 'display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap';
+  if (drawn) {
+    statusRow.appendChild(DS.Badge({ children: `Storica G${info.matchday_historic}`, variant: 'cyan' }));
+    statusRow.appendChild(DS.Button({
+      children: calculated ? 'Ricalcola punteggi' : 'Calcola punteggi', variant: 'default',
+      onClick: async () => {
+        try {
+          await apiCalculateScores(currentLeagueId, detailMatchday);
+          showMsg('giornataDetailMsg', 'Punteggi calcolati.');
+          await loadGiornataDetail();
+        } catch (err) {
+          showMsg('giornataDetailMsg', err.message, true);
+        }
+      },
+    }));
+  } else {
+    statusRow.appendChild(DS.Badge({ children: 'Non ancora sorteggiata', variant: 'default' }));
+    statusRow.appendChild(DS.Button({
+      children: 'Sorteggia giornata storica', variant: 'default',
+      onClick: async () => {
+        try {
+          await apiDrawMatchday(currentLeagueId, detailMatchday);
+          showMsg('giornataDetailMsg', 'Giornata storica sorteggiata.');
+          await loadGiornataDetail();
+        } catch (err) {
+          showMsg('giornataDetailMsg', err.message, true);
+        }
+      },
+    }));
+  }
+  statusPanel.appendChild(statusRow);
+  statusEl.replaceChildren(statusPanel);
+
+  if (drawn) {
+    const panels = [];
+
+    let scores = [];
+    try { scores = await apiGetScores(currentLeagueId, detailMatchday); } catch {}
+    if (scores.length) {
+      const scorePanel = DS.Panel({ title: 'Punteggi', variant: 'default' });
+      const rows = scores.map((s) => {
+        const normal = document.createElement('span');
+        normal.style.cssText = 'font-family:monospace';
+        normal.textContent = (s.score_normal || 0).toFixed(2);
+        const nostalgia = document.createElement('span');
+        nostalgia.style.cssText = 'font-family:monospace;color:var(--accent)';
+        nostalgia.textContent = (s.score_nostalgia || 0).toFixed(2);
+        return [s.manager, normal, nostalgia];
+      });
+      const table = DS.Table({
+        columns: [{ label: 'Manager' }, { label: 'Normale', align: 'right' }, { label: 'Nostalgia', align: 'right' }],
+        rows,
+      });
+      table.classList.add('mt-sm');
+      scorePanel.appendChild(table);
+      panels.push(scorePanel);
+    }
+
+    try {
+      const calRes = await fetch(`/api/lega/${currentLeagueId}/calendario/${detailMatchday}`, { credentials: 'include' });
+      const data = await calRes.json();
+      if (data.matches && data.matches.length) {
+        const matchesPanel = DS.Panel({ title: 'Risultati e statistiche', variant: 'default' });
+        const wrap = document.createElement('div');
+        wrap.innerHTML = gtRenderCalMatches(data.matches);
+        matchesPanel.appendChild(wrap);
+        panels.push(matchesPanel);
+      }
+    } catch {}
+
+    resultsEl.replaceChildren(...panels);
+  }
+
+  await loadGtGpPrizeOptions();
+  await loadGtGpList();
+}
+
+function gtFmtScore(v) { return v !== null && v !== undefined ? v.toFixed(1) : '—'; }
+
+function gtPlayerName(p, withIcons) {
+  if (!p.alter_ego_name) return esc(p.player_name);
+  let html = '<span class="cal-nostalgia-name">' + esc(p.alter_ego_name) +
+    (p.alter_ego_team ? ' <span class="cal-alter-team">(' + esc(p.alter_ego_team) + ')</span>' : '') +
+    '</span><br><span class="cal-real-name">' + esc(p.player_name) + '</span>';
+  if (withIcons) {
+    const icons = gtBonusIcons(p);
+    if (icons) html += '<br>' + icons;
+  }
+  return html;
+}
+
+function gtBonusIcons(p) {
+  const items = [];
+  if (p.goals) items.push(['⚽', 'Gol', p.goals]);
+  if (p.assists) items.push(['🅰️', 'Assist', p.assists]);
+  if (p.yellow_cards) items.push(['🟨', 'Ammonizione', p.yellow_cards]);
+  if (p.red_cards) items.push(['🟥', 'Espulsione', p.red_cards]);
+  if (p.own_goals) items.push(['⚫', 'Autogol', p.own_goals]);
+  if (p.penalties_missed) items.push(['❌', 'Rigore sbagliato', p.penalties_missed]);
+  if ((p.role === 'P' || p.role === 'D') && p.goals_conceded === 0 && (p.minutes === null || p.minutes === undefined || p.minutes >= 60)) {
+    items.push(['🧤', 'Porta inviolata', 0]);
+  }
+  if (items.length === 0) return '';
+  return '<span class="cal-icons">' + items.map(([icon, label, n]) =>
+    '<span class="cal-icon" title="' + esc(label) + (n > 1 ? ' ×' + n : '') + '">' + icon + (n > 1 ? '<sup>' + n + '</sup>' : '') + '</span>'
+  ).join('') + '</span>';
+}
+
+function gtPlayerRows(players) {
+  let html = '';
+  players.starters.forEach((p) => {
+    html += '<tr><td class="cal-role">' + p.role + '</td><td>' + gtPlayerName(p, true) + '</td>' +
+      '<td class="cal-ns">' + gtFmtScore(p.ns_score) + '</td><td class="cal-fb">' + gtFmtScore(p.score_bonus) + '</td></tr>';
+  });
+  if (players.bench.length > 0) {
+    html += '<tr class="cal-bench-sep"><td colspan="4">— panchina —</td></tr>';
+    players.bench.forEach((p) => {
+      html += '<tr class="bench-row"><td class="cal-role">' + p.role + '</td><td>' + gtPlayerName(p, false) + '</td>' +
+        '<td class="cal-ns">' + gtFmtScore(p.ns_score) + '</td><td class="cal-fb">' + gtFmtScore(p.score_bonus) + '</td></tr>';
+    });
+  }
+  return html;
+}
+
+function gtRenderCalMatches(matches) {
+  let html = '';
+  matches.forEach((m) => {
+    html += '<div class="cal-match">';
+    html += '<div class="cal-match-header">';
+    html += '<span class="cal-team-name">' + esc(m.home_manager) + '</span>';
+    html += '<span class="cal-score-box">' + m.home_goals + ' &ndash; ' + m.away_goals + '</span>';
+    html += '<span class="cal-team-name">' + esc(m.away_manager) + '</span>';
+    html += '</div>';
+    html += '<div class="cal-score-pts">' + gtFmtScore(m.home_score) + ' pts &nbsp;&nbsp; vs &nbsp;&nbsp; ' + gtFmtScore(m.away_score) + ' pts</div>';
+    html += '<div class="cal-teams-grid">';
+    html += '<div class="cal-team-col"><table class="cal-team-table"><thead><tr><th></th><th>Alter Ego / Giocatore</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>' + gtPlayerRows(m.home_players) + '</tbody></table></div>';
+    html += '<div class="cal-team-col"><table class="cal-team-table"><thead><tr><th></th><th>Alter Ego / Giocatore</th><th title="Nostalgia">NS</th><th title="FantaCalcio">FC</th></tr></thead><tbody>' + gtPlayerRows(m.away_players) + '</tbody></table></div>';
+    html += '</div></div>';
+  });
+  return html;
+}
+
+async function loadGtGpPrizeOptions() {
+  if (!currentLeagueId) return;
+  const role = document.getElementById('gtGpRole').value;
+  const sel = document.getElementById('gtGpPrize');
+  try {
+    const players = await apiListFreeHistoric(currentLeagueId, role);
+    sel.innerHTML = players.length
+      ? players.map(p =>
+          `<option value="${p.id}">${esc(p.name)} (${p.role}) — ${esc(p.team)} ${esc(p.season)}</option>`
+        ).join('')
+      : '<option value="">— nessun giocatore libero —</option>';
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
+  }
+}
+
+async function loadGtGpList() {
+  if (!currentLeagueId || !detailMatchday) return;
+  const el = document.getElementById('gtGpList');
+  try {
+    const all = await apiListGranPremi(currentLeagueId);
+    const forMatchday = all.filter(gp => gp.matchday === detailMatchday);
+    gtUpdateReloadState(forMatchday.some(gp => gp.status === 'resolved'));
+    if (!forMatchday.length) {
+      el.replaceChildren(DS.EmptyState({ message: 'Nessun Gran Premio per questa giornata.' }));
+      return;
+    }
+
+    const rows = forMatchday.map((gp) => {
+      const resolved = gp.status === 'resolved';
+      const stato = document.createElement('span');
+      stato.style.color = resolved ? 'var(--green)' : 'var(--muted)';
+      stato.textContent = resolved ? 'Risolto' : 'Attivo';
+      let action = '';
+      if (!resolved) {
+        action = DS.Button({
+          children: 'Risolvi', variant: 'secondary',
+          onClick: async () => {
+            try {
+              const res = await apiResolveGranPremio(currentLeagueId, gp.id);
+              showMsg('giornataDetailMsg', `Gran Premio risolto — vincitore: ${res.winner}.`);
+              await loadGtGpList();
+              await loadGtGpPrizeOptions();
+            } catch (err) {
+              showMsg('giornataDetailMsg', err.message, true);
+            }
+          },
+        });
+        action.style.cssText = 'font-size:0.7rem;padding:2px 8px';
+      }
+      return [
+        GP_CRITERIA_LABELS[gp.criterion] || gp.criterion,
+        `${gp.prize_name} (${gp.prize_role})`,
+        stato, gp.winner_name || '—', action,
+      ];
+    });
+
+    el.replaceChildren(DS.Table({
+      columns: [{ label: 'Criterio' }, { label: 'In palio' }, { label: 'Stato' }, { label: 'Vincitore' }, { label: '' }],
+      rows,
+    }));
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
+  }
+}
+
+document.getElementById('gtGpRole').addEventListener('change', loadGtGpPrizeOptions);
+document.getElementById('gtGpRefreshPrizeBtn').addEventListener('click', loadGtGpPrizeOptions);
+
+document.getElementById('gtGpCreateBtn').addEventListener('click', async () => {
+  if (!detailMatchday) return;
+  const criterion = document.getElementById('gtGpCriterion').value;
+  const prize = parseInt(document.getElementById('gtGpPrize').value);
+  if (!prize) { showMsg('giornataDetailMsg', 'Seleziona un giocatore in palio.', true); return; }
+  try {
+    await apiCreateGranPremio(currentLeagueId, {
+      matchday: detailMatchday, criterion, prize_player_historic_id: prize,
+    });
+    showMsg('giornataDetailMsg', 'Gran Premio creato.');
+    await loadGtGpList();
+    await loadGtGpPrizeOptions();
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
   }
 });
 

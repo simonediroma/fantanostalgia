@@ -218,6 +218,17 @@ async def upload_lineups(
     with get_db() as conn:
         _require_league(conn, league_id)
 
+        resolved_gp = conn.execute(
+            "SELECT COUNT(*) AS c FROM gran_premio"
+            " WHERE league_id = ? AND matchday = ? AND status = 'resolved'",
+            (league_id, matchday),
+        ).fetchone()["c"]
+        if resolved_gp:
+            raise HTTPException(
+                status_code=400,
+                detail="Impossibile ricaricare le formazioni: un Gran Premio è già stato assegnato per questa giornata",
+            )
+
         # Build lookup: name.lower() -> player_current_id per i giocatori della lega
         players = conn.execute(
             "SELECT id, name, manager_id FROM player_current WHERE league_id = ?",

@@ -18,6 +18,10 @@ async function apiListDraws(leagueId) {
   return apiFetch(`/league/${leagueId}/draws`);
 }
 
+async function apiListMatchdays(leagueId) {
+  return apiFetch(`/admin/league/${leagueId}/matchdays`);
+}
+
 async function apiGetScores(leagueId, matchday) {
   return apiFetch(`/league/${leagueId}/scores/${matchday}`);
 }
