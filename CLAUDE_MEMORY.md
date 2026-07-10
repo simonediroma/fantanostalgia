@@ -42,7 +42,9 @@ Non risolto con certezza: la causa esatta lato utente (browser cache heuristica 
 
 ## Prossima sessione — inizia da qui
 
-PR #94 e #95 (tab "Giornate" in Admin + fix cache asset SPA) entrambe mergiate in `main`. Se richiesto, verificare che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (mai testato contro un deploy reale) — e con questa sessione, verificare anche che il fix no-cache su `/admin/js/`, `/coach/js/`, `/shared/` risolva davvero il sintomo osservato dall'utente in produzione (non confermato con certezza, vedi note sopra).
+**Priorità assoluta: sbloccare il deploy Cloud Run** — vedi sezione Blockers in fondo a questo file. `iam.serviceaccounts.actAs` negato sul compute default service account, 0/86 deploy riusciti da settimane: nessun codice recente (epica 4 compresa) è mai arrivato in produzione. Richiede intervento IAM dell'utente su GCP Console, non risolvibile da una sessione Claude Code. Alla ripresa: chiedere conferma che i permessi siano stati sistemati, poi far ripartire il deploy (rerun del workflow o nuovo push) e verificare che tutto l'arretrato (epica 4, tab Giornate, fix cache) sia effettivamente live prima di considerare chiuso il sintomo "apiListMatchdays is not defined" segnalato ripetutamente dall'utente in questa sessione.
+
+PR #94 e #95 (tab "Giornate" in Admin + fix cache asset SPA) entrambe mergiate in `main` — il fix cache è corretto di per sé ma quasi certamente non è mai stato la causa del sintomo osservato, dato quanto sopra.
 
 Poi: dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
 
@@ -193,6 +195,20 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 ## Blockers
 
 - Cloudflare su fbref.com può bloccare richieste da datacenter IP (Cloud Run). Usare lo scraper in locale oppure usare `calcio-seriea.net` che non è soggetto a questo blocco.
+- **CRITICO — il deploy su Cloud Run (`.github/workflows/deploy.yml`) fallisce da settimane, sempre allo stesso modo.** Scoperto in questa sessione dopo che l'utente ha segnalato più volte che `apiListMatchdays is not defined` non si risolveva nonostante i fix pushati e mergiati (task "tab Giornate" + fix cache): controllati gli ultimi 86 run del workflow "Deploy to Cloud Run" (tutti quelli disponibili, da 2026-06-11 a oggi 2026-07-10) — **0 successi su 86**. Build e push dell'immagine Docker funzionano sempre; è lo step `gcloud run deploy` a fallire con:
+  ```
+  ERROR: (gcloud.run.deploy) PERMISSION_DENIED: Permission 'iam.serviceaccounts.actAs' denied on
+  service account 1074392598607-compute@developer.gserviceaccount.com (or it may not exist).
+  ```
+  Causa: il service account usato dalla GitHub Action per il deploy (quello dietro il secret `GCP_SA_KEY`) non ha il ruolo IAM `roles/iam.serviceAccountUser` sul service account di runtime di Cloud Run (`1074392598607-compute@developer.gserviceaccount.com`, il compute default service account del progetto — `deploy.yml` non specifica `--service-account`, quindi Cloud Run usa quello di default). **Conseguenza pratica: da almeno 2026-06-11, nessun deploy automatico è mai arrivato in produzione** — qualunque ambiente l'utente stia testando (se è davvero Cloud Run) sta eseguendo codice di almeno un mese fa, ben prima di gran parte dell'epica 4 e di questa sessione. Il fix "no-cache sugli asset" di questa sessione era quindi probabilmente una diagnosi sbagliata (o comunque non la causa primaria) — il vero problema è che il codice nuovo non è mai stato deployato, punto.
+  **Non risolvibile da qui**: serve accesso alla Console GCP (IAM & Admin) del progetto, che questa sessione non ha. Fix per l'utente: concedere al service account di deploy il ruolo `roles/iam.serviceAccountUser` sul service account `1074392598607-compute@developer.gserviceaccount.com`, es.
+  ```
+  gcloud iam service-accounts add-iam-policy-binding \
+    1074392598607-compute@developer.gserviceaccount.com \
+    --member="serviceAccount:<SA_DI_DEPLOY>@<PROJECT_ID>.iam.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountUser"
+  ```
+  (il `<SA_DI_DEPLOY>` è quello associato alla chiave nel secret GitHub `GCP_SA_KEY`, visibile nella Console GCP ma mascherato nei log Action). Dopo il fix IAM, ri-lanciare il workflow (rerun manuale su GitHub Actions, oppure un push qualsiasi) per far arrivare finalmente in produzione tutto l'arretrato. Da verificare alla prossima sessione se l'utente conferma di aver sistemato i permessi IAM.
 
 ## PR completate
 
