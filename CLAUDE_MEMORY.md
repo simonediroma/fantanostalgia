@@ -1,9 +1,22 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-09
-**Branch attivo:** `claude/sotto-a-chi-tocca-9onli8` (imposto dall'harness per questa sessione — non `task/30-elevazione-coach-admin` come da convenzione)
-**PR in corso:** [#93](https://github.com/simonediroma/fantanostalgia/pull/93) — task 30 (Elevazione coach → admin), aperta (creata dall'utente da Claude Code UI), non ancora mergiata. Nel frattempo altre 3 sessioni parallele hanno mergiato in `main`: PR #90 (fix `Dockerfile.backend` — `frontend/shared/` mancante nell'immagine Docker di produzione), PR #91 (tab Calendario: priorità nome nostalgia + icone bonus/malus), PR #92 (refactor motore voti: algoritmo sintetico unificato per tutte le stagioni storiche, rimosso `fantagiaveno.py`, `synthetic_ratings.py` → `rating.py`). Nessuna di queste 3 tocca i file di questo task (`db.py`, `auth.py`, `frontend/admin/*`, `frontend/coach/*`) — merge di `main` in questo branch effettuato senza conflitti di codice, solo su questo file di memoria. Task 29 (PR #88) e task 31 (PR #89) restano mergiate. Task 25 (PR #80), 26 (PR #81), 27 (PR #82), 28 (PR #83) e i follow-up 25 (PR #84), 26 (PR #85), 27 (PR #86), 28 (PR #87) restano mergiati. Non ancora riverificato in produzione che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (azione di follow-up lasciata in sospeso da una sessione precedente).
+**Ultima sessione:** 2026-07-10
+**Branch attivo:** `claude/league-admin-matchday-tab-r03hf2` (imposto dall'harness per questa sessione)
+**PR in corso:** nessuna aperta ancora — solo push del branch. Task ad-hoc richiesto direttamente dall'utente in chat (non da un prompt in `prompts/`): nuovo tab "Giornate" nella sezione admin di lega. `main` era già a `6200bf8` (merge PR #93 — task 30) a inizio sessione, nessun merge necessario. PR #93 (task 30), #90, #91, #92 tutte già mergiate in `main` a inizio sessione — lo stato "PR #93 aperta" della sessione precedente è superato.
+
+**Lavoro di questa sessione — tab "Giornate" in Admin (vista aggiuntiva rispetto al wizard):**
+Richiesta utente: nella sezione admin di lega, un tab "Giornate" con (1) upload Excel formazioni, (2) elenco di tutte le giornate caricate, (3) sorteggio giornata storica eseguibile inline da singola riga, (4) quick-button calcolo punteggi da riga, (5) click su riga → dettaglio giornata con risultati/statistiche + gestione Gran Premi (creazione e risoluzione). Esplicitamente una vista aggiuntiva: lo Step 4 del wizard di setup (`ws-4` in `frontend/admin/index.html`) non è stato toccato, resta l'unico posto per il flusso guidato.
+
+Backend: nuovo endpoint `GET /admin/league/{id}/matchdays` in `backend/api/routers/matchday.py` — aggrega `lineup` (giornate caricate) LEFT JOIN `matchday_draw` (stato sorteggio) + subquery su `matchday_score` (conteggio punteggi calcolati), un solo round-trip per popolare l'elenco con lo stato completo di ogni giornata (Caricata/Sorteggiata/Calcolata). Stessa auth delle altre route admin di `matchday.py` (`get_current_admin_or_bearer`).
+
+Frontend: 2 nuove pagine SPA in `frontend/admin/index.html` — `pg-giornate` (elenco, con upload formazioni proprio + `DS.Table` con azione inline Sorteggia/Calcola per riga via `onRowClick` + bottoni con `e.stopPropagation()`) e `pg-giornata-detail` (stato sorteggio, tabella punteggi, Gran Premi scoped alla giornata). Bottone "📅 Giornate" aggiunto nell'header di `pg-manage` (accanto a "← Leghe") per entrare nella nuova vista: `openGiornateBtn`. Per i risultati/statistiche della giornata nel dettaglio, **riuso diretto** dell'endpoint JSON già esistente `GET /api/lega/{id}/calendario/{matchday}` (creato per il tab pubblico "Calendario" di `classifica.html`, PR #91) — stesso JSON, stesse classi CSS `.cal-*` (portate in `frontend/admin/css/admin.css`, sezione dedicata) e stessa logica di rendering (icone bonus/malus, nome alter ego prioritario) riscritta in JS con prefisso `gt` (`gtRenderCalMatches`, `gtPlayerRows`, `gtBonusIcons`, ecc.) per evitare collisioni — nessuna duplicazione di logica server-side, solo porting del rendering client-side da Jinja2 inline-script a SPA. Se la giornata non ha `h2h_match` (formato "flat" di upload formazioni, senza pairing squadre) il pannello risultati non viene mostrato, solo la tabella punteggi — comportamento corretto, non un bug (verificato).
+
+Nuovi test: 6 in `backend/tests/test_matchday.py` (elenco vuoto, giornata solo caricata, giornata sorteggiata+calcolata, ordinamento DESC, lega inesistente 404, auth richiesta) — 196 passed (190 + 6), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, documentati da sessioni precedenti, confermato di nuovo che non sono causati da questo cambiamento).
+
+Verificato end-to-end con Playwright headless contro un server locale (non i test fixture, un'istanza `uvicorn` reale con DB SQLite locale) creando lega/manager/listone/formazioni via chiamate HTTP dirette: upload formazioni G1+G2 → elenco mostra entrambe con stato corretto → click "Sorteggia" su riga G2 aggiorna la riga inline (badge "SORTEGGIATA", bottone cambia in "CALCOLA PUNTEGGI") senza navigare via dal tab → click sulla riga G1 (già sorteggiata e calcolata) apre il dettaglio → tabella punteggi corretta, pannello Gran Premi funzionante (creazione/lista, vuoto perché nessun pool nostalgia assegnato in questo test manuale). Zero errori JS reali (solo `ERR_CONNECTION_RESET` su Google Fonts dal sandbox di rete e un 401 atteso su `/auth/me` pre-login, stesso rumore documentato in ogni sessione precedente).
+
+Non verificato: comportamento su mobile/viewport stretto per le 2 nuove pagine (non modificate le regole responsive esistenti — riusano `.page`/`.ds-panel`/`.ds-table` già responsive dalle sessioni 25-28, nessuna ragione per attendersi regressioni ma non testato esplicitamente questa volta per limiti di tempo).
 
 **Convenzione branch:** `task/NN-nome-breve` — un branch per task, PR verso `main`.
 
@@ -11,7 +24,7 @@
 
 ## Prossima sessione — inizia da qui
 
-Verificare l'esito di PR #93 (task 30). Se richiesto, verificare che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (mai testato contro un deploy reale).
+Aprire la PR per `claude/league-admin-matchday-tab-r03hf2` (tab "Giornate" in Admin) se l'utente lo richiede — per ora solo pushato. Se richiesto, verificare che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (mai testato contro un deploy reale).
 
 Poi: dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
 
