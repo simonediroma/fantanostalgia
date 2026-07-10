@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-10
 **Branch attivo:** `claude/league-admin-matchday-tab-r03hf2` (imposto dall'harness per questa sessione)
-**PR in corso:** PR #94 (tab "Giornate" in Admin, questo stesso task) è stata aperta e **mergiata in `main`** durante la sessione. Dopo il merge sono arrivate 2 richieste di follow-up dall'utente (ricarica formazioni da dettaglio giornata, fix cache asset SPA) — il branch è stato riportato a `origin/main` e i commit non mergiati riapplicati sopra (vedi sotto), quindi ora non c'è nessuna PR aperta per questi ultimi 2 commit. Task ad-hoc richiesto direttamente dall'utente in chat (non da un prompt in `prompts/`). `main` era già a `6200bf8` (merge PR #93 — task 30) a inizio sessione. PR #93 (task 30), #90, #91, #92 tutte già mergiate in `main` a inizio sessione — lo stato "PR #93 aperta" della sessione precedente è superato.
+**PR in corso:** nessuna. PR #94 (tab "Giornate" in Admin, questo stesso task) e PR #95 (fix follow-up: ricarica formazioni da dettaglio giornata + no-cache asset SPA) entrambe aperte e **mergiate in `main`** durante questa sessione — `main` è ora a `218075c`. Per il follow-up di PR #95, dopo il merge di #94 il branch `claude/league-admin-matchday-tab-r03hf2` è stato riportato a `origin/main` (`git checkout -B ... origin/main`) e i 2 commit non ancora mergiati riapplicati con `cherry-pick` sopra la nuova base prima di aprire #95 — pattern da riusare se in futuro arrivano altri follow-up dopo il merge di una PR nella stessa sessione. Task ad-hoc richiesto direttamente dall'utente in chat (non da un prompt in `prompts/`). PR #93 (task 30), #90, #91, #92 tutte già mergiate in `main` a inizio sessione — lo stato "PR #93 aperta" della sessione precedente è superato.
 
 **Lavoro di questa sessione — tab "Giornate" in Admin (vista aggiuntiva rispetto al wizard):**
 Richiesta utente: nella sezione admin di lega, un tab "Giornate" con (1) upload Excel formazioni, (2) elenco di tutte le giornate caricate, (3) sorteggio giornata storica eseguibile inline da singola riga, (4) quick-button calcolo punteggi da riga, (5) click su riga → dettaglio giornata con risultati/statistiche + gestione Gran Premi (creazione e risoluzione). Esplicitamente una vista aggiuntiva: lo Step 4 del wizard di setup (`ws-4` in `frontend/admin/index.html`) non è stato toccato, resta l'unico posto per il flusso guidato.
@@ -42,7 +42,7 @@ Non risolto con certezza: la causa esatta lato utente (browser cache heuristica 
 
 ## Prossima sessione — inizia da qui
 
-Aprire la PR per `claude/league-admin-matchday-tab-r03hf2` (tab "Giornate" in Admin) se l'utente lo richiede — per ora solo pushato. Se richiesto, verificare che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (mai testato contro un deploy reale).
+PR #94 e #95 (tab "Giornate" in Admin + fix cache asset SPA) entrambe mergiate in `main`. Se richiesto, verificare che il deploy Cloud Run mostri la homepage correttamente stilizzata dopo PR #90 (mai testato contro un deploy reale) — e con questa sessione, verificare anche che il fix no-cache su `/admin/js/`, `/coach/js/`, `/shared/` risolva davvero il sintomo osservato dall'utente in produzione (non confermato con certezza, vedi note sopra).
 
 Poi: dobbiamo implementare il design system e alcune dinamiche di gioco con l'epica 4.
 
