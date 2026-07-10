@@ -1,3 +1,6 @@
+from io import BytesIO
+
+import openpyxl
 import pytest
 
 from backend.engine.draw import get_season_matchday_count
@@ -14,6 +17,46 @@ def _create_league(client, season_historic: str = "2003/04") -> int:
     })
     assert r.status_code in (200, 201), r.text
     return r.json()["id"]
+
+
+def _make_excel(rows: list[list], headers: list[str]) -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _setup_league_with_lineup(client, matchday: int) -> int:
+    """Crea una lega con un manager, un giocatore e una formazione caricata."""
+    league_id = _create_league(client, "2003/04")
+
+    from backend.api.db import get_db
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+            (league_id, "Simone", "TeamS"),
+        )
+        m1 = cur.lastrowid
+        conn.execute(
+            "INSERT INTO player_current (league_id, name, role, team, quotation, manager_id)"
+            " VALUES (?, 'Buffon G.', 'P', 'Juventus', 1, ?)",
+            (league_id, m1),
+        )
+
+    xlsx = _make_excel(
+        rows=[["Simone", "Buffon G.", 1]],
+        headers=["Manager", "Giocatore", "Titolare"],
+    )
+    r = client.post(
+        f"/admin/league/{league_id}/lineups/{matchday}",
+        files={"file": ("l.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200, r.text
+    return league_id
 
 
 @pytest.fixture(autouse=True)
@@ -155,3 +198,65 @@ def test_list_draws_no_auth_required(client):
     client.post("/auth/logout")
     r = client.get(f"/league/{league_id}/draws")
     assert r.status_code == 200
+
+
+# ── GET /admin/league/{id}/matchdays ──────────────────────────────────────────
+
+def test_list_matchdays_empty(client):
+    league_id = _create_league(client, "2003/04")
+    r = client.get(f"/admin/league/{league_id}/matchdays")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_list_matchdays_uploaded_only(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    r = client.get(f"/admin/league/{league_id}/matchdays")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["matchday"] == 1
+    assert data[0]["managers_count"] == 1
+    assert data[0]["matchday_historic"] is None
+    assert data[0]["scores_count"] == 0
+
+
+def test_list_matchdays_drawn_and_calculated(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    client.post(f"/admin/league/{league_id}/draw/1")
+    client.post(f"/admin/league/{league_id}/scores/1")
+
+    r = client.get(f"/admin/league/{league_id}/matchdays")
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["matchday_historic"] is not None
+    assert data[0]["scores_count"] == 1
+
+
+def test_list_matchdays_ordered_desc(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    for matchday in (2, 3):
+        xlsx = _make_excel(
+            rows=[["Simone", "Buffon G.", 1]],
+            headers=["Manager", "Giocatore", "Titolare"],
+        )
+        client.post(
+            f"/admin/league/{league_id}/lineups/{matchday}",
+            files={"file": ("l.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+
+    r = client.get(f"/admin/league/{league_id}/matchdays")
+    data = r.json()
+    assert [d["matchday"] for d in data] == [3, 2, 1]
+
+
+def test_list_matchdays_league_not_found(client):
+    r = client.get("/admin/league/99999/matchdays")
+    assert r.status_code == 404
+
+
+def test_list_matchdays_requires_auth(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    client.post("/auth/logout")
+    r = client.get(f"/admin/league/{league_id}/matchdays")
+    assert r.status_code == 401

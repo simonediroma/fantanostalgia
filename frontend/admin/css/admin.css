@@ -198,6 +198,71 @@ details[open] > summary { margin-bottom: 0.75rem; }
   display: block;
 }
 
+/* ── Giornate — risultati e statistiche (calendario) ──────────────────
+ * Classi porate da backend/templates/classifica.html (tab Calendario),
+ * riusate qui per il dettaglio giornata in Admin.
+ */
+.cal-match {
+  border: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+.cal-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--surface);
+  font-family: var(--font-mono, monospace);
+  font-weight: bold;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.cal-team-name { color: var(--accent); font-size: 0.95rem; }
+.cal-score-box {
+  color: var(--text);
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.cal-score-pts {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 0.2rem 1rem;
+  font-family: var(--font-mono, monospace);
+}
+.cal-teams-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+@media (max-width: 700px) {
+  .cal-teams-grid { grid-template-columns: 1fr; }
+}
+.cal-team-col { padding: 0.5rem; }
+.cal-team-col:first-child { border-right: 1px solid var(--border); }
+.cal-team-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-family: var(--font-mono, monospace); }
+.cal-team-table th {
+  text-align: left;
+  padding: 0.2rem 0.3rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
+  white-space: nowrap;
+}
+.cal-team-table td { padding: 0.2rem 0.3rem; vertical-align: top; }
+.cal-team-table tr.bench-row td { color: var(--muted); font-style: italic; }
+.cal-role { color: var(--accent); font-weight: bold; width: 1.2rem; }
+.cal-ns { color: var(--green); text-align: right; width: 3rem; }
+.cal-fb { color: var(--muted); text-align: right; width: 3rem; }
+.cal-nostalgia-name { color: var(--accent); font-weight: bold; }
+.cal-alter-team { color: var(--accent); font-weight: normal; font-size: 0.85em; }
+.cal-real-name { color: var(--muted); font-size: 0.8em; }
+.cal-icons { display: inline-block; margin-top: 0.15rem; letter-spacing: 0.15em; }
+.cal-icon { font-size: 0.85em; }
+.cal-icon sup { font-size: 0.7em; color: var(--muted); }
+.cal-bench-sep td { color: var(--muted); font-size: 0.7rem; padding-top: 0.4rem; letter-spacing: 0.05em; }
+
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .nav-toggle { display: inline-flex; }

@@ -36,6 +36,34 @@ def _require_league(conn: sqlite3.Connection, league_id: int) -> None:
         raise HTTPException(status_code=404, detail="Lega non trovata")
 
 
+@router.get("/admin/league/{league_id}/matchdays")
+def list_matchdays(
+    league_id: int,
+    _: str = Depends(get_current_admin_or_bearer),
+):
+    """Elenco delle giornate con formazioni caricate, con stato sorteggio/calcolo."""
+    with get_db() as conn:
+        _require_league(conn, league_id)
+        rows = conn.execute(
+            """
+            SELECT lu.matchday,
+                   MAX(lu.locked_at) AS uploaded_at,
+                   COUNT(DISTINCT lu.manager_id) AS managers_count,
+                   md.matchday_historic, md.cycle, md.drawn_at,
+                   (SELECT COUNT(*) FROM matchday_score ms
+                    WHERE ms.league_id = lu.league_id AND ms.matchday = lu.matchday) AS scores_count
+            FROM lineup lu
+            LEFT JOIN matchday_draw md
+                ON md.league_id = lu.league_id AND md.matchday_current = lu.matchday
+            WHERE lu.league_id = ?
+            GROUP BY lu.matchday
+            ORDER BY lu.matchday DESC
+            """,
+            (league_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 @router.post("/admin/league/{league_id}/draw/{matchday_current}")
 def draw_matchday(
     league_id: int,
