@@ -385,6 +385,23 @@
 
         <div id="giornataDetailMsg"></div>
         <div id="giornataDetailStatus"></div>
+
+        <details id="gtReloadDetails">
+          <summary>↻ Ricarica formazioni di questa giornata</summary>
+          <div class="ds-panel ds-panel--default" style="margin-top:0.5rem">
+            <div class="ds-help-box ds-help-box--warn">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Sovrascrive titolari, panchina e voti già caricati per questa giornata. Se sorteggio o punteggi sono già stati calcolati, valuta di ricalcolarli dopo il ricaricamento.</p>
+              </div>
+            </div>
+            <div class="col-gap mt-sm">
+              <div id="gtDetailDropZoneSlot"></div>
+              <button id="gtDetailUploadBtn" class="ds-button ds-button--default">Ricarica formazioni</button>
+            </div>
+          </div>
+        </details>
+
         <div id="giornataDetailResults"></div>
 
         <div class="ds-panel ds-panel--default">
@@ -1403,6 +1420,7 @@ document.getElementById('gpCreateBtn').addEventListener('click', async () => {
 
 // ── Giornate — vista di gestione lega (elenco + dettaglio) ────────────────────
 let gtUploadFile = null;
+let gtReloadFile = null;
 let detailMatchday = null;
 
 document.getElementById('openGiornateBtn').addEventListener('click', openGiornateTab);
@@ -1438,6 +1456,38 @@ document.getElementById('gtUploadBtn').addEventListener('click', async () => {
     showMsg('giornateListMsg', err.message, true);
   }
 });
+
+const gtDetailDropZone = DS.DropZone({
+  accept: '.xlsx',
+  label: 'Trascina .xlsx qui o clicca per selezionare',
+  onFile: (file) => { gtReloadFile = file; },
+});
+document.getElementById('gtDetailDropZoneSlot').appendChild(gtDetailDropZone);
+
+document.getElementById('gtDetailUploadBtn').addEventListener('click', async () => {
+  if (!detailMatchday || !gtReloadFile) { showMsg('giornataDetailMsg', 'Seleziona un file.', true); return; }
+  try {
+    const res = await apiUploadFormazioni(currentLeagueId, detailMatchday, gtReloadFile);
+    let msg = `Formazioni G${detailMatchday} ricaricate — manager: ${res.managers_imported}.`;
+    if (res.warnings?.length) msg += ` Avvisi: ${res.warnings.length}.`;
+    showMsg('giornataDetailMsg', msg);
+    gtReloadFile = null;
+    document.getElementById('gtReloadDetails').open = false;
+    await loadGiornataDetail();
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
+  }
+});
+
+function gtUpdateReloadState(hasResolvedGp) {
+  const details = document.getElementById('gtReloadDetails');
+  const btn = document.getElementById('gtDetailUploadBtn');
+  const summary = details.querySelector('summary');
+  btn.disabled = hasResolvedGp;
+  summary.textContent = hasResolvedGp
+    ? '🔒 Ricarica formazioni — non disponibile (Gran Premio già assegnato per questa giornata)'
+    : '↻ Ricarica formazioni di questa giornata';
+}
 
 async function loadGiornateList() {
   const el = document.getElementById('giornateList');
@@ -1521,6 +1571,9 @@ async function loadGiornateList() {
 async function openGiornataDetail(matchday) {
   detailMatchday = matchday;
   document.getElementById('giornataDetailTitle').textContent = `Giornata ${matchday}`;
+  gtReloadFile = null;
+  gtDetailDropZone.setFile(null);
+  document.getElementById('gtReloadDetails').open = false;
   showPage('pg-giornata-detail');
   await loadGiornataDetail();
 }
@@ -1713,6 +1766,7 @@ async function loadGtGpList() {
   try {
     const all = await apiListGranPremi(currentLeagueId);
     const forMatchday = all.filter(gp => gp.matchday === detailMatchday);
+    gtUpdateReloadState(forMatchday.some(gp => gp.status === 'resolved'));
     if (!forMatchday.length) {
       el.replaceChildren(DS.EmptyState({ message: 'Nessun Gran Premio per questa giornata.' }));
       return;

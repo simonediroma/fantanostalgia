@@ -147,6 +147,76 @@ def test_upload_player_not_found_warning(client, setup):
     assert r.json()["managers_imported"] == 0
 
 
+def test_upload_blocked_when_gran_premio_resolved(client, setup):
+    league_id, m1, m2, players = setup
+    simone_players = [p for p in players if p["manager_id"] == m1][:11]
+    marco_players = [p for p in players if p["manager_id"] == m2][:10]
+    xlsx = _lineup_xlsx(simone_players, marco_players)
+
+    r = client.post(
+        f"/admin/league/{league_id}/lineups/5",
+        files={"file": ("lineups.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+
+    from backend.api.db import get_db
+    with get_db() as conn:
+        hist_id = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('Storico X', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO gran_premio (league_id, matchday, criterion, prize_player_historic_id, status)"
+            " VALUES (?, 5, 'best_score', ?, 'resolved')",
+            (league_id, hist_id),
+        )
+
+    r2 = client.post(
+        f"/admin/league/{league_id}/lineups/5",
+        files={"file": ("lineups2.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r2.status_code == 400
+    assert "Gran Premio" in r2.json()["detail"]
+
+    # Un'altra giornata della stessa lega non è bloccata
+    r3 = client.post(
+        f"/admin/league/{league_id}/lineups/6",
+        files={"file": ("lineups3.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r3.status_code == 200
+
+
+def test_upload_allowed_when_gran_premio_active(client, setup):
+    league_id, m1, m2, players = setup
+    simone_players = [p for p in players if p["manager_id"] == m1][:11]
+    marco_players = [p for p in players if p["manager_id"] == m2][:10]
+    xlsx = _lineup_xlsx(simone_players, marco_players)
+
+    r = client.post(
+        f"/admin/league/{league_id}/lineups/7",
+        files={"file": ("lineups.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+
+    from backend.api.db import get_db
+    with get_db() as conn:
+        hist_id = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('Storico Y', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO gran_premio (league_id, matchday, criterion, prize_player_historic_id, status)"
+            " VALUES (?, 7, 'best_score', ?, 'active')",
+            (league_id, hist_id),
+        )
+
+    r2 = client.post(
+        f"/admin/league/{league_id}/lineups/7",
+        files={"file": ("lineups2.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r2.status_code == 200
+
+
 def test_upload_manager_not_found_warning(client, setup):
     league_id, *_ = setup
     xlsx = _make_excel(
