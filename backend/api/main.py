@@ -17,6 +17,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FantaNostalgia API", lifespan=lifespan)
 
+
+@app.middleware("http")
+async def no_cache_static_assets(request, call_next):
+    """Forza la revalidazione per JS/CSS delle SPA (admin/coach) e per /shared.
+    Questi file non hanno cache-busting nell'URL (stesso path ad ogni deploy),
+    quindi senza Cache-Control esplicito un browser può continuare a servire
+    una versione in cache dopo un aggiornamento del codice."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith(("/admin/js/", "/admin/css/", "/coach/js/", "/coach/css/", "/shared/")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 _static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
