@@ -1,9 +1,37 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-10
-**Branch attivo:** `claude/league-admin-matchday-tab-r03hf2` (imposto dall'harness per questa sessione)
-**PR in corso:** PR #94 (tab "Giornate" in Admin, questo stesso task) è stata aperta e **mergiata in `main`** durante la sessione. Dopo il merge sono arrivate 2 richieste di follow-up dall'utente (ricarica formazioni da dettaglio giornata, fix cache asset SPA) — il branch è stato riportato a `origin/main` e i commit non mergiati riapplicati sopra (vedi sotto), quindi ora non c'è nessuna PR aperta per questi ultimi 2 commit. Task ad-hoc richiesto direttamente dall'utente in chat (non da un prompt in `prompts/`). `main` era già a `6200bf8` (merge PR #93 — task 30) a inizio sessione. PR #93 (task 30), #90, #91, #92 tutte già mergiate in `main` a inizio sessione — lo stato "PR #93 aperta" della sessione precedente è superato.
+**Ultima sessione:** 2026-07-12
+**Branch attivo:** `claude/manager-email-notifications-ftili7` (imposto dall'harness per questa sessione)
+**PR in corso:** nessuna — solo push del branch, da aprire su richiesta esplicita dell'utente.
+
+**Lavoro di questa sessione — notifiche email ai manager (task ad-hoc, richiesto in chat, non da un prompt in `prompts/`):**
+Richiesta utente: email di gioco per 5 eventi — registrazione avvenuta, join a una lega, conclusione risultati di giornata, reminder assegnazione pool nostalgia iniziale, reminder Gran Premio vinto. Deciso con l'utente (2 domande): provider **Resend**, dominio mittente verificato **fantanostalgia.it** (`no-reply@fantanostalgia.it`, non ancora verificato presso Resend — da fare fuori da questa sessione, richiede accesso DNS che l'agente non ha).
+
+**Nessuna migrazione di schema necessaria** — `user.email` esiste già dal task 30 (login coach), quindi niente da chiedere approvazione su `schema.sql`.
+
+Nuovo modulo `backend/api/notifications.py`: `send_email(to, subject, html)` chiama l'API REST di Resend (`https://api.resend.com/emails`) via `httpx` (già dipendenza esistente per i test, nessun nuovo pacchetto). Legge `RESEND_API_KEY`/`EMAIL_FROM` da env; se `RESEND_API_KEY` assente (dev locale, e attualmente anche produzione finché il dominio non è verificato) logga e non invia — no-op esplicito, stesso pattern try/except-e-continua già in uso altrove nel progetto (GCS fallback in `db.py`). Ogni fallimento di invio HTTP viene loggato e mai propagato (`send_email` non solleva mai) — un'email che fallisce non deve mai rompere l'azione principale (lezione "ogni unità di lavoro è indipendente" in `docs/lessons.md`). 5 funzioni `notify_*` con layout HTML inline-style condiviso (`_layout()`, i client email non supportano CSS esterno) + helper `league_manager_emails(conn, league_id)` che ritorna solo i manager con `user_id` collegato (non tutti i manager hanno necessariamente registrato un account).
+
+**5 punti di aggancio, tutti endpoint esistenti, nessun nuovo endpoint creato:**
+- Registrazione → `POST /auth/register` (`auth.py`) — email al neo-registrato dopo il commit, con il nome della lega dell'invito appena consumato.
+- Join a una lega → `POST /auth/user/join` (`auth.py`) — stesso pattern per un utente già registrato che consuma un secondo invito.
+- Conclusione giornata → `calculate_matchday_scores` (`matchday.py`) **e** `process_pending_matchdays` (cron settimanale via GitHub Actions, stesso endpoint bulk) — entrambi chiamano un helper condiviso `_notify_matchday_conclusion()` per evitare duplicazione, un'email per manager collegato della lega.
+- Reminder pool iniziale → `assign_pools` (`mapping.py`) — un'email per ogni manager collegato della lega, dopo l'assegnazione.
+- Reminder Gran Premio vinto → `resolve` (`granpremio.py`) — solo se il manager vincitore ha un `user_id` collegato (altrimenti nessuna email, verificato con un test dedicato), include il nome dello storico vinto.
+
+Tutti gli endpoint toccati ora accettano `request: Request` (per `request.base_url`, stesso pattern già usato da `create_invite` in `league.py`) e `background_tasks: BackgroundTasks` (invio non bloccante, accodato dopo il commit della transazione DB).
+
+**Test:** nuovo file `backend/tests/test_notifications.py`, 8 test — uno per ciascuno dei 5 eventi (mock di `notifications.send_email` via monkeypatch, verifica destinatario/subject/contenuto), un test esplicito che il vincitore Gran Premio senza `user_id` non riceve email, 2 test su `send_email` stesso (no-op senza API key, non solleva eccezioni se la chiamata HTTP fallisce). Suite completa: 203 passed (195 + 8), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, documentati da sessioni precedenti — ambiente di questa sessione non ha `pytest-mock` installato di default, richiesto `pip install -r backend/requirements.txt` a mano su `python3.11` perché `fastapi` non era installato in nessun python del container).
+
+Non verificato: invio email reale (nessuna `RESEND_API_KEY` disponibile in questa sessione, il dominio `fantanostalgia.it` non è ancora verificato presso Resend) — verificato solo end-to-end via mock nei test automatici, il payload HTTP verso l'API Resend non è mai stato osservato contro il servizio reale.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Prima di andare in produzione: (1) creare un account Resend, verificare il dominio `fantanostalgia.it` (record SPF/DKIM), ottenere una `RESEND_API_KEY`; (2) impostare `RESEND_API_KEY` e (opzionale, ha già un default sensato) `EMAIL_FROM` come variabile d'ambiente sul servizio Cloud Run backend — **non è gestito da `cloudbuild.yaml`** (che imposta solo `ENV`/`GCS_BUCKET`/`GCP_PROJECT`), stesso schema già in uso per `ADMIN_USERNAME`/`ADMIN_PASSWORD`/`SECRET_KEY` che non sono nel file tracciato — va fatto manualmente su Cloud Run (console o `gcloud run services update --set-env-vars`) o migrando a Secret Manager (dipendenza `google-cloud-secret-manager` già presente ma mai usata nel codebase, opportunità futura non affrontata in questa sessione perché fuori scope). Aprire la PR per `claude/manager-email-notifications-ftili7` se l'utente lo richiede.
+
+Poi: proseguire con l'epica 4 (design system) o con le spike bloccate 32-35, secondo le note sotto.
+
+---
 
 **Lavoro di questa sessione — tab "Giornate" in Admin (vista aggiuntiva rispetto al wizard):**
 Richiesta utente: nella sezione admin di lega, un tab "Giornate" con (1) upload Excel formazioni, (2) elenco di tutte le giornate caricate, (3) sorteggio giornata storica eseguibile inline da singola riga, (4) quick-button calcolo punteggi da riga, (5) click su riga → dettaglio giornata con risultati/statistiche + gestione Gran Premi (creazione e risoluzione). Esplicitamente una vista aggiuntiva: lo Step 4 del wizard di setup (`ws-4` in `frontend/admin/index.html`) non è stato toccato, resta l'unico posto per il flusso guidato.
@@ -220,3 +248,4 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 - [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task/29-gestione multi-lega in Admin (`claude/prossimo-task-oga3tp`) — aperta
 - [#90](https://github.com/simonediroma/fantanostalgia/pull/90) — fix Dockerfile.backend, `frontend/shared/` mancante in produzione (`claude/homepage-display-issue-k5nby2`) ✓ mergiata
 - branch `claude/ranking-calendar-team-display-7l5l18` — priorità nome nostalgia + icone bonus/malus nel tab Calendario — pushato, PR non ancora aperta
+- branch `claude/manager-email-notifications-ftili7` — notifiche email ai manager via Resend (5 eventi: registrazione, join lega, conclusione giornata, reminder pool iniziale, reminder Gran Premio vinto) — pushato, PR non ancora aperta
