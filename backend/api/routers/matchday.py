@@ -1,10 +1,11 @@
 import sqlite3
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.api.db import get_db
+from backend.api.notifications import league_manager_emails, notify_matchday_results
 from backend.api.routers.auth import get_current_admin_or_bearer
 from backend.engine.draw import perform_draw
 from backend.engine.scoring import calculate_scores
@@ -97,10 +98,20 @@ def list_draws(league_id: int):
     return [dict(r) for r in rows]
 
 
+def _notify_matchday_conclusion(conn: sqlite3.Connection, league_id: int, matchday: int, base_url: str, background_tasks: BackgroundTasks) -> None:
+    league = conn.execute("SELECT name FROM league WHERE id = ?", (league_id,)).fetchone()
+    for manager_name, email in league_manager_emails(conn, league_id):
+        background_tasks.add_task(
+            notify_matchday_results, email, manager_name, league["name"], league_id, matchday, base_url
+        )
+
+
 @router.post("/admin/league/{league_id}/scores/{matchday}")
 def calculate_matchday_scores(
     league_id: int,
     matchday: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
     body: ScoreRequest = ScoreRequest(),
     _: str = Depends(get_current_admin_or_bearer),
 ):
@@ -115,6 +126,7 @@ def calculate_matchday_scores(
             result = calculate_scores(conn, league_id, matchday, real_ratings)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        _notify_matchday_conclusion(conn, league_id, matchday, str(request.base_url).rstrip("/"), background_tasks)
     return {
         "matchday": result.matchday,
         "matchday_historic": result.matchday_historic,
@@ -130,10 +142,15 @@ def calculate_matchday_scores(
 
 
 @router.post("/admin/process-pending")
-def process_pending_matchdays(_: str = Depends(get_current_admin_or_bearer)):
+def process_pending_matchdays(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _: str = Depends(get_current_admin_or_bearer),
+):
     """Elabora tutte le giornate caricate ma non ancora sortegiate/calcolate, su tutte le leghe."""
     processed = []
     errors = []
+    base_url = str(request.base_url).rstrip("/")
 
     with get_db() as conn:
         pending = conn.execute(
@@ -153,6 +170,7 @@ def process_pending_matchdays(_: str = Depends(get_current_admin_or_bearer)):
             with get_db() as conn:
                 draw = perform_draw(conn, league_id, matchday)
                 scores = calculate_scores(conn, league_id, matchday)
+                _notify_matchday_conclusion(conn, league_id, matchday, base_url, background_tasks)
             processed.append({
                 "league_id": league_id,
                 "matchday_current": draw.matchday_current,
