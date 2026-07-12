@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.api.db import get_db
+from backend.api.notifications import notify_gran_premio_won
 from backend.api.routers.auth import get_current_admin
 from backend.engine.granpremio import CRITERIA, free_historic_players, resolve_gran_premio
 
@@ -79,12 +80,14 @@ def create_gran_premio(
 def resolve(
     league_id: int,
     gp_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
     _: str = Depends(get_current_admin),
 ):
     with get_db() as conn:
         _require_league(conn, league_id)
         gp = conn.execute(
-            "SELECT league_id FROM gran_premio WHERE id = ?", (gp_id,)
+            "SELECT league_id, prize_player_historic_id FROM gran_premio WHERE id = ?", (gp_id,)
         ).fetchone()
         if gp is None or gp["league_id"] != league_id:
             raise HTTPException(status_code=404, detail="Gran Premio non trovato")
@@ -93,8 +96,26 @@ def resolve(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         winner = conn.execute(
-            "SELECT name FROM manager WHERE id = ?", (winner_id,)
+            "SELECT name, user_id FROM manager WHERE id = ?", (winner_id,)
         ).fetchone()
+
+        if winner["user_id"] is not None:
+            league = conn.execute("SELECT name FROM league WHERE id = ?", (league_id,)).fetchone()
+            prize = conn.execute(
+                "SELECT name FROM player_historic WHERE id = ?", (gp["prize_player_historic_id"],)
+            ).fetchone()
+            winner_user = conn.execute(
+                "SELECT email FROM user WHERE id = ?", (winner["user_id"],)
+            ).fetchone()
+            background_tasks.add_task(
+                notify_gran_premio_won,
+                winner_user["email"],
+                winner["name"],
+                league["name"],
+                league_id,
+                prize["name"],
+                str(request.base_url).rstrip("/"),
+            )
 
     return {
         "id": gp_id,
