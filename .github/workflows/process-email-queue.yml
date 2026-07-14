@@ -1,0 +1,16 @@
+name: Process Email Queue
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  process-email-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process email queue
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.API_SECRET_KEY }}" \
+            "${{ secrets.API_BASE_URL }}/admin/process-email-queue"

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.db import get_db
-from backend.api.notifications import league_manager_emails, notify_pool_assignment
+from backend.api.notifications import enqueue_email, league_manager_emails
 from backend.api.routers.auth import get_current_admin
 from backend.engine.mapping import assign_nostalgia_pools, auto_assign_remaining, generate_mapping
 
@@ -146,8 +146,6 @@ def get_public_mapping(league_id: int):
 @router.post("/admin/league/{league_id}/mapping/assign-pools")
 def assign_pools(
     league_id: int,
-    request: Request,
-    background_tasks: BackgroundTasks,
     _: str = Depends(get_current_admin),
 ):
     with get_db() as conn:
@@ -177,11 +175,10 @@ def assign_pools(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-        base_url = str(request.base_url).rstrip("/")
         for manager_name, email in league_manager_emails(conn, league_id):
-            background_tasks.add_task(
-                notify_pool_assignment, email, manager_name, league["name"], league_id, base_url
-            )
+            enqueue_email(conn, "pool_assignment", email, {
+                "name": manager_name, "league_name": league["name"], "league_id": league_id,
+            })
 
     return {"assigned_by_manager": result.assigned_by_manager}
 
