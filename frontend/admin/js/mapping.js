@@ -32,9 +32,3 @@ async function apiCloseAssociations(leagueId) {
 async function apiCreateInvite(leagueId, managerId) {
   return apiFetch(`/admin/league/${leagueId}/managers/${managerId}/invite`, { method: 'POST' });
 }
-
-async function apiResetPassword(leagueId, managerId, newPassword) {
-  return jsonPost(`/admin/league/${leagueId}/managers/${managerId}/reset-password`, {
-    new_password: newPassword,
-  });
-}

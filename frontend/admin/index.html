@@ -45,6 +45,10 @@
       <nav>
         <a href="#" id="newLeagueLink" class="nav-link">+ Nuova lega</a>
       </nav>
+      <div class="section-label" style="margin-top:0.5rem">Amministrazione</div>
+      <nav>
+        <a href="#" id="usersNavLink" class="nav-link">👤 Utenti</a>
+      </nav>
       <div class="section-label" style="margin-top:0.5rem">Pubblico</div>
       <nav>
         <a href="/" target="_blank" class="nav-link">← Vai al sito</a>
@@ -78,6 +82,18 @@
             </div>
           </div>
         </details>
+      </div>
+
+      <!-- Utenti (pannello globale) -->
+      <div id="pg-users" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2>Utenti</h2>
+          <button class="ds-button ds-button--secondary" id="usersToDashBtn" style="font-size:0.8rem">← Leghe</button>
+        </div>
+        <div id="usersMsg"></div>
+        <div id="usersList">
+          <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
+        </div>
       </div>
 
       <!-- Crea / Modifica lega -->
@@ -450,6 +466,7 @@
 <script src="js/mapping.js"></script>
 <script src="js/matchday.js"></script>
 <script src="js/elevation.js"></script>
+<script src="js/users.js"></script>
 <script>
 'use strict';
 
@@ -513,7 +530,7 @@ function showApp(username) {
 }
 
 function showPage(id) {
-  ['pg-dashboard', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail'].forEach(pid => {
+  ['pg-dashboard', 'pg-users', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail'].forEach(pid => {
     const el = document.getElementById(pid);
     if (el) el.classList.toggle('active', pid === id);
   });
@@ -652,6 +669,52 @@ async function loadElevationRequests() {
     rows,
   }));
 }
+
+// ── Utenti (pannello globale) ────────────────────────────────────────────────
+async function loadUsers() {
+  const el = document.getElementById('usersList');
+  let users;
+  try {
+    users = await apiListUsers();
+  } catch (err) {
+    showMsg('usersMsg', err.message, true);
+    return;
+  }
+
+  if (!users.length) {
+    el.replaceChildren(DS.EmptyState({ message: 'Nessun utente registrato.' }));
+    return;
+  }
+
+  const rows = users.map((u) => {
+    const adminBadge = u.is_admin
+      ? DS.Badge({ children: 'Admin', variant: 'default' })
+      : document.createElement('span');
+    const leagues = u.leagues.length ? u.leagues.join(', ') : '—';
+
+    const resetBtn = DS.Button({
+      children: 'Resetta password', variant: 'secondary',
+      onClick: () => window.showResetPasswordModal(u.id, u.name, 'usersMsg', loadUsers),
+    });
+    resetBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
+
+    return [u.name, u.email, leagues, adminBadge, resetBtn];
+  });
+
+  el.replaceChildren(DS.Table({
+    columns: [
+      { label: 'Nome' }, { label: 'Email' }, { label: 'Leghe' }, { label: 'Admin' }, { label: '' },
+    ],
+    rows,
+  }));
+}
+
+document.getElementById('usersNavLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  showPage('pg-users');
+  loadUsers();
+});
+document.getElementById('usersToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
 
 // Sidebar manage links
 document.getElementById('leagueNav').addEventListener('click', (e) => {
@@ -1111,20 +1174,13 @@ async function refreshCoachStatus() {
       });
       inviteBtn.style.cssText = 'font-size:0.65rem;padding:2px 8px';
 
-      const resetBtn = DS.Button({
-        children: 'Resetta password', variant: 'secondary', disabled: !r.user_linked,
-        onClick: () => window.showResetPasswordModal(currentLeagueId, r.manager_id, 'mappingMsg', refreshCoachStatus),
-      });
-      resetBtn.style.cssText = 'font-size:0.65rem;padding:2px 8px';
-
-      return [r.manager_name, r.team_name, linked, String(r.pool_size), String(r.assigned_count), stato, inviteBtn, resetBtn];
+      return [r.manager_name, r.team_name, linked, String(r.pool_size), String(r.assigned_count), stato, inviteBtn];
     });
 
     el.replaceChildren(DS.Table({
       columns: [
         { label: 'Manager' }, { label: 'Squadra' }, { label: 'Account' },
-        { label: 'Pool', align: 'center' }, { label: 'Assegnati', align: 'center' }, { label: 'Stato' },
-        { label: 'Invito' }, { label: 'Password' },
+        { label: 'Pool', align: 'center' }, { label: 'Assegnati', align: 'center' }, { label: 'Stato' }, { label: 'Invito' },
       ],
       rows: tableRows,
     }));
@@ -1892,11 +1948,12 @@ const resetPasswordModal = DS.Modal({
 });
 const resetPasswordIntro = document.createElement('p');
 resetPasswordIntro.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem';
-resetPasswordIntro.textContent = "La password attuale smetterà di funzionare e verrà inviata una email al coach con la nuova password.";
 resetPasswordModal.querySelector('.ds-modal__body').replaceChildren(resetPasswordIntro, resetPasswordInput);
 document.body.appendChild(resetPasswordModal);
 
-window.showResetPasswordModal = function (leagueId, managerId, msgElId, onDone) {
+window.showResetPasswordModal = function (userId, userName, msgElId, onDone) {
+  resetPasswordIntro.textContent =
+    `La password attuale di ${userName} smetterà di funzionare e verrà inviata una email con la nuova password.`;
   resetPasswordInput.querySelector('.ds-input').value = '';
   resetPasswordConfirmBtn.textContent = 'Conferma';
   resetPasswordHandler = async () => {
@@ -1904,9 +1961,9 @@ window.showResetPasswordModal = function (leagueId, managerId, msgElId, onDone) 
     if (!newPassword) return;
     try {
       resetPasswordConfirmBtn.textContent = 'Invio...';
-      await apiResetPassword(leagueId, managerId, newPassword);
+      await apiAdminResetPassword(userId, newPassword);
       resetPasswordModal.close();
-      showMsg(msgElId, 'Password aggiornata, email inviata al coach.');
+      showMsg(msgElId, 'Password aggiornata, email inviata.');
       if (onDone) await onDone();
     } catch (err) {
       resetPasswordConfirmBtn.textContent = 'Conferma';
