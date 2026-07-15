@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-14
 **Branch attivo:** `claude/manager-email-notifications-ftili7` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna — solo push del branch, da aprire su richiesta esplicita dell'utente.
+**PR in corso:** **PR #96 (prima parte — invio sincrono via BackgroundTasks) mergiata in `main` durante la sessione.** Il refactor a coda su DB (vedi sotto) è stato completato *dopo* quel merge sullo stesso branch — l'utente ha segnalato il merge, quindi il branch è stato riportato a `origin/main` (`git checkout -B claude/manager-email-notifications-ftili7 origin/main`) e i 2 commit non ancora mergiati (refactor coda + aggiornamento memoria) sono stati riapplicati con `git cherry-pick` sopra la nuova base, poi pushati con `--force-with-lease`. Nessuna PR aperta per questi 2 commit al momento — da aprire su richiesta esplicita dell'utente.
 
 **Lavoro di questa sessione — notifiche email ai manager (task ad-hoc, richiesto in chat, non da un prompt in `prompts/`):**
 Richiesta utente: email di gioco per 5 eventi — registrazione avvenuta, join a una lega, conclusione risultati di giornata, reminder assegnazione pool nostalgia iniziale, reminder Gran Premio vinto. Deciso con l'utente (2 domande): provider **Resend**, dominio mittente verificato **fantanostalgia.it** (`no-reply@fantanostalgia.it`, non ancora verificato presso Resend — da fare fuori da questa sessione, richiede accesso DNS che l'agente non ha).
@@ -264,4 +264,5 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 - [#88](https://github.com/simonediroma/fantanostalgia/pull/88) — task/29-gestione multi-lega in Admin (`claude/prossimo-task-oga3tp`) — aperta
 - [#90](https://github.com/simonediroma/fantanostalgia/pull/90) — fix Dockerfile.backend, `frontend/shared/` mancante in produzione (`claude/homepage-display-issue-k5nby2`) ✓ mergiata
 - branch `claude/ranking-calendar-team-display-7l5l18` — priorità nome nostalgia + icone bonus/malus nel tab Calendario — pushato, PR non ancora aperta
-- branch `claude/manager-email-notifications-ftili7` — notifiche email ai manager via Resend (5 eventi: registrazione, join lega, conclusione giornata, reminder pool iniziale, reminder Gran Premio vinto), poi refactor a coda su DB + scodamento via GitHub Actions cron (invece di BackgroundTasks sincroni, rischiosi su Cloud Run senza CPU always-allocated) — pushato, PR non ancora aperta
+- [#96](https://github.com/simonediroma/fantanostalgia/pull/96) — notifiche email ai manager via Resend, prima versione con invio sincrono via `BackgroundTasks` (`claude/manager-email-notifications-ftili7`) ✓ mergiata
+- branch `claude/manager-email-notifications-ftili7` (ricostruito su `main` dopo il merge di PR #96) — refactor a coda su DB + scodamento via GitHub Actions cron (invece di `BackgroundTasks` sincroni, rischiosi su Cloud Run senza CPU always-allocated) — pushato, PR non ancora aperta
