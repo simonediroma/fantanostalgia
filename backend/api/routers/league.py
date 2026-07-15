@@ -6,8 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator, model_validator
 
 from backend.api.db import get_db
-from backend.api.notifications import enqueue_email
-from backend.api.routers.auth import _pwd_ctx, get_current_admin
+from backend.api.routers.auth import get_current_admin
 
 router = APIRouter(tags=["league"])
 
@@ -270,38 +269,3 @@ def create_invite(
 
     base_url = str(request.base_url).rstrip("/")
     return {"token": token, "join_url": f"{base_url}/coach/join?token={token}"}
-
-
-class ResetPasswordBody(BaseModel):
-    new_password: str
-
-
-@router.post("/admin/league/{league_id}/managers/{manager_id}/reset-password")
-def reset_manager_password(
-    league_id: int,
-    manager_id: int,
-    body: ResetPasswordBody,
-    _: str = Depends(get_current_admin),
-):
-    with get_db() as conn:
-        manager = conn.execute(
-            "SELECT user_id FROM manager WHERE id = ? AND league_id = ?",
-            (manager_id, league_id),
-        ).fetchone()
-        if manager is None:
-            raise HTTPException(status_code=404, detail="Manager non trovato")
-        if manager["user_id"] is None:
-            raise HTTPException(status_code=400, detail="Questo manager non ha un account collegato")
-
-        user = conn.execute(
-            "SELECT email, name FROM user WHERE id = ?", (manager["user_id"],)
-        ).fetchone()
-        password_hash = _pwd_ctx.hash(body.new_password)
-        conn.execute(
-            "UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, manager["user_id"])
-        )
-        enqueue_email(conn, "password_reset", user["email"], {
-            "name": user["name"], "new_password": body.new_password,
-        })
-
-    return {"detail": "Password aggiornata, email inviata", "email": user["email"]}

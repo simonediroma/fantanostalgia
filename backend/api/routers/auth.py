@@ -389,3 +389,56 @@ def approve_elevation_request(request_id: int, admin: str = Depends(get_current_
 @router.post("/admin/elevation-requests/{request_id}/reject")
 def reject_elevation_request(request_id: int, admin: str = Depends(get_current_admin)):
     return _resolve_elevation_request(request_id, approve=False, admin=admin)
+
+
+# ── Gestione utenti (pannello globale) ───────────────────────────────────────
+
+@router.get("/admin/users")
+def list_users(_: str = Depends(get_current_admin)):
+    with get_db() as conn:
+        users = conn.execute(
+            "SELECT id, email, name, COALESCE(is_admin, 0) AS is_admin FROM user ORDER BY name"
+        ).fetchall()
+        league_rows = conn.execute(
+            """
+            SELECT m.user_id, l.name AS league_name
+            FROM manager m JOIN league l ON l.id = m.league_id
+            WHERE m.user_id IS NOT NULL
+            ORDER BY l.name
+            """
+        ).fetchall()
+
+    leagues_by_user: dict[int, list[str]] = {}
+    for row in league_rows:
+        leagues_by_user.setdefault(row["user_id"], []).append(row["league_name"])
+
+    return [
+        {
+            "id": u["id"],
+            "email": u["email"],
+            "name": u["name"],
+            "is_admin": bool(u["is_admin"]),
+            "leagues": leagues_by_user.get(u["id"], []),
+        }
+        for u in users
+    ]
+
+
+class AdminResetPasswordBody(BaseModel):
+    new_password: str
+
+
+@router.post("/admin/users/{user_id}/reset-password")
+def admin_reset_user_password(
+    user_id: int, body: AdminResetPasswordBody, _: str = Depends(get_current_admin)
+):
+    with get_db() as conn:
+        user = conn.execute("SELECT email, name FROM user WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            raise HTTPException(status_code=404, detail="Utente non trovato")
+        password_hash = _pwd_ctx.hash(body.new_password)
+        conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+        enqueue_email(conn, "password_reset", user["email"], {
+            "name": user["name"], "new_password": body.new_password,
+        })
+    return {"detail": "Password aggiornata, email inviata", "email": user["email"]}
