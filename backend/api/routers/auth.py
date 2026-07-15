@@ -1,13 +1,13 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
 from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 
 from backend.api.db import get_db
-from backend.api.notifications import notify_league_join, notify_registration
+from backend.api.notifications import enqueue_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -174,7 +174,7 @@ def _set_user_cookie(response: Response, user_id: int) -> None:
 
 
 @router.post("/register", status_code=201)
-def register(body: RegisterBody, request: Request, response: Response, background_tasks: BackgroundTasks):
+def register(body: RegisterBody, response: Response):
     with get_db() as conn:
         invite = conn.execute(
             "SELECT id, league_id, manager_id, used_by_user_id FROM league_invite WHERE token = ?",
@@ -212,11 +212,9 @@ def register(body: RegisterBody, request: Request, response: Response, backgroun
         league = conn.execute(
             "SELECT name FROM league WHERE id = ?", (invite["league_id"],)
         ).fetchone()
+        enqueue_email(conn, "registration", body.email, {"name": body.name, "league_name": league["name"]})
 
     _set_user_cookie(response, user_id)
-    background_tasks.add_task(
-        notify_registration, body.email, body.name, league["name"], str(request.base_url).rstrip("/")
-    )
     return {"id": user_id, "name": body.name, "email": body.email}
 
 
@@ -270,12 +268,7 @@ def user_me(user: dict = Depends(get_current_user)):
 
 
 @router.post("/user/join")
-def user_join_league(
-    body: dict,
-    request: Request,
-    background_tasks: BackgroundTasks,
-    user: dict = Depends(get_current_user),
-):
+def user_join_league(body: dict, user: dict = Depends(get_current_user)):
     invite_token = body.get("invite_token")
     if not invite_token:
         raise HTTPException(status_code=400, detail="invite_token mancante")
@@ -300,10 +293,8 @@ def user_join_league(
             "SELECT l.name FROM league l JOIN manager m ON m.league_id = l.id WHERE m.id = ?",
             (invite["manager_id"],),
         ).fetchone()
+        enqueue_email(conn, "league_join", user["email"], {"name": user["name"], "league_name": league["name"]})
 
-    background_tasks.add_task(
-        notify_league_join, user["email"], user["name"], league["name"], str(request.base_url).rstrip("/")
-    )
     return {"detail": "Unito alla lega con successo"}
 
 

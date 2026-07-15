@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from backend.api import notifications
@@ -12,11 +14,14 @@ def login(client):
     client.post("/auth/user/logout")
 
 
-@pytest.fixture
-def sent(monkeypatch):
-    calls = []
-    monkeypatch.setattr(notifications, "send_email", lambda to, subject, html: calls.append((to, subject, html)))
-    return calls
+def _queue_rows_for(conn, to_email: str):
+    """Filtra per destinatario, non per template: la fixture `client` è
+    session-scoped e condivisa con l'intera suite (es. test_elevation.py
+    registra più coach), quindi un conteggio per template soltanto
+    catturerebbe anche righe accodate da altri test/file."""
+    return conn.execute(
+        "SELECT * FROM email_queue WHERE to_email = ? ORDER BY id", (to_email,)
+    ).fetchall()
 
 
 def _create_league(client, name="NotifLega", season_historic="2003/04") -> int:
@@ -43,9 +48,17 @@ def _link_user(conn, manager_id: int, email: str, name="Coach") -> int:
     return user_id
 
 
+def _drain_queue() -> None:
+    """La fixture `client` è session-scoped (DB condiviso con l'intera suite):
+    prima dei test sul processore di coda, svuota qualunque riga 'pending'
+    lasciata da test precedenti (in questo file o in altri) per isolamento."""
+    with get_db() as conn:
+        conn.execute("UPDATE email_queue SET status = 'sent', sent_at = CURRENT_TIMESTAMP WHERE status = 'pending'")
+
+
 # ── Registrazione ────────────────────────────────────────────────────────────
 
-def test_registration_sends_welcome_email(client, sent):
+def test_registration_enqueues_welcome_email(client):
     league_id = _create_league(client)
     _, token = _create_manager_and_invite(client, league_id)
     client.post("/auth/logout")
@@ -55,23 +68,23 @@ def test_registration_sends_welcome_email(client, sent):
     })
     assert r.status_code == 201
 
-    assert len(sent) == 1
-    to, subject, html = sent[0]
-    assert to == "mario@test.com"
-    assert "Benvenuto" in subject
-    assert "NotifLega" in html
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "mario@test.com")
+    assert len(rows) == 1
+    assert rows[0]["template"] == "registration"
+    assert rows[0]["status"] == "pending"
+    assert json.loads(rows[0]["params"]) == {"name": "Mario", "league_name": "NotifLega"}
 
 
 # ── Join lega ─────────────────────────────────────────────────────────────────
 
-def test_join_league_sends_confirmation_email(client, sent):
+def test_join_league_enqueues_confirmation_email(client):
     league1 = _create_league(client, "Lega Uno")
     _, token1 = _create_manager_and_invite(client, league1)
     client.post("/auth/logout")
     client.post("/auth/register", json={
         "name": "Mario", "email": "mario2@test.com", "password": "pass1234", "invite_token": token1,
     })
-    sent.clear()  # ignore the registration email
 
     client.post("/auth/user/logout")
     client.post("/auth/login", json={"username": "admin", "password": "testpass"})
@@ -83,15 +96,17 @@ def test_join_league_sends_confirmation_email(client, sent):
     r = client.post("/auth/user/join", json={"invite_token": token2})
     assert r.status_code == 200
 
-    assert len(sent) == 1
-    to, subject, html = sent[0]
-    assert to == "mario2@test.com"
-    assert "Lega Due" in subject
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "mario2@test.com")
+    # mario2@test.com riceve sia l'email di registrazione (Lega Uno) sia quella di join (Lega Due).
+    join_rows = [r for r in rows if r["template"] == "league_join"]
+    assert len(join_rows) == 1
+    assert json.loads(join_rows[0]["params"]) == {"name": "Mario", "league_name": "Lega Due"}
 
 
 # ── Conclusione giornata ─────────────────────────────────────────────────────
 
-def test_matchday_scores_sends_results_email_to_linked_managers(client, sent):
+def test_matchday_scores_enqueues_results_email_to_linked_managers(client):
     league_id = _create_league(client)
     manager_id, _ = _create_manager_and_invite(client, league_id)
     with get_db() as conn:
@@ -111,15 +126,18 @@ def test_matchday_scores_sends_results_email_to_linked_managers(client, sent):
     r = client.post(f"/admin/league/{league_id}/scores/1")
     assert r.status_code == 200, r.text
 
-    assert len(sent) == 1
-    to, subject, html = sent[0]
-    assert to == "coach@test.com"
-    assert "giornata 1" in subject
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "coach@test.com")
+    assert len(rows) == 1
+    assert rows[0]["template"] == "matchday_results"
+    assert json.loads(rows[0]["params"]) == {
+        "name": "Mario", "league_name": "NotifLega", "league_id": league_id, "matchday": 1,
+    }
 
 
 # ── Reminder pool iniziale ───────────────────────────────────────────────────
 
-def test_assign_pools_sends_reminder_to_linked_managers(client, sent):
+def test_assign_pools_enqueues_reminder_to_linked_managers(client):
     league_id = _create_league(client)
     manager_id, _ = _create_manager_and_invite(client, league_id)
     with get_db() as conn:
@@ -132,21 +150,23 @@ def test_assign_pools_sends_reminder_to_linked_managers(client, sent):
     r = client.post(f"/admin/league/{league_id}/mapping/assign-pools")
     assert r.status_code == 200, r.text
 
-    assert len(sent) == 1
-    to, subject, html = sent[0]
-    assert to == "coach2@test.com"
-    assert "rosa nostalgia" in subject.lower()
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "coach2@test.com")
+    assert len(rows) == 1
+    assert rows[0]["template"] == "pool_assignment"
+    assert json.loads(rows[0]["params"]) == {
+        "name": "Mario", "league_name": "NotifLega", "league_id": league_id,
+    }
 
 
 # ── Reminder Gran Premio vinto ───────────────────────────────────────────────
 
-def test_gran_premio_resolve_notifies_winner(client, sent):
+def _setup_gran_premio_league(client):
     league_id = _create_league(client)
     m1, _ = _create_manager_and_invite(client, league_id, name="M1")
     m2, _ = _create_manager_and_invite(client, league_id, name="M2")
 
     with get_db() as conn:
-        _link_user(conn, m2, "winner@test.com", name="M2")
         conn.execute(
             "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
             " VALUES (?, 1, 5, 1)",
@@ -183,9 +203,14 @@ def test_gran_premio_resolve_notifies_winner(client, sent):
             " VALUES ('PrizeGuy', 'A', 'Milan', '2003/04', 'archive')"
         ).lastrowid
 
-    r = client.post(f"/admin/league/{league_id}/scores/1", json={})
-    assert r.status_code == 200, r.text
-    sent.clear()  # ignore the matchday-results emails (neither manager linked yet except m2)
+    client.post(f"/admin/league/{league_id}/scores/1", json={})
+    return league_id, m1, m2, prize
+
+
+def test_gran_premio_resolve_enqueues_email_for_linked_winner(client):
+    league_id, m1, m2, prize = _setup_gran_premio_league(client)
+    with get_db() as conn:
+        _link_user(conn, m2, "winner@test.com", name="M2")
 
     r = client.post(f"/admin/league/{league_id}/granpremio", json={
         "matchday": 1, "criterion": "best_score", "prize_player_historic_id": prize,
@@ -195,57 +220,21 @@ def test_gran_premio_resolve_notifies_winner(client, sent):
     assert r.status_code == 200, r.text
     assert r.json()["winner_manager_id"] == m2
 
-    assert len(sent) == 1
-    to, subject, html = sent[0]
-    assert to == "winner@test.com"
-    assert "Gran Premio" in subject
-    assert "PrizeGuy" in html
-
-
-def test_gran_premio_resolve_no_email_if_winner_not_linked(client, sent):
-    league_id = _create_league(client)
-    m1, _ = _create_manager_and_invite(client, league_id, name="M1")
-    m2, _ = _create_manager_and_invite(client, league_id, name="M2")
-
     with get_db() as conn:
-        conn.execute(
-            "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
-            " VALUES (?, 1, 5, 1)",
-            (league_id,),
-        )
-        for mid, pname, role, rating in [(m1, "A1", "A", 5.0), (m2, "A2", "A", 8.0)]:
-            pc = conn.execute(
-                "INSERT INTO player_current (league_id, name, role, team, manager_id)"
-                " VALUES (?, ?, ?, 'Milan', ?)",
-                (league_id, pname, role, mid),
-            ).lastrowid
-            conn.execute(
-                "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id, is_starter)"
-                " VALUES (?, ?, 1, ?, 1)",
-                (league_id, mid, pc),
-            )
-            hist = conn.execute(
-                "INSERT INTO player_historic (name, role, team, season, source)"
-                " VALUES (?, ?, 'Milan', '2003/04', 'archive')",
-                (f"H_{pname}", role),
-            ).lastrowid
-            conn.execute(
-                "INSERT INTO historic_rating (player_historic_id, matchday, rating, source)"
-                " VALUES (?, 5, ?, 'archive')",
-                (hist, rating),
-            )
-            conn.execute(
-                "INSERT INTO alter_ego (league_id, player_current_id, player_historic_id)"
-                " VALUES (?, ?, ?)",
-                (league_id, pc, hist),
-            )
-        prize = conn.execute(
-            "INSERT INTO player_historic (name, role, team, season, source)"
-            " VALUES ('PrizeGuy2', 'A', 'Milan', '2003/04', 'archive')"
-        ).lastrowid
+        rows = _queue_rows_for(conn, "winner@test.com")
+    assert len(rows) == 1
+    assert rows[0]["template"] == "gran_premio_won"
+    assert json.loads(rows[0]["params"]) == {
+        "name": "M2", "league_name": "NotifLega", "league_id": league_id, "prize_player_name": "PrizeGuy",
+    }
 
-    client.post(f"/admin/league/{league_id}/scores/1", json={})
-    sent.clear()
+
+def test_gran_premio_resolve_no_email_if_winner_not_linked(client):
+    league_id, m1, m2, prize = _setup_gran_premio_league(client)
+    with get_db() as conn:
+        before = conn.execute(
+            "SELECT COUNT(*) AS c FROM email_queue WHERE template = 'gran_premio_won'"
+        ).fetchone()["c"]
 
     r = client.post(f"/admin/league/{league_id}/granpremio", json={
         "matchday": 1, "criterion": "best_score", "prize_player_historic_id": prize,
@@ -254,24 +243,102 @@ def test_gran_premio_resolve_no_email_if_winner_not_linked(client, sent):
     r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
     assert r.status_code == 200, r.text
 
-    assert sent == []
+    with get_db() as conn:
+        after = conn.execute(
+            "SELECT COUNT(*) AS c FROM email_queue WHERE template = 'gran_premio_won'"
+        ).fetchone()["c"]
+    assert after == before
 
 
-# ── send_email best-effort ───────────────────────────────────────────────────
+# ── POST /admin/process-email-queue ──────────────────────────────────────────
+
+def test_process_email_queue_sends_pending_rows(client, monkeypatch):
+    _drain_queue()
+    calls = []
+    monkeypatch.setattr(notifications, "send_email", lambda to, subject, html: calls.append((to, subject, html)))
+
+    league_id = _create_league(client)
+    _, token = _create_manager_and_invite(client, league_id)
+    client.post("/auth/logout")
+    client.post("/auth/register", json={
+        "name": "Mario", "email": "mario3@test.com", "password": "pass1234", "invite_token": token,
+    })
+    client.post("/auth/user/logout")
+    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
+
+    r = client.post("/admin/process-email-queue")
+    assert r.status_code == 200, r.text
+    assert r.json()["sent"] == 1
+    assert r.json()["failed"] == 0
+    assert r.json()["remaining_pending"] == 0
+
+    assert len(calls) == 1
+    to, subject, html = calls[0]
+    assert to == "mario3@test.com"
+    assert "Benvenuto" in subject
+    assert "NotifLega" in html
+
+    with get_db() as conn:
+        row = _queue_rows_for(conn, "mario3@test.com")[0]
+    assert row["status"] == "sent"
+    assert row["sent_at"] is not None
+
+
+def test_process_email_queue_dead_letters_after_max_attempts(client, monkeypatch):
+    _drain_queue()
+
+    def _boom(to, subject, html):
+        raise RuntimeError("resend down")
+
+    monkeypatch.setattr(notifications, "send_email", _boom)
+
+    with get_db() as conn:
+        row_id = notifications.enqueue_email(
+            conn, "registration", "fail@test.com", {"name": "X", "league_name": "Y"}
+        )
+
+    for attempt in range(1, notifications.MAX_EMAIL_ATTEMPTS):
+        r = client.post("/admin/process-email-queue")
+        assert r.status_code == 200, r.text
+        assert r.json()["retrying"] == 1
+        assert r.json()["failed"] == 0
+        with get_db() as conn:
+            row = conn.execute("SELECT * FROM email_queue WHERE id = ?", (row_id,)).fetchone()
+        assert row["status"] == "pending"
+        assert row["attempts"] == attempt
+
+    r = client.post("/admin/process-email-queue")
+    assert r.json()["failed"] == 1
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM email_queue WHERE id = ?", (row_id,)).fetchone()
+    assert row["status"] == "failed"
+    assert row["attempts"] == notifications.MAX_EMAIL_ATTEMPTS
+
+    # Un ulteriore giro non deve più toccare la riga dead-letter.
+    r = client.post("/admin/process-email-queue")
+    assert r.json()["processed"] == 0
+
+
+def test_process_email_queue_requires_auth(client):
+    client.post("/auth/logout")
+    r = client.post("/admin/process-email-queue")
+    assert r.status_code == 401
+
+
+# ── send_email — contratto ────────────────────────────────────────────────────
 
 def test_send_email_noop_without_api_key(monkeypatch):
-    monkeypatch.delenv("RESEND_API_KEY", raising=False)
     monkeypatch.setattr(notifications, "RESEND_API_KEY", None)
-    # Must not raise even without an API key configured.
+    # Non deve sollevare anche senza API key configurata.
     notifications.send_email("x@test.com", "subj", "<p>hi</p>")
 
 
-def test_send_email_failure_does_not_raise(monkeypatch):
+def test_send_email_raises_on_failure(monkeypatch):
     monkeypatch.setattr(notifications, "RESEND_API_KEY", "fake-key")
 
     def _boom(*a, **k):
         raise RuntimeError("network down")
 
     monkeypatch.setattr(notifications.httpx, "post", _boom)
-    # Best-effort: failures are logged, never propagated.
-    notifications.send_email("x@test.com", "subj", "<p>hi</p>")
+    with pytest.raises(RuntimeError):
+        notifications.send_email("x@test.com", "subj", "<p>hi</p>")

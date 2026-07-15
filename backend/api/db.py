@@ -179,6 +179,18 @@ def init_db() -> None:
                 resolved_at TIMESTAMP,
                 resolved_by TEXT
             );
+            CREATE TABLE IF NOT EXISTS email_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template TEXT NOT NULL,
+                to_email TEXT NOT NULL,
+                params TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'sent', 'failed')),
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                sent_at TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status);
         """)
         conn.commit()
 

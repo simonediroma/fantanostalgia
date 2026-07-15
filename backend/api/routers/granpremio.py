@@ -1,8 +1,8 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.api.db import get_db
-from backend.api.notifications import notify_gran_premio_won
+from backend.api.notifications import enqueue_email
 from backend.api.routers.auth import get_current_admin
 from backend.engine.granpremio import CRITERIA, free_historic_players, resolve_gran_premio
 
@@ -80,8 +80,6 @@ def create_gran_premio(
 def resolve(
     league_id: int,
     gp_id: int,
-    request: Request,
-    background_tasks: BackgroundTasks,
     _: str = Depends(get_current_admin),
 ):
     with get_db() as conn:
@@ -107,15 +105,10 @@ def resolve(
             winner_user = conn.execute(
                 "SELECT email FROM user WHERE id = ?", (winner["user_id"],)
             ).fetchone()
-            background_tasks.add_task(
-                notify_gran_premio_won,
-                winner_user["email"],
-                winner["name"],
-                league["name"],
-                league_id,
-                prize["name"],
-                str(request.base_url).rstrip("/"),
-            )
+            enqueue_email(conn, "gran_premio_won", winner_user["email"], {
+                "name": winner["name"], "league_name": league["name"], "league_id": league_id,
+                "prize_player_name": prize["name"],
+            })
 
     return {
         "id": gp_id,
