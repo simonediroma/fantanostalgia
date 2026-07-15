@@ -1111,13 +1111,20 @@ async function refreshCoachStatus() {
       });
       inviteBtn.style.cssText = 'font-size:0.65rem;padding:2px 8px';
 
-      return [r.manager_name, r.team_name, linked, String(r.pool_size), String(r.assigned_count), stato, inviteBtn];
+      const resetBtn = DS.Button({
+        children: 'Resetta password', variant: 'secondary', disabled: !r.user_linked,
+        onClick: () => window.showResetPasswordModal(currentLeagueId, r.manager_id, 'mappingMsg', refreshCoachStatus),
+      });
+      resetBtn.style.cssText = 'font-size:0.65rem;padding:2px 8px';
+
+      return [r.manager_name, r.team_name, linked, String(r.pool_size), String(r.assigned_count), stato, inviteBtn, resetBtn];
     });
 
     el.replaceChildren(DS.Table({
       columns: [
         { label: 'Manager' }, { label: 'Squadra' }, { label: 'Account' },
-        { label: 'Pool', align: 'center' }, { label: 'Assegnati', align: 'center' }, { label: 'Stato' }, { label: 'Invito' },
+        { label: 'Pool', align: 'center' }, { label: 'Assegnati', align: 'center' }, { label: 'Stato' },
+        { label: 'Invito' }, { label: 'Password' },
       ],
       rows: tableRows,
     }));
@@ -1863,6 +1870,50 @@ window.showInviteModal = function (url) {
   inviteUrlEl.textContent = url;
   inviteCopyBtn.textContent = 'Copia link';
   inviteModal.open();
+};
+
+// ── Modal reset password ─────────────────────────────────────────────────────
+let resetPasswordHandler = null;
+const resetPasswordInput = DS.Input({
+  id: 'resetPasswordInput', type: 'password', label: 'Nuova password', required: true,
+});
+const resetPasswordConfirmBtn = DS.Button({
+  children: 'Conferma', variant: 'default',
+  onClick: async () => {
+    if (resetPasswordHandler) await resetPasswordHandler();
+  },
+});
+const resetPasswordModal = DS.Modal({
+  title: 'Resetta password',
+  actions: [
+    resetPasswordConfirmBtn,
+    DS.Button({ children: 'Annulla', variant: 'secondary', onClick: () => resetPasswordModal.close() }),
+  ],
+});
+const resetPasswordIntro = document.createElement('p');
+resetPasswordIntro.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem';
+resetPasswordIntro.textContent = "La password attuale smetterà di funzionare e verrà inviata una email al coach con la nuova password.";
+resetPasswordModal.querySelector('.ds-modal__body').replaceChildren(resetPasswordIntro, resetPasswordInput);
+document.body.appendChild(resetPasswordModal);
+
+window.showResetPasswordModal = function (leagueId, managerId, msgElId, onDone) {
+  resetPasswordInput.querySelector('.ds-input').value = '';
+  resetPasswordConfirmBtn.textContent = 'Conferma';
+  resetPasswordHandler = async () => {
+    const newPassword = resetPasswordInput.querySelector('.ds-input').value;
+    if (!newPassword) return;
+    try {
+      resetPasswordConfirmBtn.textContent = 'Invio...';
+      await apiResetPassword(leagueId, managerId, newPassword);
+      resetPasswordModal.close();
+      showMsg(msgElId, 'Password aggiornata, email inviata al coach.');
+      if (onDone) await onDone();
+    } catch (err) {
+      resetPasswordConfirmBtn.textContent = 'Conferma';
+      showMsg(msgElId, err.message, true);
+    }
+  };
+  resetPasswordModal.open();
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────

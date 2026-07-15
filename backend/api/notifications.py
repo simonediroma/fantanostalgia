@@ -121,12 +121,25 @@ def _render_gran_premio_won(params: dict, base_url: str) -> tuple[str, str]:
     return f"Hai vinto un Gran Premio in {league_name}!", html
 
 
+def _render_password_reset(params: dict, base_url: str) -> tuple[str, str]:
+    name, new_password = params["name"], params["new_password"]
+    html = _layout(
+        "Password reimpostata",
+        f"<p>Ciao {name}, la tua password è stata reimpostata dall'amministratore. "
+        f"La tua nuova password è: <strong>{new_password}</strong></p>",
+        "Vai al login",
+        f"{base_url}/coach/login.html",
+    )
+    return "La tua password è stata reimpostata", html
+
+
 TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
     "registration": _render_registration,
     "league_join": _render_league_join,
     "matchday_results": _render_matchday_results,
     "pool_assignment": _render_pool_assignment,
     "gran_premio_won": _render_gran_premio_won,
+    "password_reset": _render_password_reset,
 }
 
 
@@ -198,10 +211,19 @@ def process_email_queue(
             else:
                 retrying += 1
             continue
-        conn.execute(
-            "UPDATE email_queue SET status = 'sent', sent_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (row["id"],),
-        )
+        if row["template"] == "password_reset":
+            # La password in chiaro non deve restare indefinitamente nel DB
+            # una volta inviata: la riga resta come traccia dell'evento
+            # (template/to_email/sent_at), solo il contenuto sensibile viene redatto.
+            conn.execute(
+                "UPDATE email_queue SET status = 'sent', sent_at = CURRENT_TIMESTAMP, params = ? WHERE id = ?",
+                (json.dumps({"redacted": True}), row["id"]),
+            )
+        else:
+            conn.execute(
+                "UPDATE email_queue SET status = 'sent', sent_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (row["id"],),
+            )
         sent += 1
 
     remaining_pending = conn.execute(
