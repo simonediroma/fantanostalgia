@@ -9,15 +9,17 @@ CRITERIA = ("best_score", "worst_defense", "best_player", "worst_player")
 def free_historic_players(
     conn: sqlite3.Connection, league_id: int, role: str | None = None
 ) -> list[dict]:
-    """Historic players of the league's season_historic not yet in any manager's
-    nostalgia pool — the pool of prizes a Gran Premio can draw from."""
+    """Historic players of the league's season_historic not yet assigned to any
+    team — neither in a manager's nostalgia pool (even if not yet associated to a
+    real current player) nor already in use as someone's alter ego. The pool of
+    prizes a Gran Premio can draw from."""
     league = conn.execute(
         "SELECT season_historic FROM league WHERE id = ?", (league_id,)
     ).fetchone()
     if league is None:
         raise ValueError("Lega non trovata")
 
-    params: list = [league["season_historic"], league_id]
+    params: list = [league["season_historic"], league_id, league_id]
     role_clause = ""
     if role:
         role_clause = " AND ph.role = ?"
@@ -32,6 +34,11 @@ def free_historic_players(
               SELECT mnp.player_historic_id
               FROM manager_nostalgia_pool mnp
               WHERE mnp.league_id = ?
+          )
+          AND ph.id NOT IN (
+              SELECT ae.player_historic_id
+              FROM alter_ego ae
+              WHERE ae.league_id = ?
           )
           {role_clause}
         ORDER BY ph.role, ph.name

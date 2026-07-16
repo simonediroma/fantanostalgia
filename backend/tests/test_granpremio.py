@@ -131,6 +131,28 @@ def test_free_historic_players_excludes_assigned(client):
     assert h_taken not in free_ids
 
 
+def test_free_historic_players_excludes_alter_ego(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mgr = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, 'M', 'T')",
+            (league_id,),
+        ).lastrowid
+        h_free = _add_historic(conn, "Free One", "A")
+        h_in_use = _add_historic(conn, "In Use", "A")
+        pc = _add_player(conn, league_id, mgr, "Current One", "A")
+        conn.execute(
+            "INSERT INTO alter_ego (league_id, player_current_id, player_historic_id)"
+            " VALUES (?, ?, ?)",
+            (league_id, pc, h_in_use),
+        )
+        free = free_historic_players(conn, league_id)
+        free_ids = {p["id"] for p in free}
+
+    assert h_free in free_ids
+    assert h_in_use not in free_ids
+
+
 def test_free_historic_players_filter_role(client):
     league_id = _create_league(client)
     with get_db() as conn:
