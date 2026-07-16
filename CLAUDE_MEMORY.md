@@ -1,9 +1,15 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-15
-**Branch attivo:** `claude/manager-email-notifications-ftili7` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna — **PR #96, #97 e #98 mergiate in `main` durante questa sessione** (vedi sotto per i dettagli). Storia: PR #96 mergiata dall'utente a metà sessione; il refactor a coda è stato sviluppato *dopo* quel merge sullo stesso branch, quindi riportato a `origin/main` (`git checkout -B claude/manager-email-notifications-ftili7 origin/main`), i 2 commit non ancora mergiati riapplicati con `git cherry-pick` e pushati con `--force-with-lease`; PR #97 aperta e mergiata su richiesta esplicita dell'utente. La feature reset-password è stata sviluppata *dopo* quel merge, sempre sullo stesso branch (stavolta senza bisogno di riportarlo indietro, essendo già in sync con `main`); PR #98 aperta e mergiata su richiesta esplicita dell'utente ("si si apri nuova pr e mergia").
+**Ultima sessione:** 2026-07-16
+**Branch attivo:** `claude/granpremio-player-filtering-eq22w9` (imposto dall'harness per questa sessione)
+**PR in corso:** nessuna — solo pushato, da aprire su richiesta esplicita dell'utente. `main` è a `40b44db` (merge di PR #99, che a sua volta chiudeva PR #96/#97/#98 della sessione precedente), branch creato in fast-forward pulito da lì.
+
+**Lavoro di questa sessione — fix filtro giocatori liberi Gran Premio:** richiesta utente: la lista dei giocatori storici selezionabili come premio Gran Premio (per la stagione storica della lega) deve escludere quelli già assegnati alle squadre, anche se non ancora associati a un giocatore reale. Verificato che `free_historic_players` (`backend/engine/granpremio.py`) escludeva già correttamente i giocatori presenti in `manager_nostalgia_pool` (pool nostalgia di un manager) indipendentemente da `assigned_player_current_id` — test preesistente `test_free_historic_players_excludes_assigned` già copriva esattamente questo caso. Gap reale trovato: non escludeva i giocatori storici già in uso come alter ego attivo (tabella `alter_ego`, la mappatura principale fatta in apertura buste) — un giocatore storico già alter-ego di un giocatore attuale in rosa poteva comunque essere assegnato come premio Gran Premio, con rischio di doppio conteggio nello scoring per due giocatori attuali diversi. Aggiunta seconda clausola `NOT IN (SELECT ae.player_historic_id FROM alter_ego ae WHERE ae.league_id = ?)` alla query. Nuovo test `test_free_historic_players_excludes_alter_ego` in `backend/tests/test_granpremio.py`. Suite completa: 214 passed, stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, già documentati nelle sessioni precedenti). Non verificato con Playwright end-to-end in questa sessione (fix puntuale a una query SQL, coperto da test mirato).
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Aprire la PR per `claude/granpremio-player-filtering-eq22w9` se l'utente lo richiede — per ora solo pushato.
 
 **Follow-up nella stessa sessione — reset password spostato in pannello utenti globale:** subito dopo il merge di PR #98, richiesta dell'utente di ridisegnare la UX: non più un'azione per-manager dentro la gestione di una singola lega, ma un pannello "Utenti" globale (non scoped a nessuna lega) che elenca tutti gli utenti registrati con le leghe a cui partecipano, e da lì si resetta la password. Motivazione implicita: un utente può appartenere a più leghe (comportamento multi-lega già chiarito in questa sessione), quindi la vista naturale per gestire il suo account è a livello di persona, non di singola lega/manager.
 
