@@ -1,9 +1,24 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-15
-**Branch attivo:** `claude/manager-email-notifications-ftili7` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna — **PR #96, #97 e #98 mergiate in `main` durante questa sessione** (vedi sotto per i dettagli). Storia: PR #96 mergiata dall'utente a metà sessione; il refactor a coda è stato sviluppato *dopo* quel merge sullo stesso branch, quindi riportato a `origin/main` (`git checkout -B claude/manager-email-notifications-ftili7 origin/main`), i 2 commit non ancora mergiati riapplicati con `git cherry-pick` e pushati con `--force-with-lease`; PR #97 aperta e mergiata su richiesta esplicita dell'utente. La feature reset-password è stata sviluppata *dopo* quel merge, sempre sullo stesso branch (stavolta senza bisogno di riportarlo indietro, essendo già in sync con `main`); PR #98 aperta e mergiata su richiesta esplicita dell'utente ("si si apri nuova pr e mergia").
+**Ultima sessione:** 2026-07-19
+**Branch attivo:** `claude/granpremio-winners-coaches-ezq04h` (imposto dall'harness per questa sessione), creato pulito da `origin/main` (`40b44db`, dopo il merge di PR #99)
+**PR in corso:** nessuna — solo committato e pushato, PR da aprire su richiesta esplicita dell'utente.
+
+**Lavoro di questa sessione — esclusione manager senza allenatore "joined" dal calcolo vincitore Gran Premio:**
+Richiesta utente: "il calcolo dei vincenti del granpremio deve essere fatto solo tra le squadre che hanno allenatori che hanno fatto join alla lega. quelle che non hanno un allenatore assegnato non possono vincere premi." Nessuna migrazione necessaria — `manager.user_id` esiste già (nullable, aggiunto da task 19) e la convenzione "`user_id IS NOT NULL` = allenatore joined" è già usata altrove (`league.py`/`mapping.py::user_linked`, `notifications.py::league_manager_emails`).
+
+Modificato `_determine_winner` in `backend/engine/granpremio.py`: aggiunto helper `_joined_manager_ids(conn, league_id)` (manager con `user_id IS NOT NULL`); per `best_score` la query SQL ora filtra `manager_id IN (SELECT id FROM manager WHERE league_id = ? AND user_id IS NOT NULL)`; per `best_player`/`worst_player`/`worst_defense` (tutti derivati da `compute_player_breakdown`) la lista `breakdown` viene filtrata sui manager joined prima di calcolare max/min, mantenendo l'esistente `if not breakdown: return None`. **Non toccato** `compute_player_breakdown` in `scoring.py`: è condivisa con la pagina pubblica "Calendario" che deve continuare a mostrare tutti i manager — il filtro vive solo nel contesto Gran Premio. Nessuna modifica al router `granpremio.py::resolve`: il caso "nessun manager joined nella lega" produce già `_determine_winner` → `None` → `ValueError` → HTTP 400 (comportamento preesistente per "impossibile determinare un vincitore", riusato senza modifiche).
+
+**Test:** `backend/tests/test_granpremio.py` — `_setup_scored_league` ora collega M1/M2 a account `user` fittizi (nuovo helper `_join_manager`) così i test parametrizzati esistenti restano validi; aggiunto un parametro `include_unjoined_ghost` che inserisce un terzo manager M3 non joined con statistiche dominanti su tutti e 4 i criteri (A3=20.0, D3=1.0) — nuovo test parametrizzato `test_resolve_excludes_unjoined_manager` verifica che il vincitore resti sempre M1/M2 nonostante M3 sia oggettivamente più forte; nuovo `test_resolve_fails_when_no_manager_joined` verifica il 400 quando nessun manager della lega è joined. Effetto collaterale su `backend/tests/test_notifications.py::test_gran_premio_resolve_no_email_if_winner_not_linked`: il suo scenario originale (un manager senza `user_id` vince ma non riceve email) non è più raggiungibile per costruzione — riscritto per asserire che `resolve` ora risponde 400 e nessuna email viene mai accodata, quando nessun manager della lega è joined. Suite completa: 218 passed (217 + 1 netto, alcuni test aggiunti/riscritti), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, documentati da sessioni precedenti).
+
+Non verificato end-to-end con server reale/Playwright in questa sessione (fix puramente di logica engine, ben coperto dai test automatici — nessuna superficie UI nuova da testare manualmente).
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Solo commit + push su `claude/granpremio-winners-coaches-ezq04h`, nessuna PR aperta. Aprire la PR se l'utente lo richiede esplicitamente.
+
+---
 
 **Follow-up nella stessa sessione — reset password spostato in pannello utenti globale:** subito dopo il merge di PR #98, richiesta dell'utente di ridisegnare la UX: non più un'azione per-manager dentro la gestione di una singola lega, ma un pannello "Utenti" globale (non scoped a nessuna lega) che elenca tutti gli utenti registrati con le leghe a cui partecipano, e da lì si resetta la password. Motivazione implicita: un utente può appartenere a più leghe (comportamento multi-lega già chiarito in questa sessione), quindi la vista naturale per gestire il suo account è a livello di persona, non di singola lega/manager.
 
