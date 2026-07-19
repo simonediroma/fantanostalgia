@@ -27,9 +27,20 @@ Modificato `backend/engine/granpremio.py`: la vecchia `_determine_winner` (scegl
 
 Non verificato end-to-end con server reale/Playwright in questa sessione (fix puramente di logica engine, ben coperto dai test automatici — nessuna superficie UI nuova).
 
+**Follow-up nella stessa sessione — vincolo: un manager può vincere al massimo 1 Gran Premio a giornata:**
+Richiesta utente: "un manager può vincere al massimo 1 granpremio a giornata. i granpremi devono essere calcolati in ordine di inserimento così se un manager ne ha già vinto uno non può vincere il secondo." Una giornata può avere fino a 2 Gran Premi (`MAX_PER_MATCHDAY = 2` in `granpremio.py` router); prima di questo fix nulla impediva allo stesso manager di vincerli entrambi.
+
+Deciso con l'utente (1 domanda in plan mode): l'ordine di risoluzione va **imposto**, non solo osservato — altrimenti il risultato dipenderebbe da quale Gran Premio l'admin risolve per primo (chi risolve prima "porta via" il manager migliore all'altro). Scelto il blocco esplicito: risolvere un Gran Premio quando esiste un altro della stessa giornata creato prima (id più basso) e ancora `active` fallisce con errore, così chi è stato creato prima ha sempre la prima scelta.
+
+Modificato `backend/engine/granpremio.py`: nuovo helper `_already_won_manager_ids(conn, league_id, matchday, exclude_gp_id)` (manager con `winner_manager_id` in un altro `gran_premio` della stessa giornata già `status='resolved'`). In `resolve_gran_premio`, dopo il controllo "già risolto": nuovo controllo sull'ordine (`SELECT 1 FROM gran_premio WHERE ... status='active' AND id < ?` → se trovato, `ValueError` "Risolvi prima gli altri Gran Premi di questa giornata, in ordine di creazione"). Nella selezione del vincitore, l'esclusione `already_won` si combina con quella esistente `_has_free_role_slot` nello stesso `next(...)` che scorre `_ranked_managers(...)` — stesso pattern "scarta finché non trovi un idoneo" già introdotto per lo slot di ruolo pieno. Messaggio di errore "nessun idoneo" aggiornato per menzionare entrambe le cause, mantenendo la sottostringa "slot libero" per compatibilità col test esistente. Nessuna modifica al router: entrambi i nuovi `ValueError` sono già HTTP 400 tramite il `try/except` esistente.
+
+**Test:** 3 nuovi in `backend/tests/test_granpremio.py` — `test_resolve_skips_manager_who_already_won_this_matchday` (2 GP stesso criterio `best_score` stessa giornata, con 2 storici attaccanti distinti liberi: GP1 vinto da M2, GP2 salta M2 e va a M1); `test_resolve_blocks_out_of_order` (tentare di risolvere il GP creato per secondo mentre il primo è ancora attivo → 400 con "ordine" nel messaggio, stato GP2 invariato, nessuna riga nel pool; poi verificato che risolvendo prima il GP1 il GP2 si sblocca); `test_resolve_fails_when_all_managers_ineligible_across_two_gps` (combinazione: GP1 vinto da M2, per GP2 M1 ha anche lo slot attaccante pieno → nessun manager idoneo → 400). Suite completa: 223 passed (220 + 3), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati).
+
+Non verificato end-to-end con server reale/Playwright in questa sessione (fix puramente di logica engine, ben coperto dai test automatici — nessuna superficie UI nuova; l'admin panel già mostra i Gran Premi in ordine di creazione tramite `list_gran_premi`, nessuna modifica UI necessaria per rispettare il nuovo vincolo d'ordine).
+
 ## Prossima sessione — inizia da qui (per questo task)
 
-Solo commit + push su `claude/granpremio-winners-coaches-ezq04h`, nessuna PR aperta. Aprire la PR se l'utente lo richiede esplicitamente. Due modifiche in questa sessione sullo stesso branch: (1) esclusione manager non joined dal calcolo vincitore Gran Premio, (2) riassegnazione premio se il vincitore non ha slot liberi nel ruolo in palio.
+Solo commit + push su `claude/granpremio-winners-coaches-ezq04h`, nessuna PR aperta. Aprire la PR se l'utente lo richiede esplicitamente. Tre modifiche in questa sessione sullo stesso branch: (1) esclusione manager non joined dal calcolo vincitore Gran Premio, (2) riassegnazione premio se il vincitore non ha slot liberi nel ruolo in palio, (3) vincolo max 1 Gran Premio vinto per manager a giornata, con risoluzione forzata in ordine di creazione.
 
 ---
 
