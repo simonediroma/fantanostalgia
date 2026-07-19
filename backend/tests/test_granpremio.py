@@ -333,6 +333,100 @@ def test_resolve_fails_when_no_free_role_slot_anywhere(client):
     assert after_pool == before_pool
 
 
+def test_resolve_skips_manager_who_already_won_this_matchday(client):
+    """M2 wins GP1 (best_score). GP2, same matchday and criterion, must skip M2
+    (already won a Gran Premio this matchday) and go to M1 instead."""
+    ctx = _setup_scored_league(client)
+    league_id, m1, m2 = ctx["league_id"], ctx["m1"], ctx["m2"]
+
+    with get_db() as conn:
+        prize2 = _add_historic(conn, "PrizeGuy2", "A")
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    gp1_id = r.json()["id"]
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": prize2,
+    })
+    gp2_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp1_id}/resolve")
+    assert r.status_code == 200, r.text
+    assert r.json()["winner_manager_id"] == m2
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp2_id}/resolve")
+    assert r.status_code == 200, r.text
+    assert r.json()["winner_manager_id"] == m1
+
+
+def test_resolve_blocks_out_of_order(client):
+    """GP2 (created after GP1, same matchday) cannot be resolved while GP1 is
+    still active — resolution must follow creation order."""
+    ctx = _setup_scored_league(client)
+    league_id = ctx["league_id"]
+
+    with get_db() as conn:
+        prize2 = _add_historic(conn, "PrizeGuy2", "A")
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    gp1_id = r.json()["id"]
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": prize2,
+    })
+    gp2_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp2_id}/resolve")
+    assert r.status_code == 400, r.text
+    assert "ordine" in r.json()["detail"].lower()
+
+    with get_db() as conn:
+        gp2 = conn.execute(
+            "SELECT status FROM gran_premio WHERE id = ?", (gp2_id,)
+        ).fetchone()
+        pool_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM manager_nostalgia_pool WHERE league_id = ?",
+            (league_id,),
+        ).fetchone()["c"]
+    assert gp2["status"] == "active"
+    assert pool_count == 0
+
+    # GP1 can still be resolved normally, and then GP2 is unblocked.
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp1_id}/resolve")
+    assert r.status_code == 200, r.text
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp2_id}/resolve")
+    assert r.status_code == 200, r.text
+
+
+def test_resolve_fails_when_all_managers_ineligible_across_two_gps(client):
+    """GP1 resolves to M2. For GP2, M1's only attacker slot is already full and
+    M2 already won this matchday — no eligible manager remains."""
+    ctx = _setup_scored_league(client)
+    league_id, m1, m2 = ctx["league_id"], ctx["m1"], ctx["m2"]
+
+    with get_db() as conn:
+        prize2 = _add_historic(conn, "PrizeGuy2", "A")
+        _fill_role_slot(conn, league_id, m1, "A1")
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    gp1_id = r.json()["id"]
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": prize2,
+    })
+    gp2_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp1_id}/resolve")
+    assert r.status_code == 200, r.text
+    assert r.json()["winner_manager_id"] == m2
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp2_id}/resolve")
+    assert r.status_code == 400, r.text
+
+
 def test_resolve_awards_and_reopens(client):
     ctx = _setup_scored_league(client)
     league_id, m2 = ctx["league_id"], ctx["m2"]

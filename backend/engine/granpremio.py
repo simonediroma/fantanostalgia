@@ -121,6 +121,19 @@ def _has_free_role_slot(
     return taken < total
 
 
+def _already_won_manager_ids(
+    conn: sqlite3.Connection, league_id: int, matchday: int, exclude_gp_id: int
+) -> set[int]:
+    """Managers who already won another resolved Gran Premio of this same
+    matchday — ineligible to win a second one."""
+    rows = conn.execute(
+        "SELECT winner_manager_id FROM gran_premio"
+        " WHERE league_id = ? AND matchday = ? AND status = 'resolved' AND id != ?",
+        (league_id, matchday, exclude_gp_id),
+    ).fetchall()
+    return {r["winner_manager_id"] for r in rows if r["winner_manager_id"] is not None}
+
+
 def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
     """Determine the winner, award the prize historic player to their nostalgia
     pool (unassigned), and reopen their association period. Returns winner id."""
@@ -136,6 +149,17 @@ def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
 
     league_id = gp["league_id"]
     matchday = gp["matchday"]
+
+    earlier_unresolved = conn.execute(
+        "SELECT 1 FROM gran_premio"
+        " WHERE league_id = ? AND matchday = ? AND status = 'active' AND id < ?"
+        " LIMIT 1",
+        (league_id, matchday, gran_premio_id),
+    ).fetchone()
+    if earlier_unresolved is not None:
+        raise ValueError(
+            "Risolvi prima gli altri Gran Premi di questa giornata, in ordine di creazione"
+        )
 
     scored = conn.execute(
         "SELECT 1 FROM matchday_score WHERE league_id = ? AND matchday = ? LIMIT 1",
@@ -153,13 +177,19 @@ def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
     if not ranked:
         raise ValueError("Impossibile determinare un vincitore per questo Gran Premio")
 
+    already_won = _already_won_manager_ids(conn, league_id, matchday, gran_premio_id)
+
     winner_id = next(
-        (mid for mid in ranked if _has_free_role_slot(conn, league_id, mid, prize_role)),
+        (
+            mid for mid in ranked
+            if mid not in already_won and _has_free_role_slot(conn, league_id, mid, prize_role)
+        ),
         None,
     )
     if winner_id is None:
         raise ValueError(
-            "Nessun manager ha uno slot libero per il ruolo in palio: impossibile assegnare il premio"
+            "Nessun manager ha uno slot libero per il ruolo in palio "
+            "(o ha già vinto un altro Gran Premio in questa giornata): impossibile assegnare il premio"
         )
 
     # Award: add the prize to the winner's nostalgia pool (unassigned slot) and
