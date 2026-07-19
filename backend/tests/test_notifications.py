@@ -230,6 +230,8 @@ def test_gran_premio_resolve_enqueues_email_for_linked_winner(client):
 
 
 def test_gran_premio_resolve_no_email_if_winner_not_linked(client):
+    """No manager in the league has a joined coach, so there's no eligible
+    winner at all — resolve fails and no email is ever queued."""
     league_id, m1, m2, prize = _setup_gran_premio_league(client)
     with get_db() as conn:
         before = conn.execute(
@@ -241,7 +243,7 @@ def test_gran_premio_resolve_no_email_if_winner_not_linked(client):
     })
     gp_id = r.json()["id"]
     r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
-    assert r.status_code == 200, r.text
+    assert r.status_code == 400, r.text
 
     with get_db() as conn:
         after = conn.execute(
