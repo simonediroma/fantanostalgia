@@ -263,6 +263,76 @@ def test_resolve_fails_when_no_manager_joined(client):
     assert "vincitore" in r.json()["detail"].lower()
 
 
+def _fill_role_slot(conn, league_id: int, manager_id: int, player_name: str) -> None:
+    """Pre-assign the manager's given player_current to a filler nostalgia pool
+    entry, so no free slot remains for that player's role."""
+    pc_id = conn.execute(
+        "SELECT id FROM player_current WHERE league_id = ? AND manager_id = ? AND name = ?",
+        (league_id, manager_id, player_name),
+    ).fetchone()["id"]
+    filler_hist = _add_historic(conn, f"Filler_{player_name}", "A")
+    conn.execute(
+        "INSERT INTO manager_nostalgia_pool"
+        " (manager_id, league_id, player_historic_id, assigned_player_current_id)"
+        " VALUES (?, ?, ?, ?)",
+        (manager_id, league_id, filler_hist, pc_id),
+    )
+
+
+def test_resolve_reassigns_when_winner_role_slot_full(client):
+    """M2 wins best_score but its only attacker slot (A2) is already taken by
+    another nostalgia entry — the attacker prize goes to M1 instead, the next
+    manager in the ranking with a free attacker slot."""
+    ctx = _setup_scored_league(client)
+    league_id, m1, m2 = ctx["league_id"], ctx["m1"], ctx["m2"]
+
+    with get_db() as conn:
+        _fill_role_slot(conn, league_id, m2, "A2")
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    assert r.status_code == 200, r.text
+    gp_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
+    assert r.status_code == 200, r.text
+    assert r.json()["winner_manager_id"] == m1
+    assert r.json()["winner_manager_id"] != m2
+
+
+def test_resolve_fails_when_no_free_role_slot_anywhere(client):
+    """Both managers' single attacker slot is already taken — no one has room
+    for the attacker prize, resolve fails and no pool row is added."""
+    ctx = _setup_scored_league(client)
+    league_id, m1, m2 = ctx["league_id"], ctx["m1"], ctx["m2"]
+
+    with get_db() as conn:
+        _fill_role_slot(conn, league_id, m1, "A1")
+        _fill_role_slot(conn, league_id, m2, "A2")
+        before_pool = conn.execute(
+            "SELECT COUNT(*) AS c FROM manager_nostalgia_pool WHERE league_id = ?",
+            (league_id,),
+        ).fetchone()["c"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    assert r.status_code == 200, r.text
+    gp_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
+    assert r.status_code == 400, r.text
+    assert "slot libero" in r.json()["detail"].lower()
+
+    with get_db() as conn:
+        after_pool = conn.execute(
+            "SELECT COUNT(*) AS c FROM manager_nostalgia_pool WHERE league_id = ?",
+            (league_id,),
+        ).fetchone()["c"]
+    assert after_pool == before_pool
+
+
 def test_resolve_awards_and_reopens(client):
     ctx = _setup_scored_league(client)
     league_id, m2 = ctx["league_id"], ctx["m2"]

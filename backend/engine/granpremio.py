@@ -51,47 +51,74 @@ def _joined_manager_ids(conn: sqlite3.Connection, league_id: int) -> set[int]:
     return {r["id"] for r in rows}
 
 
-def _determine_winner(
+def _ranked_managers(
     conn: sqlite3.Connection, league_id: int, matchday: int, criterion: str
-) -> int | None:
-    """Manager who wins the Gran Premio for the given criterion. Tie-break: lowest
-    manager_id. Only managers with a joined coach (user_id set) are eligible."""
+) -> list[int]:
+    """Joined managers ordered best-to-worst for the given criterion. Tie-break:
+    lowest manager_id. Only managers with a joined coach (user_id set) are
+    eligible."""
+    joined = _joined_manager_ids(conn, league_id)
+    if not joined:
+        return []
+
     if criterion == "best_score":
-        row = conn.execute(
+        rows = conn.execute(
             "SELECT manager_id FROM matchday_score"
             " WHERE league_id = ? AND matchday = ?"
-            " AND manager_id IN ("
-            "   SELECT id FROM manager WHERE league_id = ? AND user_id IS NOT NULL"
-            " )"
-            " ORDER BY score_nostalgia DESC, manager_id ASC LIMIT 1",
-            (league_id, matchday, league_id),
-        ).fetchone()
-        return row["manager_id"] if row else None
+            " ORDER BY score_nostalgia DESC, manager_id ASC",
+            (league_id, matchday),
+        ).fetchall()
+        return [r["manager_id"] for r in rows if r["manager_id"] in joined]
 
     breakdown = compute_player_breakdown(conn, league_id, matchday)
-    joined = _joined_manager_ids(conn, league_id)
     breakdown = [p for p in breakdown if p["manager_id"] in joined]
     if not breakdown:
-        return None
+        return []
 
     if criterion == "best_player":
-        best = max(breakdown, key=lambda x: (x["ns"], -x["manager_id"]))
-        return best["manager_id"]
+        best_ns: dict[int, float] = {}
+        for p in breakdown:
+            mid = p["manager_id"]
+            if mid not in best_ns or p["ns"] > best_ns[mid]:
+                best_ns[mid] = p["ns"]
+        return sorted(best_ns, key=lambda m: (-best_ns[m], m))
 
     if criterion == "worst_player":
-        worst = min(breakdown, key=lambda x: (x["ns"], x["manager_id"]))
-        return worst["manager_id"]
+        worst_ns: dict[int, float] = {}
+        for p in breakdown:
+            mid = p["manager_id"]
+            if mid not in worst_ns or p["ns"] < worst_ns[mid]:
+                worst_ns[mid] = p["ns"]
+        return sorted(worst_ns, key=lambda m: (worst_ns[m], m))
 
     if criterion == "worst_defense":
         def_score: dict[int, float] = defaultdict(float)
         for p in breakdown:
             if p["role"] in ("P", "D"):
                 def_score[p["manager_id"]] += p["ns"]
-        if not def_score:
-            return None
-        return min(def_score, key=lambda m: (def_score[m], m))
+        return sorted(def_score, key=lambda m: (def_score[m], m))
 
     raise ValueError(f"Criterio sconosciuto: {criterion}")
+
+
+def _has_free_role_slot(
+    conn: sqlite3.Connection, league_id: int, manager_id: int, role: str
+) -> bool:
+    """Whether the manager has a player_current of this role without an
+    assigned nostalgia pool entry yet — the only place a new prize of this
+    role could ever be placed."""
+    total = conn.execute(
+        "SELECT COUNT(*) AS c FROM player_current"
+        " WHERE league_id = ? AND manager_id = ? AND role = ?",
+        (league_id, manager_id, role),
+    ).fetchone()["c"]
+    taken = conn.execute(
+        "SELECT COUNT(*) AS c FROM manager_nostalgia_pool mnp"
+        " JOIN player_current pc ON pc.id = mnp.assigned_player_current_id"
+        " WHERE mnp.manager_id = ? AND pc.role = ?",
+        (manager_id, role),
+    ).fetchone()["c"]
+    return taken < total
 
 
 def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
@@ -117,9 +144,23 @@ def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
     if scored is None:
         raise ValueError(f"Punteggi non ancora calcolati per la giornata {matchday}")
 
-    winner_id = _determine_winner(conn, league_id, matchday, gp["criterion"])
-    if winner_id is None:
+    prize_role = conn.execute(
+        "SELECT role FROM player_historic WHERE id = ?",
+        (gp["prize_player_historic_id"],),
+    ).fetchone()["role"]
+
+    ranked = _ranked_managers(conn, league_id, matchday, gp["criterion"])
+    if not ranked:
         raise ValueError("Impossibile determinare un vincitore per questo Gran Premio")
+
+    winner_id = next(
+        (mid for mid in ranked if _has_free_role_slot(conn, league_id, mid, prize_role)),
+        None,
+    )
+    if winner_id is None:
+        raise ValueError(
+            "Nessun manager ha uno slot libero per il ruolo in palio: impossibile assegnare il premio"
+        )
 
     # Award: add the prize to the winner's nostalgia pool (unassigned slot) and
     # reopen their association so they can place/switch it.
