@@ -49,15 +49,30 @@ def _add_player(conn, league_id: int, manager_id: int, name: str, role: str) -> 
     return cur.lastrowid
 
 
-def _setup_scored_league(client) -> dict:
+def _join_manager(conn, manager_id: int, email: str) -> int:
+    """Link a manager slot to a registered coach account (user_id set)."""
+    user_id = conn.execute(
+        "INSERT INTO user (email, name, password_hash) VALUES (?, 'Coach', 'x')",
+        (email,),
+    ).lastrowid
+    conn.execute("UPDATE manager SET user_id = ? WHERE id = ?", (user_id, manager_id))
+    return user_id
+
+
+def _setup_scored_league(client, include_unjoined_ghost: bool = False) -> dict:
     """Two managers, two starters each, archive alter egos with fixed ratings on
     historic matchday 5 (drawn for current matchday 1), scores already computed.
+    Both managers are joined by a registered coach (user_id set).
 
     Ratings (ns == rating for archive):
       M1: A1=8.0, D1=5.0  → total 13.0, defense 5.0
       M2: A2=7.0, D2=6.5  → total 13.5, defense 6.5
     Expected winners: best_score=M2, best_player=M1(A1), worst_player=M1(D1),
     worst_defense=M1.
+
+    If include_unjoined_ghost, a third manager M3 (user_id NULL, i.e. no coach
+    has joined) is added with stats that would dominate every criterion
+    (A3=20.0, D3=1.0) — used to assert unjoined managers are never eligible.
     """
     league_id = _create_league(client)
     ctx: dict = {"league_id": league_id}
@@ -72,6 +87,8 @@ def _setup_scored_league(client) -> dict:
             (league_id,),
         ).lastrowid
         ctx["m1"], ctx["m2"] = m1, m2
+        _join_manager(conn, m1, f"m1-{league_id}@test.local")
+        _join_manager(conn, m2, f"m2-{league_id}@test.local")
 
         conn.execute(
             "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
@@ -85,6 +102,16 @@ def _setup_scored_league(client) -> dict:
             (m2, "A2", "A", 7.0),
             (m2, "D2", "D", 6.5),
         ]
+        if include_unjoined_ghost:
+            m3 = conn.execute(
+                "INSERT INTO manager (league_id, name, team_name) VALUES (?, 'M3', 'T3')",
+                (league_id,),
+            ).lastrowid
+            ctx["m3"] = m3
+            spec += [
+                (m3, "A3", "A", 20.0),
+                (m3, "D3", "D", 1.0),
+            ]
         for mid, name, role, rating in spec:
             pc = _add_player(conn, league_id, mid, name, role)
             conn.execute(
@@ -166,6 +193,74 @@ def test_resolve_picks_expected_winner(client, criterion, expected_key):
     r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
     assert r.status_code == 200, r.text
     assert r.json()["winner_manager_id"] == ctx[expected_key]
+
+
+@pytest.mark.parametrize("criterion,expected_key", [
+    ("best_score", "m2"),
+    ("best_player", "m1"),
+    ("worst_player", "m1"),
+    ("worst_defense", "m1"),
+])
+def test_resolve_excludes_unjoined_manager(client, criterion, expected_key):
+    """M3 has no coach joined (user_id NULL) and dominates every criterion, but
+    must never win — the joined manager (M1/M2) wins instead, same as without M3."""
+    ctx = _setup_scored_league(client, include_unjoined_ghost=True)
+    league_id = ctx["league_id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1,
+        "criterion": criterion,
+        "prize_player_historic_id": ctx["prize"],
+    })
+    assert r.status_code == 200, r.text
+    gp_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
+    assert r.status_code == 200, r.text
+    assert r.json()["winner_manager_id"] == ctx[expected_key]
+    assert r.json()["winner_manager_id"] != ctx["m3"]
+
+
+def test_resolve_fails_when_no_manager_joined(client):
+    league_id = _create_league(client)
+    ctx: dict = {"league_id": league_id}
+
+    with get_db() as conn:
+        m1 = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, 'M1', 'T1')",
+            (league_id,),
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
+            " VALUES (?, 1, 5, 1)",
+            (league_id,),
+        )
+        pc = _add_player(conn, league_id, m1, "A1", "A")
+        conn.execute(
+            "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id, is_starter)"
+            " VALUES (?, ?, 1, ?, 1)",
+            (league_id, m1, pc),
+        )
+        hist = _add_historic(conn, "H_A1", "A")
+        _add_rating(conn, hist, 5, 8.0)
+        conn.execute(
+            "INSERT INTO alter_ego (league_id, player_current_id, player_historic_id)"
+            " VALUES (?, ?, ?)",
+            (league_id, pc, hist),
+        )
+        ctx["prize"] = _add_historic(conn, "PrizeGuy", "A")
+
+    r = client.post(f"/admin/league/{league_id}/scores/1", json={})
+    assert r.status_code == 200, r.text
+
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": "best_score", "prize_player_historic_id": ctx["prize"],
+    })
+    gp_id = r.json()["id"]
+
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
+    assert r.status_code == 400, r.text
+    assert "vincitore" in r.json()["detail"].lower()
 
 
 def test_resolve_awards_and_reopens(client):

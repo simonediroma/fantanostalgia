@@ -41,21 +41,36 @@ def free_historic_players(
     return [dict(r) for r in rows]
 
 
+def _joined_manager_ids(conn: sqlite3.Connection, league_id: int) -> set[int]:
+    """Managers whose slot is claimed by a registered coach (user_id set) — only
+    these can win a Gran Premio."""
+    rows = conn.execute(
+        "SELECT id FROM manager WHERE league_id = ? AND user_id IS NOT NULL",
+        (league_id,),
+    ).fetchall()
+    return {r["id"] for r in rows}
+
+
 def _determine_winner(
     conn: sqlite3.Connection, league_id: int, matchday: int, criterion: str
 ) -> int | None:
     """Manager who wins the Gran Premio for the given criterion. Tie-break: lowest
-    manager_id."""
+    manager_id. Only managers with a joined coach (user_id set) are eligible."""
     if criterion == "best_score":
         row = conn.execute(
             "SELECT manager_id FROM matchday_score"
             " WHERE league_id = ? AND matchday = ?"
+            " AND manager_id IN ("
+            "   SELECT id FROM manager WHERE league_id = ? AND user_id IS NOT NULL"
+            " )"
             " ORDER BY score_nostalgia DESC, manager_id ASC LIMIT 1",
-            (league_id, matchday),
+            (league_id, matchday, league_id),
         ).fetchone()
         return row["manager_id"] if row else None
 
     breakdown = compute_player_breakdown(conn, league_id, matchday)
+    joined = _joined_manager_ids(conn, league_id)
+    breakdown = [p for p in breakdown if p["manager_id"] in joined]
     if not breakdown:
         return None
 
