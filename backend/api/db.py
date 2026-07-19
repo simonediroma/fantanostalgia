@@ -103,6 +103,7 @@ def init_db() -> None:
         for _col, _def in [
             ("user_id", "INTEGER"),
             ("assignments_locked", "INTEGER DEFAULT 0"),
+            ("credits", "INTEGER NOT NULL DEFAULT 0"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE manager ADD COLUMN {_col} {_def}")
@@ -191,6 +192,37 @@ def init_db() -> None:
                 sent_at TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status);
+            CREATE TABLE IF NOT EXISTS market_session (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL REFERENCES league(id),
+                status TEXT NOT NULL DEFAULT 'cuts_open'
+                    CHECK(status IN ('cuts_open', 'bids_open', 'resolved', 'cancelled')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                cuts_closed_at TIMESTAMP,
+                resolved_at TIMESTAMP
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_market_session_one_active
+                ON market_session(league_id) WHERE status IN ('cuts_open', 'bids_open');
+            CREATE TABLE IF NOT EXISTS market_listing (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                market_session_id INTEGER NOT NULL REFERENCES market_session(id),
+                player_historic_id INTEGER NOT NULL REFERENCES player_historic(id),
+                UNIQUE(market_session_id, player_historic_id)
+            );
+            CREATE TABLE IF NOT EXISTS market_bid (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                market_session_id INTEGER NOT NULL REFERENCES market_session(id),
+                manager_id INTEGER NOT NULL REFERENCES manager(id),
+                player_historic_id INTEGER NOT NULL REFERENCES player_historic(id),
+                amount INTEGER NOT NULL CHECK(amount > 0),
+                status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(status IN ('pending', 'won', 'lost', 'withdrawn')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                UNIQUE(market_session_id, manager_id, player_historic_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_market_bid_session_manager ON market_bid(market_session_id, manager_id);
+            CREATE INDEX IF NOT EXISTS idx_market_bid_session_player ON market_bid(market_session_id, player_historic_id);
         """)
         conn.commit()
 

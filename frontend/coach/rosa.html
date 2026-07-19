@@ -20,6 +20,7 @@
   <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="topbarActions">☰</button>
   <div class="row-gap topbar-actions" id="topbarActions">
     <span id="statusBadge"></span>
+    <span id="creditsBadge"></span>
     <a id="punteggiLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Punteggi</a>
     <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
@@ -28,6 +29,7 @@
 <div class="content">
   <div id="msgBox"></div>
   <div id="gpBanner"></div>
+  <div id="marketPanel"></div>
   <div id="poolEmpty" style="display:none">
     <div class="ds-panel ds-panel--default">
       <p style="color:var(--muted)">Il pool di giocatori nostalgia non è ancora stato assegnato dall'amministratore. Riprova più tardi.</p>
@@ -87,6 +89,7 @@ document.getElementById('punteggiLink').href = `/coach/lega/${leagueId}/punteggi
 
 let _data = null;
 let _gpWon = [];
+let _market = null;
 
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -154,16 +157,27 @@ function render() {
     badge.replaceChildren(DS.Badge({ children: 'In corso', variant: 'default' }));
   }
 
-  // Gran Premio won banner (only while the rosa is still editable)
+  // Credits badge
+  const creditsBadge = document.getElementById('creditsBadge');
+  if (typeof _data.manager.credits === 'number') {
+    creditsBadge.replaceChildren(DS.Badge({ children: `💰 ${_data.manager.credits}`, variant: 'default' }));
+  } else {
+    creditsBadge.replaceChildren();
+  }
+
+  // Won-players banner (Gran Premio and/or Mercato — only while the rosa is
+  // still editable)
   const banner = document.getElementById('gpBanner');
   if (!readOnly && _gpWon.length) {
-    const names = _gpWon.map(g => `${esc(g.prize_name)} (${g.prize_role})`).join(', ');
+    const names = _gpWon.map(g => `${esc(g.name)} (${g.role}) — ${g.source}`).join(', ');
     banner.innerHTML = `<div class="ds-panel ds-panel--accent">
-      <strong>🏆 Hai vinto un Gran Premio!</strong><br>
+      <strong>🏆 Hai vinto dei giocatori!</strong><br>
       Giocatori vinti: ${names}. Associali nella tua rosa qui sotto, poi ri-blocca.</div>`;
   } else {
     banner.innerHTML = '';
   }
+
+  renderMarket();
 
   if (_data.nostalgia_pool.length === 0 && _data.current_players.length === 0) {
     document.getElementById('poolEmpty').style.display = 'block';
@@ -326,6 +340,143 @@ async function doAssign(historicId, currentId, selectEl) {
   }
 }
 
+async function loadMarket() {
+  try {
+    const res = await fetch(`/coach/league/${leagueId}/market`);
+    _market = res.ok ? await res.json() : null;
+  } catch { _market = null; }
+}
+
+function renderMarket() {
+  const el = document.getElementById('marketPanel');
+  if (!_market || !_market.session || !['cuts_open', 'bids_open'].includes(_market.session.status)) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const panel = document.createElement('div');
+  panel.className = 'ds-panel ds-panel--default';
+  const title = document.createElement('h4');
+  title.className = 'ds-panel__title';
+  panel.appendChild(title);
+
+  if (_market.session.status === 'cuts_open') {
+    title.replaceChildren('Mercato — ', DS.Badge({ children: 'Tagli aperti', variant: 'default' }));
+
+    const help = document.createElement('div');
+    help.className = 'ds-help-box ds-help-box--info';
+    help.innerHTML = `<span class="ds-help-box__icon" aria-hidden="true">i</span>
+      <div class="ds-help-box__body"><p class="ds-help-box__text">Taglia un giocatore storico dal tuo pool per guadagnare crediti da spendere nelle offerte del mercato. Operazione irreversibile: il giocatore torna libero e perde l'eventuale associazione con un tuo giocatore attuale.</p></div>`;
+    panel.appendChild(help);
+
+    if (!_market.cut_candidates.length) {
+      panel.appendChild(DS.EmptyState({ message: 'Il tuo pool nostalgia è vuoto.' }));
+    } else {
+      const rows = _market.cut_candidates.map((p) => {
+        const btn = DS.Button({
+          children: `Taglia (+${p.cut_value})`, variant: 'danger',
+          onClick: async () => {
+            const ok = await DS.confirmDialog({
+              title: 'Tagliare questo giocatore?',
+              message: `${p.name} (${p.role}) lascerà il tuo pool nostalgia in cambio di ${p.cut_value} crediti.`,
+              consequence: 'Operazione irreversibile.',
+              confirmLabel: 'Taglia', danger: true,
+            });
+            if (!ok) return;
+            try {
+              const r = await fetch(`/coach/league/${leagueId}/market/cut`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ player_historic_id: p.player_historic_id }),
+              });
+              const data = await r.json();
+              if (!r.ok) { showMsg(data.detail || 'Errore taglio', true); return; }
+              showMsg(`Tagliato: +${data.credited} crediti.`, false);
+              await loadData();
+            } catch { showMsg('Errore di rete', true); }
+          },
+        });
+        return [p.name, p.role, p.team, p.season, btn];
+      });
+      panel.appendChild(DS.Table({
+        columns: [{ label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }, { label: '' }],
+        rows,
+      }));
+    }
+  } else if (_market.session.status === 'bids_open') {
+    title.replaceChildren('Mercato — ', DS.Badge({ children: 'Offerte aperte', variant: 'default' }));
+
+    const help = document.createElement('div');
+    help.className = 'ds-help-box ds-help-box--info';
+    help.innerHTML = `<span class="ds-help-box__icon" aria-hidden="true">i</span>
+      <div class="ds-help-box__body"><p class="ds-help-box__text">Fai un'offerta in busta chiusa sui giocatori in vendita. La somma delle tue offerte non può superare i crediti disponibili, e non puoi offrire su un ruolo senza slot liberi nel tuo pool.</p></div>`;
+    panel.appendChild(help);
+
+    if (!_market.listing.length) {
+      panel.appendChild(DS.EmptyState({ message: 'Nessun giocatore in vendita in questa sessione.' }));
+    } else {
+      const rows = _market.listing.map((row) => {
+        const hasMyBid = row.my_bid != null;
+        const freeSlots = (_market.free_slots && _market.free_slots[row.role]) || 0;
+        const roleFull = freeSlots <= 0 && !hasMyBid;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '1';
+        input.style.cssText = 'width:70px';
+        input.value = hasMyBid ? row.my_bid : '';
+        input.disabled = roleFull;
+
+        const offerBtn = DS.Button({
+          children: hasMyBid ? 'Aggiorna' : 'Offri', variant: 'default', disabled: roleFull,
+          onClick: async () => {
+            const amount = parseInt(input.value, 10);
+            if (!amount || amount <= 0) { showMsg('Inserisci un importo valido.', true); return; }
+            try {
+              const r = await fetch(`/coach/league/${leagueId}/market/bid`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ player_historic_id: row.player_historic_id, amount }),
+              });
+              const data = await r.json();
+              if (!r.ok) { showMsg(data.detail || 'Errore offerta', true); return; }
+              showMsg('Offerta registrata.', false);
+              await loadData();
+            } catch { showMsg('Errore di rete', true); }
+          },
+        });
+
+        const withdrawBtn = DS.Button({
+          children: 'Ritira', variant: 'secondary', disabled: !hasMyBid,
+          onClick: async () => {
+            try {
+              const r = await fetch(`/coach/league/${leagueId}/market/bid/${row.player_historic_id}`, { method: 'DELETE' });
+              const data = await r.json();
+              if (!r.ok) { showMsg(data.detail || 'Errore', true); return; }
+              showMsg('Offerta ritirata.', false);
+              await loadData();
+            } catch { showMsg('Errore di rete', true); }
+          },
+        });
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap';
+        actions.appendChild(input);
+        actions.appendChild(offerBtn);
+        actions.appendChild(withdrawBtn);
+
+        const roleCell = roleFull ? DS.Badge({ children: `${row.role} pieno`, variant: 'red' }) : row.role;
+
+        return [row.name, roleCell, row.team, row.season, actions];
+      });
+      panel.appendChild(DS.Table({
+        columns: [{ label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }, { label: 'Offerta' }],
+        rows,
+      }));
+    }
+  }
+
+  el.replaceChildren(panel);
+}
+
 document.getElementById('lockBtn').addEventListener('click', async () => {
   const ok = await DS.confirmDialog({
     title: 'Conferma e blocca',
@@ -362,10 +513,29 @@ async function loadData() {
   _data = await res.json();
   try {
     const gps = await (await fetch(`/league/${leagueId}/granpremio`)).json();
-    _gpWon = Array.isArray(gps)
-      ? gps.filter(g => g.status === 'resolved' && g.winner_name === _data.manager.name)
+    const gpWins = Array.isArray(gps)
+      ? gps
+          .filter(g => g.status === 'resolved' && g.winner_name === _data.manager.name)
+          .map(g => ({ name: g.prize_name, role: g.prize_role, source: 'Gran Premio' }))
       : [];
+
+    const markets = await (await fetch(`/league/${leagueId}/market`)).json();
+    const mktWins = [];
+    if (Array.isArray(markets)) {
+      for (const session of markets) {
+        if (session.status === 'resolved' && Array.isArray(session.results)) {
+          for (const r of session.results) {
+            if (r.manager_name === _data.manager.name) {
+              mktWins.push({ name: r.name, role: r.role, source: 'Mercato' });
+            }
+          }
+        }
+      }
+    }
+
+    _gpWon = [...gpWins, ...mktWins];
   } catch { _gpWon = []; }
+  await loadMarket();
   render();
 }
 
