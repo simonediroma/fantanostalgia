@@ -170,6 +170,44 @@ def test_free_historic_players_filter_role(client):
     assert h_a in ids_a and h_p not in ids_a
 
 
+def test_free_historic_players_ordered_by_role_team_then_avg_rating_desc(client):
+    """Selection lists (Gran Premio prize picker, Market free-players) group by
+    role, then team A-Z, then average historic rating descending — not by name."""
+    league_id = _create_league(client)
+    with get_db() as conn:
+        gk = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('Keeper', 'P', 'Inter', '2003/04', 'archive')"
+        ).lastrowid
+        juve = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttJuve', 'A', 'Juve', '2003/04', 'archive')"
+        ).lastrowid
+        milan_hi = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttMilanHi', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        milan_lo = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttMilanLo', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        roma = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttRoma', 'A', 'Roma', '2003/04', 'archive')"
+        ).lastrowid
+        _add_rating(conn, juve, 1, 9.0)
+        _add_rating(conn, milan_hi, 1, 8.0)
+        _add_rating(conn, milan_lo, 1, 6.0)
+        _add_rating(conn, roma, 1, 5.0)
+        # gk has no historic_rating rows at all — must still appear (role wins).
+
+        players = free_historic_players(conn, league_id)
+
+    mine = {gk, juve, milan_hi, milan_lo, roma}
+    ids_in_order = [p["id"] for p in players if p["id"] in mine]
+    assert ids_in_order == [gk, juve, milan_hi, milan_lo, roma]
+
+
 # ── criteria → winner ─────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("criterion,expected_key", [

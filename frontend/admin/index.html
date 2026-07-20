@@ -1401,7 +1401,7 @@ async function loadGpPrizeOptions() {
     const players = await apiListFreeHistoric(currentLeagueId, role);
     sel.innerHTML = players.length
       ? players.map(p =>
-          `<option value="${p.id}">${esc(p.name)} (${p.role}) — ${esc(p.team)} ${esc(p.season)}</option>`
+          `<option value="${p.id}">${esc(p.name)} (${p.role}) — ${esc(p.team)} ${esc(p.season)} · media ${p.avg_rating ?? '—'}</option>`
         ).join('')
       : '<option value="">— nessun giocatore libero —</option>';
   } catch (err) {
@@ -1828,7 +1828,7 @@ async function loadGtGpPrizeOptions() {
     const players = await apiListFreeHistoric(currentLeagueId, role);
     sel.innerHTML = players.length
       ? players.map(p =>
-          `<option value="${p.id}">${esc(p.name)} (${p.role}) — ${esc(p.team)} ${esc(p.season)}</option>`
+          `<option value="${p.id}">${esc(p.name)} (${p.role}) — ${esc(p.team)} ${esc(p.season)} · media ${p.avg_rating ?? '—'}</option>`
         ).join('')
       : '<option value="">— nessun giocatore libero —</option>';
   } catch (err) {
@@ -2085,10 +2085,13 @@ async function mkRenderCreateView(el) {
         check.addEventListener('change', () => {
           if (check.checked) mkSelectedIds.add(p.id); else mkSelectedIds.delete(p.id);
         });
-        return [check, p.name, p.role, p.team, p.season];
+        return [check, p.name, p.role, p.team, p.season, p.avg_rating ?? '—'];
       });
       listWrap.replaceChildren(DS.Table({
-        columns: [{ label: '' }, { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }],
+        columns: [
+          { label: '' }, { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' },
+          { label: 'Stagione' }, { label: 'Media voto' },
+        ],
         rows,
       }));
     } catch (err) {
@@ -2101,11 +2104,11 @@ async function mkRenderCreateView(el) {
 
 function mkListingTable(listing, extraColumns) {
   const columns = [
-    { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' },
+    { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }, { label: 'Media voto' },
     ...extraColumns.map(c => ({ label: c.label })),
   ];
   const rows = listing.map((row) => {
-    const base = [row.name, row.role, row.team, row.season];
+    const base = [row.name, row.role, row.team, row.season, row.avg_rating ?? '—'];
     extraColumns.forEach((c) => base.push(c.render(row)));
     return base;
   });

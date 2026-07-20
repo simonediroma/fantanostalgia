@@ -328,7 +328,10 @@ def list_players(
             query += " AND manager_id = ?"
             params.append(manager_id)
 
-        query += " ORDER BY role, name"
+        query += (
+            " ORDER BY CASE role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,"
+            " name"
+        )
         rows = conn.execute(query, params).fetchall()
 
     return [dict(r) for r in rows]

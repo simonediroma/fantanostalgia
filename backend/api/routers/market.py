@@ -31,11 +31,15 @@ def _get_session_or_404(conn, league_id: int, market_session_id: int):
 def _listing_rows(conn, market_session_id: int) -> list[dict]:
     rows = conn.execute(
         """
-        SELECT ph.id AS player_historic_id, ph.name, ph.role, ph.team, ph.season
+        SELECT ph.id AS player_historic_id, ph.name, ph.role, ph.team, ph.season,
+               ROUND(AVG(hr.rating), 2) AS avg_rating
         FROM market_listing ml
         JOIN player_historic ph ON ph.id = ml.player_historic_id
+        LEFT JOIN historic_rating hr ON hr.player_historic_id = ph.id
         WHERE ml.market_session_id = ?
-        ORDER BY ml.id ASC
+        GROUP BY ph.id
+        ORDER BY CASE ph.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                 ph.team, AVG(hr.rating) DESC
         """,
         (market_session_id,),
     ).fetchall()
@@ -280,11 +284,15 @@ def get_coach_market(league_id: int, user: dict = Depends(get_current_user)):
 
         pool_rows = conn.execute(
             """
-            SELECT ph.id AS player_historic_id, ph.name, ph.role, ph.team, ph.season
+            SELECT ph.id AS player_historic_id, ph.name, ph.role, ph.team, ph.season,
+                   ROUND(AVG(hr.rating), 2) AS avg_rating
             FROM manager_nostalgia_pool mnp
             JOIN player_historic ph ON ph.id = mnp.player_historic_id
+            LEFT JOIN historic_rating hr ON hr.player_historic_id = ph.id
             WHERE mnp.manager_id = ?
-            ORDER BY ph.role, ph.name
+            GROUP BY ph.id
+            ORDER BY CASE ph.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                     ph.team, AVG(hr.rating) DESC
             """,
             (manager_id,),
         ).fetchall()

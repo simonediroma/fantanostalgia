@@ -65,7 +65,7 @@ def get_rosa(league_id: int, user: dict = Depends(get_current_user)):
             WHERE league_id = ? AND manager_id = ?
             ORDER BY
                 CASE role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
-                starts_current_season DESC, name
+                name
             """,
             (league_id, manager_id),
         ).fetchall()

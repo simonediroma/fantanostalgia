@@ -495,6 +495,37 @@ def test_admin_current_market_hides_amounts_during_bids_open(client):
     assert "amount" not in row
 
 
+def test_market_listing_ordered_by_role_team_then_avg_rating_desc(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        gk = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('Keeper', 'P', 'Inter', '2003/04', 'archive')"
+        ).lastrowid
+        juve = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttJuve', 'A', 'Juve', '2003/04', 'archive')"
+        ).lastrowid
+        milan_hi = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttMilanHi', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        milan_lo = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttMilanLo', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        _add_rating(conn, juve, 1, 9.0)
+        _add_rating(conn, milan_hi, 1, 8.0)
+        _add_rating(conn, milan_lo, 1, 6.0)
+
+    r = client.post(f"/admin/league/{league_id}/market", json={
+        "player_historic_ids": [milan_lo, gk, juve, milan_hi],
+    })
+    assert r.status_code == 200, r.text
+    listing = r.json()["listing"]
+    assert [p["player_historic_id"] for p in listing] == [gk, juve, milan_hi, milan_lo]
+
+
 def test_admin_resolve_enqueues_market_won_email(client):
     league_id = _create_league(client)
     with get_db() as conn:
@@ -631,5 +662,49 @@ def test_coach_get_market_reflects_state(client):
     assert data["session"]["status"] == "bids_open"
     assert data["free_slots"]["A"] == POOL_SIZE["A"]
     assert len(data["listing"]) == 1
+
+    client.post("/auth/user/logout")
+
+
+def test_coach_cut_candidates_ordered_by_role_team_then_avg_rating_desc(client):
+    league_id = _create_league(client)
+    manager = client.post(
+        f"/admin/league/{league_id}/managers", json={"name": "M1", "team_name": "T1"}
+    ).json()
+    mgr = manager["id"]
+    with get_db() as conn:
+        gk = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('Keeper', 'P', 'Inter', '2003/04', 'archive')"
+        ).lastrowid
+        juve = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttJuve', 'A', 'Juve', '2003/04', 'archive')"
+        ).lastrowid
+        milan_hi = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttMilanHi', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        milan_lo = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('AttMilanLo', 'A', 'Milan', '2003/04', 'archive')"
+        ).lastrowid
+        _add_rating(conn, juve, 1, 9.0)
+        _add_rating(conn, milan_hi, 1, 8.0)
+        _add_rating(conn, milan_lo, 1, 6.0)
+        for hid in (gk, juve, milan_hi, milan_lo):
+            _add_to_pool(conn, mgr, league_id, hid)
+        dummy = conn.execute(
+            "INSERT INTO player_historic (name, role, team, season, source)"
+            " VALUES ('Dummy', 'A', 'Empoli', '2003/04', 'archive')"
+        ).lastrowid
+        market_engine.create_market_session(conn, league_id, [dummy])
+
+    _register_coach(client, league_id, mgr, "cutorder@test.com")
+
+    r = client.get(f"/coach/league/{league_id}/market")
+    assert r.status_code == 200, r.text
+    cut_candidates = r.json()["cut_candidates"]
+    assert [p["player_historic_id"] for p in cut_candidates] == [gk, juve, milan_hi, milan_lo]
 
     client.post("/auth/user/logout")
