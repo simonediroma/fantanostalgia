@@ -395,10 +395,13 @@ function renderMarket() {
             } catch { showMsg('Errore di rete', true); }
           },
         });
-        return [p.name, p.role, p.team, p.season, btn];
+        return [p.name, p.role, p.team, p.season, p.avg_rating ?? '—', btn];
       });
       panel.appendChild(DS.Table({
-        columns: [{ label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }, { label: '' }],
+        columns: [
+          { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' },
+          { label: 'Media voto' }, { label: '' },
+        ],
         rows,
       }));
     }
@@ -465,10 +468,13 @@ function renderMarket() {
 
         const roleCell = roleFull ? DS.Badge({ children: `${row.role} pieno`, variant: 'red' }) : row.role;
 
-        return [row.name, roleCell, row.team, row.season, actions];
+        return [row.name, roleCell, row.team, row.season, row.avg_rating ?? '—', actions];
       });
       panel.appendChild(DS.Table({
-        columns: [{ label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }, { label: 'Offerta' }],
+        columns: [
+          { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' },
+          { label: 'Media voto' }, { label: 'Offerta' },
+        ],
         rows,
       }));
     }
