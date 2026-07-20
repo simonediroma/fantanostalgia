@@ -20,6 +20,7 @@
   <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="topbarActions">☰</button>
   <div class="row-gap topbar-actions" id="topbarActions">
     <a id="rosaLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Rosa</a>
+    <a id="statisticheLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Statistiche</a>
     <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
 </div>
@@ -70,6 +71,7 @@ const leagueId = (() => {
 if (!leagueId) window.location.href = '/coach/';
 
 document.getElementById('rosaLink').href = `/coach/lega/${leagueId}`;
+document.getElementById('statisticheLink').href = `/coach/lega/${leagueId}/statistiche`;
 
 function esc(s) {
   const d = document.createElement('div');

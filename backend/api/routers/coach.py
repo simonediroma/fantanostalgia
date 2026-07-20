@@ -227,6 +227,44 @@ def get_punteggi(league_id: int, user: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/league/{league_id}/statistiche-storiche")
+def get_statistiche_storiche(league_id: int, user: dict = Depends(get_current_user)):
+    with get_db() as conn:
+        mgr = _get_manager_for_user(conn, league_id, user["id"])
+
+        league = conn.execute(
+            "SELECT season_historic FROM league WHERE id = ?", (league_id,)
+        ).fetchone()
+
+        rows = conn.execute(
+            """
+            SELECT ph.id, ph.name, ph.role, ph.team,
+                   COUNT(hr.matchday) AS matches_played,
+                   ROUND(AVG(hr.rating), 2) AS avg_rating,
+                   COALESCE(SUM(hr.goals), 0) AS goals,
+                   COALESCE(SUM(hr.assists), 0) AS assists,
+                   COALESCE(SUM(hr.yellow_cards), 0) AS yellow_cards,
+                   COALESCE(SUM(hr.red_cards), 0) AS red_cards,
+                   COALESCE(SUM(hr.own_goals), 0) AS own_goals,
+                   COALESCE(SUM(hr.penalties_scored), 0) AS penalties_scored,
+                   COALESCE(SUM(hr.penalties_missed), 0) AS penalties_missed,
+                   COALESCE(SUM(hr.goals_conceded), 0) AS goals_conceded,
+                   COALESCE(SUM(hr.minutes), 0) AS minutes
+            FROM player_historic ph
+            LEFT JOIN historic_rating hr ON hr.player_historic_id = ph.id
+            WHERE ph.season = ?
+            GROUP BY ph.id
+            ORDER BY avg_rating DESC
+            """,
+            (league["season_historic"],),
+        ).fetchall()
+
+    return {
+        "league": {"id": mgr["league_id"], "name": mgr["league_name"], "season_historic": league["season_historic"]},
+        "players": [dict(r) for r in rows],
+    }
+
+
 @router.post("/league/{league_id}/lock")
 def lock_assignments(league_id: int, user: dict = Depends(get_current_user)):
     with get_db() as conn:

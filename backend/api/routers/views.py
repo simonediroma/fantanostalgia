@@ -217,6 +217,14 @@ def coach_punteggi(request: Request, league_id: int):
     return Response("Coach punteggi not available", status_code=404)
 
 
+@router.get("/coach/lega/{league_id}/statistiche", include_in_schema=False)
+def coach_statistiche(request: Request, league_id: int):
+    p = os.path.join(_coach_dir, "statistiche.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach statistiche not available", status_code=404)
+
+
 @router.get("/api/lega/{league_id}/calendario/{matchday}")
 def calendario_dati(league_id: int, matchday: int):
     """JSON endpoint: h2h matches for a matchday with per-player score breakdown."""

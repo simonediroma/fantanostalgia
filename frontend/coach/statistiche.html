@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FantaNostalgia — Statistiche stagione storica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/design-system.css">
+  <link rel="stylesheet" href="/coach/css/coach.css">
+  <script src="/shared/design-system.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="row-gap">
+    <a href="/coach/" style="color:var(--muted);font-size:0.7rem;text-decoration:none">← Leghe</a>
+    <span class="logo" id="pageTitle">Statistiche stagione storica</span>
+  </div>
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="topbarActions">☰</button>
+  <div class="row-gap topbar-actions" id="topbarActions">
+    <a id="rosaLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Rosa</a>
+    <a id="punteggiLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Punteggi</a>
+    <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
+  </div>
+</div>
+
+<div class="content">
+  <div id="msgBox"></div>
+  <div id="main" style="display:none">
+    <div class="ds-panel ds-panel--default" style="margin-bottom:1.5rem">
+      <p style="color:var(--muted);font-size:0.85rem" id="seasonLabel"></p>
+    </div>
+
+    <div id="roleFilterRow" class="row-gap" style="margin-bottom:0.75rem">
+      <label style="font-size:0.8rem;color:var(--muted)">Ruolo</label>
+      <select id="roleFilter"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem">
+        <option value="">Tutti</option>
+        <option value="P">P</option>
+        <option value="D">D</option>
+        <option value="C">C</option>
+        <option value="A">A</option>
+      </select>
+    </div>
+
+    <div id="playersTable"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const DS = window.FantaNostalgiaDS;
+
+// Mobile nav toggle
+(function () {
+  const btn = document.getElementById('navToggle');
+  const nav = document.getElementById('topbarActions');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', () => {
+    const open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+})();
+
+const leagueId = (() => {
+  const m = location.pathname.match(/\/coach\/lega\/(\d+)/);
+  return m ? parseInt(m[1]) : null;
+})();
+
+if (!leagueId) window.location.href = '/coach/';
+
+document.getElementById('rosaLink').href = `/coach/lega/${leagueId}`;
+document.getElementById('punteggiLink').href = `/coach/lega/${leagueId}/punteggi`;
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+function showMsg(msg, isErr = false) {
+  const el = document.getElementById('msgBox');
+  el.innerHTML = `<div class="ds-message ds-message--${isErr ? 'err' : 'ok'}">${esc(msg)}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/auth/user/logout', { method: 'POST' });
+  window.location.href = '/coach/login';
+});
+
+let _players = [];
+
+function renderTable() {
+  const role = document.getElementById('roleFilter').value;
+  const filtered = role ? _players.filter(p => p.role === role) : _players;
+  const el = document.getElementById('playersTable');
+
+  if (!filtered.length) {
+    el.replaceChildren(DS.EmptyState({ message: 'Nessun giocatore storico trovato.' }));
+    return;
+  }
+
+  el.replaceChildren(DS.Table({
+    columns: [
+      { label: 'Ruolo' }, { label: 'Nome' }, { label: 'Squadra' },
+      { label: 'Media voto' }, { label: 'Partite' }, { label: 'Minuti' },
+      { label: 'Gol' }, { label: 'Assist' },
+      { label: 'Ammonizioni' }, { label: 'Espulsioni' }, { label: 'Autogol' },
+      { label: 'Rig. segnati' }, { label: 'Rig. sbagliati' }, { label: 'Gol subiti' },
+    ],
+    rows: filtered.map(p => [
+      p.role, p.name, p.team,
+      p.avg_rating ?? '—', p.matches_played, p.minutes,
+      p.goals, p.assists,
+      p.yellow_cards, p.red_cards, p.own_goals,
+      p.penalties_scored, p.penalties_missed, p.goals_conceded,
+    ]),
+  }));
+}
+
+document.getElementById('roleFilter').addEventListener('change', renderTable);
+
+async function load() {
+  try {
+    const res = await fetch(`/coach/league/${leagueId}/statistiche-storiche`);
+    if (res.status === 401 || res.status === 403) { window.location.href = '/coach/login'; return; }
+    const data = await res.json();
+    if (!res.ok) { throw new Error(data.detail || res.statusText); }
+
+    document.getElementById('pageTitle').textContent = `${esc(data.league.name)} — Statistiche stagione storica`;
+    document.title = `FantaNostalgia — Statistiche ${data.league.season_historic}`;
+    document.getElementById('seasonLabel').textContent =
+      `Tutti i giocatori storici della stagione ${data.league.season_historic}, ordinati per media voto.`;
+
+    _players = data.players;
+    renderTable();
+
+    document.getElementById('main').style.display = 'block';
+  } catch (err) {
+    showMsg(err.message, true);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

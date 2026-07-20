@@ -22,6 +22,7 @@
     <span id="statusBadge"></span>
     <span id="creditsBadge"></span>
     <a id="punteggiLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Punteggi</a>
+    <a id="statisticheLink" href="#" style="color:var(--accent2);font-family:var(--font-pixel);font-size:0.5rem;text-decoration:none">Statistiche</a>
     <button class="ds-button ds-button--secondary" id="logoutBtn" style="font-size:0.5rem">Esci</button>
   </div>
 </div>
@@ -86,6 +87,7 @@ if (!leagueId) {
 }
 
 document.getElementById('punteggiLink').href = `/coach/lega/${leagueId}/punteggi`;
+document.getElementById('statisticheLink').href = `/coach/lega/${leagueId}/statistiche`;
 
 let _data = null;
 let _gpWon = [];
