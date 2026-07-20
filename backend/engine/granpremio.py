@@ -25,8 +25,10 @@ def free_historic_players(
 
     rows = conn.execute(
         f"""
-        SELECT ph.id, ph.name, ph.role, ph.team, ph.season
+        SELECT ph.id, ph.name, ph.role, ph.team, ph.season,
+               ROUND(AVG(hr.rating), 2) AS avg_rating
         FROM player_historic ph
+        LEFT JOIN historic_rating hr ON hr.player_historic_id = ph.id
         WHERE ph.season = ?
           AND ph.id NOT IN (
               SELECT mnp.player_historic_id
@@ -34,8 +36,9 @@ def free_historic_players(
               WHERE mnp.league_id = ?
           )
           {role_clause}
+        GROUP BY ph.id
         ORDER BY CASE ph.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
-                 ph.name
+                 ph.team, AVG(hr.rating) DESC
         """,
         params,
     ).fetchall()
