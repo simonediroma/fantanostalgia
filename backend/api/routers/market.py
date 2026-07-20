@@ -35,7 +35,8 @@ def _listing_rows(conn, market_session_id: int) -> list[dict]:
         FROM market_listing ml
         JOIN player_historic ph ON ph.id = ml.player_historic_id
         WHERE ml.market_session_id = ?
-        ORDER BY ml.id ASC
+        ORDER BY CASE ph.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                 ph.name
         """,
         (market_session_id,),
     ).fetchall()
@@ -284,7 +285,8 @@ def get_coach_market(league_id: int, user: dict = Depends(get_current_user)):
             FROM manager_nostalgia_pool mnp
             JOIN player_historic ph ON ph.id = mnp.player_historic_id
             WHERE mnp.manager_id = ?
-            ORDER BY ph.role, ph.name
+            ORDER BY CASE ph.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                     ph.name
             """,
             (manager_id,),
         ).fetchall()

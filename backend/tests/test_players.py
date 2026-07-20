@@ -209,6 +209,14 @@ def test_list_players(client, league_id):
     assert len(r.json()) == 5
 
 
+def test_list_players_ordered_by_role_then_name(client, league_id):
+    _upload_sample(client, league_id)
+    r = client.get(f"/league/{league_id}/players")
+    assert r.status_code == 200
+    assert [p["name"] for p in r.json()] == ["Buffon", "Maldini", "Nesta", "Pirlo", "Totti"]
+    assert [p["role"] for p in r.json()] == ["P", "D", "D", "C", "A"]
+
+
 def test_list_players_filter_role(client, league_id):
     _upload_sample(client, league_id)
     r = client.get(f"/league/{league_id}/players?role=D")

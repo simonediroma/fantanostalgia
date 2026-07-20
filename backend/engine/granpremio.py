@@ -34,7 +34,8 @@ def free_historic_players(
               WHERE mnp.league_id = ?
           )
           {role_clause}
-        ORDER BY ph.role, ph.name
+        ORDER BY CASE ph.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                 ph.name
         """,
         params,
     ).fetchall()

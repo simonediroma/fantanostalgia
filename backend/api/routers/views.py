@@ -602,7 +602,9 @@ def mapping(request: Request, league_id: int):
                 JOIN player_historic ph ON ph.id = ae.player_historic_id
                 LEFT JOIN manager    m  ON m.id  = pc.manager_id
                 WHERE ae.league_id = ?
-                ORDER BY m.name, pc.role, pc.name
+                ORDER BY m.name,
+                         CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                         pc.name
                 """,
                 (league_id,),
             ).fetchall()

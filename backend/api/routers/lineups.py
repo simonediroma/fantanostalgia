@@ -334,7 +334,9 @@ def get_lineups(league_id: int, matchday: int):
             JOIN manager m ON m.id = l.manager_id
             JOIN player_current p ON p.id = l.player_current_id
             WHERE l.league_id = ? AND l.matchday = ?
-            ORDER BY m.name, l.is_starter DESC, p.role, p.name
+            ORDER BY m.name, l.is_starter DESC,
+                     CASE p.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
+                     p.name
             """,
             (league_id, matchday),
         ).fetchall()
