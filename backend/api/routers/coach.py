@@ -13,6 +13,7 @@ def _get_manager_for_user(conn, league_id: int, user_id: int) -> dict:
         """
         SELECT m.id, m.name, m.team_name,
                COALESCE(m.assignments_locked, 0) AS assignments_locked,
+               COALESCE(m.credits, 0) AS credits,
                l.id AS league_id, l.name AS league_name,
                COALESCE(l.associations_closed, 0) AS associations_closed
         FROM manager m
@@ -75,6 +76,7 @@ def get_rosa(league_id: int, user: dict = Depends(get_current_user)):
             "name": mgr["name"],
             "team_name": mgr["team_name"],
             "assignments_locked": bool(mgr["assignments_locked"]),
+            "credits": mgr["credits"],
         },
         "league": {
             "id": mgr["league_id"],

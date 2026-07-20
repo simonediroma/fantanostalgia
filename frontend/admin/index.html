@@ -109,6 +109,7 @@
           <h2 id="manageLegaNome">Gestione Lega</h2>
           <div style="display:flex;gap:0.5rem">
             <button class="ds-button ds-button--secondary" id="openGiornateBtn" style="font-size:0.8rem">📅 Giornate</button>
+            <button class="ds-button ds-button--secondary" id="openMercatoBtn" style="font-size:0.8rem">🏪 Mercato</button>
             <button class="ds-button ds-button--secondary" id="backToDashBtn" style="font-size:0.8rem">← Leghe</button>
           </div>
         </div>
@@ -454,6 +455,17 @@
         </div>
       </div>
 
+      <!-- Mercato dei giocatori storici ─────────────────────────────────────── -->
+      <div id="pg-mercato" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2 id="mercatoLegaNome">Mercato</h2>
+          <button class="ds-button ds-button--secondary" id="mercatoToDashBtn" style="font-size:0.8rem">← Leghe</button>
+        </div>
+
+        <div id="mercatoMsg"></div>
+        <div id="mercatoContent"></div>
+      </div>
+
     </div><!-- .content -->
   </div><!-- .app-body -->
 </div><!-- #pg-app -->
@@ -465,6 +477,7 @@
 <script src="js/listone.js"></script>
 <script src="js/mapping.js"></script>
 <script src="js/matchday.js"></script>
+<script src="js/market.js"></script>
 <script src="js/elevation.js"></script>
 <script src="js/users.js"></script>
 <script>
@@ -530,7 +543,7 @@ function showApp(username) {
 }
 
 function showPage(id) {
-  ['pg-dashboard', 'pg-users', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail'].forEach(pid => {
+  ['pg-dashboard', 'pg-users', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
     const el = document.getElementById(pid);
     if (el) el.classList.toggle('active', pid === id);
   });
@@ -1972,6 +1985,247 @@ window.showResetPasswordModal = function (userId, userName, msgElId, onDone) {
   };
   resetPasswordModal.open();
 };
+
+// ── Mercato dei giocatori storici ──────────────────────────────────────────────
+let mkSelectedIds = new Set();
+let mkShowCreateView = false;
+
+document.getElementById('openMercatoBtn').addEventListener('click', openMercatoTab);
+document.getElementById('mercatoToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
+
+async function openMercatoTab() {
+  const league = allLeagues.find(l => l.id === currentLeagueId);
+  document.getElementById('mercatoLegaNome').textContent = league ? `Mercato — ${league.name}` : 'Mercato';
+  mkShowCreateView = false;
+  mkSelectedIds = new Set();
+  showPage('pg-mercato');
+  await mkRender();
+}
+
+async function mkRender() {
+  const el = document.getElementById('mercatoContent');
+  try {
+    const session = mkShowCreateView ? null : await apiGetCurrentMarket(currentLeagueId);
+    if (!session || session.status === 'cancelled') {
+      await mkRenderCreateView(el);
+    } else if (session.status === 'cuts_open') {
+      mkRenderCutsOpenView(el, session);
+    } else if (session.status === 'bids_open') {
+      mkRenderBidsOpenView(el, session);
+    } else if (session.status === 'resolved') {
+      mkRenderResolvedView(el, session);
+    }
+  } catch (err) {
+    showMsg('mercatoMsg', err.message, true);
+  }
+}
+
+async function mkRenderCreateView(el) {
+  el.innerHTML = '';
+  const panel = document.createElement('div');
+  panel.className = 'ds-panel ds-panel--default';
+  const title = document.createElement('h4');
+  title.className = 'ds-panel__title';
+  title.textContent = 'Apri un nuovo mercato';
+  panel.appendChild(title);
+
+  const help = document.createElement('div');
+  help.className = 'ds-help-box ds-help-box--info';
+  help.innerHTML = `<span class="ds-help-box__icon" aria-hidden="true">i</span>
+    <div class="ds-help-box__body"><p class="ds-help-box__text">Seleziona i giocatori storici liberi da mettere in vendita. Una volta aperto, i manager potranno tagliare giocatori dal proprio pool per guadagnare crediti, poi fare offerte in busta chiusa su questi giocatori.</p></div>`;
+  panel.appendChild(help);
+
+  const roleRow = document.createElement('div');
+  roleRow.className = 'row-gap';
+  roleRow.style.marginBottom = '0.5rem';
+  const roleLabel = document.createElement('label');
+  roleLabel.textContent = 'Filtra per ruolo';
+  const roleSelect = document.createElement('select');
+  roleSelect.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem';
+  roleSelect.innerHTML = '<option value="">Tutti</option><option value="P">P</option><option value="D">D</option><option value="C">C</option><option value="A">A</option>';
+  roleRow.appendChild(roleLabel);
+  roleRow.appendChild(roleSelect);
+  panel.appendChild(roleRow);
+
+  const listWrap = document.createElement('div');
+  panel.appendChild(listWrap);
+
+  const createBtn = DS.Button({
+    children: 'Apri mercato', variant: 'default',
+    onClick: async () => {
+      if (!mkSelectedIds.size) { showMsg('mercatoMsg', 'Seleziona almeno un giocatore.', true); return; }
+      try {
+        await apiCreateMarket(currentLeagueId, { player_historic_ids: Array.from(mkSelectedIds) });
+        showMsg('mercatoMsg', 'Mercato aperto: fase tagli in corso.');
+        mkShowCreateView = false;
+        mkSelectedIds = new Set();
+        await mkRender();
+      } catch (err) {
+        showMsg('mercatoMsg', err.message, true);
+      }
+    },
+  });
+  createBtn.style.marginTop = '0.75rem';
+  panel.appendChild(createBtn);
+
+  el.appendChild(panel);
+
+  async function loadFreeList() {
+    const role = roleSelect.value;
+    try {
+      const players = await apiListMarketFreePlayers(currentLeagueId, role);
+      if (!players.length) {
+        listWrap.replaceChildren(DS.EmptyState({ message: 'Nessun giocatore storico libero.' }));
+        return;
+      }
+      const rows = players.map((p) => {
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.checked = mkSelectedIds.has(p.id);
+        check.addEventListener('change', () => {
+          if (check.checked) mkSelectedIds.add(p.id); else mkSelectedIds.delete(p.id);
+        });
+        return [check, p.name, p.role, p.team, p.season];
+      });
+      listWrap.replaceChildren(DS.Table({
+        columns: [{ label: '' }, { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' }],
+        rows,
+      }));
+    } catch (err) {
+      showMsg('mercatoMsg', err.message, true);
+    }
+  }
+  roleSelect.addEventListener('change', loadFreeList);
+  await loadFreeList();
+}
+
+function mkListingTable(listing, extraColumns) {
+  const columns = [
+    { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' },
+    ...extraColumns.map(c => ({ label: c.label })),
+  ];
+  const rows = listing.map((row) => {
+    const base = [row.name, row.role, row.team, row.season];
+    extraColumns.forEach((c) => base.push(c.render(row)));
+    return base;
+  });
+  return DS.Table({ columns, rows });
+}
+
+function mkRenderCutsOpenView(el, session) {
+  el.innerHTML = '';
+  const panel = document.createElement('div');
+  panel.className = 'ds-panel ds-panel--default';
+  const title = document.createElement('h4');
+  title.className = 'ds-panel__title';
+  title.replaceChildren('Mercato aperto — ', DS.Badge({ children: 'Tagli in corso', variant: 'default' }));
+  panel.appendChild(title);
+
+  const help = document.createElement('div');
+  help.className = 'ds-help-box ds-help-box--info';
+  help.innerHTML = `<span class="ds-help-box__icon" aria-hidden="true">i</span>
+    <div class="ds-help-box__body"><p class="ds-help-box__text">I manager stanno tagliando giocatori dal proprio pool per guadagnare crediti. La lista in vendita resterà nascosta ai coach fino alla chiusura di questa fase.</p></div>`;
+  panel.appendChild(help);
+
+  panel.appendChild(mkListingTable(session.listing, []));
+
+  const closeBtn = DS.Button({
+    children: 'Chiudi tagli e apri le offerte', variant: 'default',
+    onClick: async () => {
+      const ok = await DS.confirmDialog({
+        title: 'Chiudere la fase tagli?',
+        message: 'I manager non potranno più tagliare giocatori. La lista in vendita diventerà visibile e si apriranno le offerte in busta chiusa.',
+        consequence: 'Operazione irreversibile.',
+        confirmLabel: 'Chiudi tagli', danger: false,
+      });
+      if (!ok) return;
+      try {
+        await apiCloseMarketCuts(currentLeagueId, session.id);
+        showMsg('mercatoMsg', 'Fase tagli chiusa: offerte aperte.');
+        await mkRender();
+      } catch (err) {
+        showMsg('mercatoMsg', err.message, true);
+      }
+    },
+  });
+  closeBtn.style.marginTop = '0.75rem';
+  panel.appendChild(closeBtn);
+  el.appendChild(panel);
+}
+
+function mkRenderBidsOpenView(el, session) {
+  el.innerHTML = '';
+  const panel = document.createElement('div');
+  panel.className = 'ds-panel ds-panel--default';
+  const title = document.createElement('h4');
+  title.className = 'ds-panel__title';
+  title.replaceChildren('Mercato aperto — ', DS.Badge({ children: 'Offerte in corso', variant: 'default' }));
+  panel.appendChild(title);
+
+  const help = document.createElement('div');
+  help.className = 'ds-help-box ds-help-box--warn';
+  help.innerHTML = `<span class="ds-help-box__icon" aria-hidden="true">i</span>
+    <div class="ds-help-box__body"><p class="ds-help-box__text">Gli importi delle offerte restano sigillati fino alla risoluzione: qui sotto vedi solo quante offerte ha ricevuto ciascun giocatore.</p></div>`;
+  panel.appendChild(help);
+
+  panel.appendChild(mkListingTable(session.listing, [
+    { label: 'Offerte ricevute', render: (r) => String(r.bid_count) },
+  ]));
+
+  const resolveBtn = DS.Button({
+    children: 'Apri le buste', variant: 'danger',
+    onClick: async () => {
+      const ok = await DS.confirmDialog({
+        title: 'Aprire le buste?',
+        message: 'Ogni giocatore in vendita verrà assegnato al migliore offerente e i crediti verranno scalati.',
+        consequence: 'Operazione irreversibile.',
+        confirmLabel: 'Apri le buste', danger: true,
+      });
+      if (!ok) return;
+      try {
+        await apiResolveMarket(currentLeagueId, session.id);
+        showMsg('mercatoMsg', 'Buste aperte: mercato risolto.');
+        await mkRender();
+      } catch (err) {
+        showMsg('mercatoMsg', err.message, true);
+      }
+    },
+  });
+  resolveBtn.style.marginTop = '0.75rem';
+  panel.appendChild(resolveBtn);
+  el.appendChild(panel);
+}
+
+function mkRenderResolvedView(el, session) {
+  el.innerHTML = '';
+  const panel = document.createElement('div');
+  panel.className = 'ds-panel ds-panel--default';
+  const title = document.createElement('h4');
+  title.className = 'ds-panel__title';
+  title.replaceChildren('Ultimo mercato — ', DS.Badge({ children: 'Risolto', variant: 'green' }));
+  panel.appendChild(title);
+
+  if (!session.listing.length) {
+    panel.appendChild(DS.EmptyState({ message: 'Nessun giocatore in questo mercato.' }));
+  } else {
+    panel.appendChild(mkListingTable(session.listing, [
+      { label: 'Vincitore', render: (r) => r.winner_name || '—' },
+      { label: 'Importo', render: (r) => r.amount != null ? String(r.amount) : '—' },
+    ]));
+  }
+
+  const newBtn = DS.Button({
+    children: 'Nuovo mercato', variant: 'default',
+    onClick: async () => {
+      mkShowCreateView = true;
+      mkSelectedIds = new Set();
+      await mkRender();
+    },
+  });
+  newBtn.style.marginTop = '0.75rem';
+  panel.appendChild(newBtn);
+  el.appendChild(panel);
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async function init() {

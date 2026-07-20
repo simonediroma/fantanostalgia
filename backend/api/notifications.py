@@ -121,6 +121,20 @@ def _render_gran_premio_won(params: dict, base_url: str) -> tuple[str, str]:
     return f"Hai vinto un Gran Premio in {league_name}!", html
 
 
+def _render_market_won(params: dict, base_url: str) -> tuple[str, str]:
+    name, league_name, league_id = params["name"], params["league_name"], params["league_id"]
+    won_players_names = params["won_players_names"]
+    players_list = ", ".join(won_players_names)
+    html = _layout(
+        "Mercato: giocatori aggiudicati!",
+        f"<p>Complimenti {name}, hai vinto le offerte sul mercato di <strong>{league_name}</strong> "
+        f"per: <strong>{players_list}</strong>. Accedi per associarli ai giocatori della tua rosa.</p>",
+        "Associa i nuovi acquisti",
+        f"{base_url}/coach/lega/{league_id}",
+    )
+    return f"Mercato {league_name}: hai aggiudicato {len(won_players_names)} giocatore/i", html
+
+
 def _render_password_reset(params: dict, base_url: str) -> tuple[str, str]:
     name, new_password = params["name"], params["new_password"]
     html = _layout(
@@ -139,6 +153,7 @@ TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
     "matchday_results": _render_matchday_results,
     "pool_assignment": _render_pool_assignment,
     "gran_premio_won": _render_gran_premio_won,
+    "market_won": _render_market_won,
     "password_reset": _render_password_reset,
 }
 
