@@ -242,7 +242,6 @@ def get_statistiche_storiche(league_id: int, user: dict = Depends(get_current_us
                    COUNT(hr.matchday) AS matches_played,
                    ROUND(AVG(hr.rating), 2) AS avg_rating,
                    COALESCE(SUM(hr.goals), 0) AS goals,
-                   COALESCE(SUM(hr.assists), 0) AS assists,
                    COALESCE(SUM(hr.yellow_cards), 0) AS yellow_cards,
                    COALESCE(SUM(hr.red_cards), 0) AS red_cards,
                    COALESCE(SUM(hr.own_goals), 0) AS own_goals,
@@ -259,9 +258,35 @@ def get_statistiche_storiche(league_id: int, user: dict = Depends(get_current_us
             (league["season_historic"],),
         ).fetchall()
 
+        # Separate query (not a JOIN with historic_rating above): a historic
+        # player can be duplicated across multiple managers' pools, which would
+        # multiply the historic_rating rows in a single combined query and
+        # silently inflate the SUM() stats above.
+        assoc_rows = conn.execute(
+            """
+            SELECT mnp.player_historic_id, pc.name AS current_name, m.name AS manager_name
+            FROM manager_nostalgia_pool mnp
+            JOIN manager m ON m.id = mnp.manager_id
+            JOIN player_current pc ON pc.id = mnp.assigned_player_current_id
+            WHERE mnp.league_id = ?
+            """,
+            (league_id,),
+        ).fetchall()
+        associations: dict[int, list[str]] = {}
+        for r in assoc_rows:
+            associations.setdefault(r["player_historic_id"], []).append(
+                f"{r['current_name']} ({r['manager_name']})"
+            )
+
+    players = []
+    for r in rows:
+        p = dict(r)
+        p["associations"] = associations.get(p["id"], [])
+        players.append(p)
+
     return {
         "league": {"id": mgr["league_id"], "name": mgr["league_name"], "season_historic": league["season_historic"]},
-        "players": [dict(r) for r in rows],
+        "players": players,
     }
 
 

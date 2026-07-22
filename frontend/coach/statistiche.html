@@ -93,9 +93,48 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 
 let _players = [];
 
+const COLUMNS = [
+  { label: 'Ruolo', key: 'role' },
+  { label: 'Nome', key: 'name' },
+  { label: 'Squadra', key: 'team' },
+  { label: 'Media voto', key: 'avg_rating' },
+  { label: 'Partite', key: 'matches_played' },
+  { label: 'Minuti', key: 'minutes' },
+  { label: 'Gol', key: 'goals' },
+  { label: 'Ammonizioni', key: 'yellow_cards' },
+  { label: 'Espulsioni', key: 'red_cards' },
+  { label: 'Autogol', key: 'own_goals' },
+  { label: 'Rig. segnati', key: 'penalties_scored' },
+  { label: 'Rig. sbagliati', key: 'penalties_missed' },
+  { label: 'Gol subiti', key: 'goals_conceded' },
+  { label: 'Associato a', key: 'associations' },
+];
+
+let _sortKey = 'avg_rating';
+let _sortDir = 'desc';
+
+function sortValue(p, key) {
+  if (key === 'associations') return p.associations.length ? p.associations.join(', ') : null;
+  return p[key];
+}
+
+function compareRows(a, b) {
+  const av = sortValue(a, _sortKey);
+  const bv = sortValue(b, _sortKey);
+  const aNull = av === null || av === undefined;
+  const bNull = bv === null || bv === undefined;
+  if (aNull && bNull) return 0;
+  if (aNull) return 1;
+  if (bNull) return -1;
+  const cmp = typeof av === 'number' && typeof bv === 'number'
+    ? av - bv
+    : String(av).localeCompare(String(bv));
+  return _sortDir === 'asc' ? cmp : -cmp;
+}
+
 function renderTable() {
   const role = document.getElementById('roleFilter').value;
-  const filtered = role ? _players.filter(p => p.role === role) : _players;
+  const filtered = (role ? _players.filter(p => p.role === role) : [..._players]).sort(compareRows);
   const el = document.getElementById('playersTable');
 
   if (!filtered.length) {
@@ -103,22 +142,35 @@ function renderTable() {
     return;
   }
 
-  el.replaceChildren(DS.Table({
-    columns: [
-      { label: 'Ruolo' }, { label: 'Nome' }, { label: 'Squadra' },
-      { label: 'Media voto' }, { label: 'Partite' }, { label: 'Minuti' },
-      { label: 'Gol' }, { label: 'Assist' },
-      { label: 'Ammonizioni' }, { label: 'Espulsioni' }, { label: 'Autogol' },
-      { label: 'Rig. segnati' }, { label: 'Rig. sbagliati' }, { label: 'Gol subiti' },
-    ],
+  const tableEl = DS.Table({
+    columns: COLUMNS.map(c => ({
+      label: c.key === _sortKey ? `${c.label} ${_sortDir === 'asc' ? '▲' : '▼'}` : c.label,
+    })),
     rows: filtered.map(p => [
       p.role, p.name, p.team,
       p.avg_rating ?? '—', p.matches_played, p.minutes,
-      p.goals, p.assists,
+      p.goals,
       p.yellow_cards, p.red_cards, p.own_goals,
       p.penalties_scored, p.penalties_missed, p.goals_conceded,
+      p.associations.length ? p.associations.join(', ') : '—',
     ]),
-  }));
+  });
+
+  tableEl.querySelectorAll('thead th').forEach((th, i) => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const key = COLUMNS[i].key;
+      if (_sortKey === key) {
+        _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        _sortKey = key;
+        _sortDir = 'asc';
+      }
+      renderTable();
+    });
+  });
+
+  el.replaceChildren(tableEl);
 }
 
 document.getElementById('roleFilter').addEventListener('change', renderTable);
