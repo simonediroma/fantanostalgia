@@ -319,6 +319,21 @@ def test_place_bid_reserves_role_slot_across_pending_bids(client):
             market_engine.place_bid(conn, sid, mgr, d2, 10)
 
 
+def test_place_bid_rejects_below_market_value(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mgr = _add_manager(conn, league_id)
+        _set_credits(conn, mgr, 100)
+        h1 = _add_historic(conn, "Valuable", "A")
+        for md in range(1, 3):
+            _add_rating(conn, h1, md, 8.0)  # market value 10 + 5*4 = 30
+        sid = market_engine.create_market_session(conn, league_id, [h1])
+        market_engine.close_cuts(conn, sid)
+        with pytest.raises(ValueError):
+            market_engine.place_bid(conn, sid, mgr, h1, 29)
+        market_engine.place_bid(conn, sid, mgr, h1, 30)  # exactly at market value: allowed
+
+
 def test_withdraw_bid_frees_reserved_capacity(client):
     league_id = _create_league(client)
     with get_db() as conn:
@@ -526,6 +541,22 @@ def test_market_listing_ordered_by_role_team_then_avg_rating_desc(client):
     assert [p["player_historic_id"] for p in listing] == [gk, juve, milan_hi, milan_lo]
 
 
+def test_market_listing_exposes_market_value(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        no_rating = _add_historic(conn, "NoRating", "A")
+        rated = _add_historic(conn, "Rated", "A")
+        _add_rating(conn, rated, 1, 9.0)  # market value 10 + 5*6 = 40
+
+    r = client.post(f"/admin/league/{league_id}/market", json={
+        "player_historic_ids": [no_rating, rated],
+    })
+    assert r.status_code == 200, r.text
+    by_id = {p["player_historic_id"]: p for p in r.json()["listing"]}
+    assert by_id[no_rating]["market_value"] == 10
+    assert by_id[rated]["market_value"] == 40
+
+
 def test_admin_resolve_enqueues_market_won_email(client):
     league_id = _create_league(client)
     with get_db() as conn:
@@ -659,9 +690,44 @@ def test_coach_get_market_reflects_state(client):
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["credits"] == 42
+    assert data["available_credits"] == 42
     assert data["session"]["status"] == "bids_open"
     assert data["free_slots"]["A"] == POOL_SIZE["A"]
     assert len(data["listing"]) == 1
+    assert data["listing"][0]["market_value"] == 10
+
+    client.post("/auth/user/logout")
+
+
+def test_coach_available_credits_decreases_with_pending_bids(client):
+    league_id = _create_league(client)
+    manager = client.post(
+        f"/admin/league/{league_id}/managers", json={"name": "M1", "team_name": "T1"}
+    ).json()
+    mgr = manager["id"]
+    with get_db() as conn:
+        _set_credits(conn, mgr, 42)
+        h1 = _add_historic(conn, "AvailCheck", "A")
+        sid = market_engine.create_market_session(conn, league_id, [h1])
+        market_engine.close_cuts(conn, sid)
+
+    _register_coach(client, league_id, mgr, "avail@test.com")
+
+    r = client.post(
+        f"/coach/league/{league_id}/market/bid", json={"player_historic_id": h1, "amount": 18}
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.get(f"/coach/league/{league_id}/market")
+    data = r.json()
+    assert data["credits"] == 42
+    assert data["available_credits"] == 24
+
+    r = client.delete(f"/coach/league/{league_id}/market/bid/{h1}")
+    assert r.status_code == 200, r.text
+
+    r = client.get(f"/coach/league/{league_id}/market")
+    assert r.json()["available_credits"] == 42
 
     client.post("/auth/user/logout")
 

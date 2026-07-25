@@ -6,6 +6,7 @@ from backend.api.notifications import enqueue_email
 from backend.api.routers.auth import get_current_admin, get_current_user
 from backend.api.routers.coach import _get_manager_for_user
 from backend.engine import market as market_engine
+from backend.engine.market import cut_value_from_avg_rating
 from backend.engine.granpremio import free_historic_players
 
 router = APIRouter(tags=["market"])
@@ -43,7 +44,10 @@ def _listing_rows(conn, market_session_id: int) -> list[dict]:
         """,
         (market_session_id,),
     ).fetchall()
-    return [dict(r) for r in rows]
+    result = [dict(r) for r in rows]
+    for row in result:
+        row["market_value"] = cut_value_from_avg_rating(row["avg_rating"])
+    return result
 
 
 def _latest_session(conn, league_id: int):
@@ -306,12 +310,14 @@ def get_coach_market(league_id: int, user: dict = Depends(get_current_user)):
             "SELECT credits FROM manager WHERE id = ?", (manager_id,)
         ).fetchone()["credits"]
         free_slots = market_engine.free_slots_by_role(conn, manager_id)
+        available_credits = credits - sum(my_bids.values())
 
     return {
         "session": session_out,
         "listing": listing,
         "cut_candidates": cut_candidates,
         "credits": credits,
+        "available_credits": available_credits,
         "free_slots": free_slots,
     }
 
