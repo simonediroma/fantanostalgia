@@ -15,18 +15,27 @@ def _round_half_away_from_zero(x: float) -> int:
     return int(math.floor(x + 0.5)) if x >= 0 else -int(math.floor(-x + 0.5))
 
 
+def cut_value_from_avg_rating(avg_rating: float | None) -> int:
+    """Same formula as compute_cut_value, starting from an already-known average
+    rating (e.g. one fetched alongside a listing) to avoid a redundant query."""
+    avg = avg_rating if avg_rating is not None else CUT_BASELINE_RATING
+    diff = avg - CUT_BASELINE_RATING
+    steps = _round_half_away_from_zero(diff / CUT_STEP_RATING)
+    value = CUT_BASE_VALUE + CUT_STEP_CREDITS * steps
+    return max(value, CUT_FLOOR_VALUE)
+
+
 def compute_cut_value(conn: sqlite3.Connection, player_historic_id: int) -> int:
     """Credits earned by cutting a historic player: 10 base, +/-5 per half point of
-    average rating away from 6.0, floored at 1. No ratings recorded -> treated as 6.0."""
+    average rating away from 6.0, floored at 1. No ratings recorded -> treated as 6.0.
+    This is also the minimum bid ("market value") required to buy the player on the
+    market, so a manager can never flip a player for an immediate profit."""
     row = conn.execute(
         "SELECT AVG(rating) AS avg_rating FROM historic_rating WHERE player_historic_id = ?",
         (player_historic_id,),
     ).fetchone()
-    avg_rating = row["avg_rating"] if row and row["avg_rating"] is not None else CUT_BASELINE_RATING
-    diff = avg_rating - CUT_BASELINE_RATING
-    steps = _round_half_away_from_zero(diff / CUT_STEP_RATING)
-    value = CUT_BASE_VALUE + CUT_STEP_CREDITS * steps
-    return max(value, CUT_FLOOR_VALUE)
+    avg_rating = row["avg_rating"] if row else None
+    return cut_value_from_avg_rating(avg_rating)
 
 
 def pool_role_counts(conn: sqlite3.Connection, manager_id: int) -> dict[str, int]:
@@ -178,6 +187,12 @@ def place_bid(
     if listing is None:
         raise ValueError("Giocatore non in vendita in questa sessione")
     role = listing["role"]
+
+    market_value = compute_cut_value(conn, player_historic_id)
+    if amount < market_value:
+        raise ValueError(
+            f"L'offerta minima per questo giocatore è {market_value} crediti (valore di mercato)"
+        )
 
     manager = conn.execute(
         "SELECT credits FROM manager WHERE id = ?", (manager_id,)

@@ -413,8 +413,13 @@ function renderMarket() {
     const help = document.createElement('div');
     help.className = 'ds-help-box ds-help-box--info';
     help.innerHTML = `<span class="ds-help-box__icon" aria-hidden="true">i</span>
-      <div class="ds-help-box__body"><p class="ds-help-box__text">Fai un'offerta in busta chiusa sui giocatori in vendita. La somma delle tue offerte non può superare i crediti disponibili, e non puoi offrire su un ruolo senza slot liberi nel tuo pool.</p></div>`;
+      <div class="ds-help-box__body"><p class="ds-help-box__text">Fai un'offerta in busta chiusa sui giocatori in vendita. L'offerta minima per ciascun giocatore è il suo valore di mercato. La somma delle tue offerte non può superare i crediti disponibili, e non puoi offrire su un ruolo senza slot liberi nel tuo pool.</p></div>`;
     panel.appendChild(help);
+
+    const creditsLine = document.createElement('div');
+    creditsLine.style.cssText = 'margin-bottom:0.5rem';
+    creditsLine.appendChild(DS.Badge({ children: `💰 Crediti disponibili: ${_market.available_credits}`, variant: 'default' }));
+    panel.appendChild(creditsLine);
 
     if (!_market.listing.length) {
       panel.appendChild(DS.EmptyState({ message: 'Nessun giocatore in vendita in questa sessione.' }));
@@ -426,7 +431,8 @@ function renderMarket() {
 
         const input = document.createElement('input');
         input.type = 'number';
-        input.min = '1';
+        input.min = String(row.market_value);
+        input.placeholder = String(row.market_value);
         input.style.cssText = 'width:70px';
         input.value = hasMyBid ? row.my_bid : '';
         input.disabled = roleFull;
@@ -436,6 +442,10 @@ function renderMarket() {
           onClick: async () => {
             const amount = parseInt(input.value, 10);
             if (!amount || amount <= 0) { showMsg('Inserisci un importo valido.', true); return; }
+            if (amount < row.market_value) {
+              showMsg(`L'offerta minima per questo giocatore è ${row.market_value} crediti (valore di mercato).`, true);
+              return;
+            }
             try {
               const r = await fetch(`/coach/league/${leagueId}/market/bid`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -470,12 +480,12 @@ function renderMarket() {
 
         const roleCell = roleFull ? DS.Badge({ children: `${row.role} pieno`, variant: 'red' }) : row.role;
 
-        return [row.name, roleCell, row.team, row.season, row.avg_rating ?? '—', actions];
+        return [row.name, roleCell, row.team, row.season, row.avg_rating ?? '—', row.market_value, actions];
       });
       panel.appendChild(DS.Table({
         columns: [
           { label: 'Nome' }, { label: 'Ruolo' }, { label: 'Squadra' }, { label: 'Stagione' },
-          { label: 'Media voto' }, { label: 'Offerta' },
+          { label: 'Media voto' }, { label: 'Valore di mercato' }, { label: 'Offerta' },
         ],
         rows,
       }));

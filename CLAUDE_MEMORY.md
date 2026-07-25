@@ -1,9 +1,32 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-19
-**Branch attivo:** `claude/mercato-giocatori-storici-sf3m4e` (imposto dall'harness per questa sessione)
-**PR in corso:** [#102](https://github.com/simonediroma/fantanostalgia/pull/102) aperta contro `main` (mercato dei giocatori storici).
+**Ultima sessione:** 2026-07-25
+**Branch attivo:** `claude/coach-offers-credits-market-value-cbrl9r` (imposto dall'harness per questa sessione, creato da `origin/main` già a `f6a4ddf` — PR #102/#103/#104/#105 tutte già mergiate)
+**PR in corso:** nessuna — solo push sul branch, da aprire su richiesta esplicita dell'utente.
+
+**Sessione 2026-07-25 — Mercato: crediti disponibili sempre visibili + valore di mercato come offerta minima (task ad-hoc, richiesto in chat):**
+Richiesta utente: (1) nella vista offerte del coach deve essere sempre visibile il totale dei crediti disponibili, che diminuisce non appena viene lasciata un'offerta; (2) per ogni giocatore in vendita deve essere visibile il valore di mercato; (3) per evitare plusvalenze, le offerte devono partire da un minimo pari al valore di mercato del giocatore.
+
+Scoperta in fase di analisi: "valore di mercato" coincide con la formula già esistente `compute_cut_value` (10 base ±5 per mezzo punto di media voto storica sopra/sotto 6.0, floor 1) — è lo stesso valore che un manager riceverebbe tagliando quel giocatore, quindi usarlo come offerta minima impedisce esattamente la plusvalenza descritta (comprare sottoprezzo e rirevendere/tagliare subito in profitto). Nessuna nuova formula, solo riuso.
+
+Modifiche a `backend/engine/market.py`: `compute_cut_value` spezzata in `cut_value_from_avg_rating(avg_rating)` (formula pura, riusabile senza query quando la media voto è già nota, es. nel listing) + `compute_cut_value(conn, player_historic_id)` (query + delega alla pura). `place_bid` ora rifiuta con `ValueError` se `amount < compute_cut_value(...)` (valore di mercato del giocatore), controllo aggiunto subito dopo la validazione "giocatore in vendita in questa sessione" e prima del controllo crediti/slot.
+
+Modifiche a `backend/api/routers/market.py`: `_listing_rows` (condivisa da endpoint admin, pubblico e coach) ora aggiunge `market_value` a ogni riga usando `cut_value_from_avg_rating` sull'`avg_rating` già calcolato in SQL — nessuna query aggiuntiva per riga. `get_coach_market` aggiunge `available_credits` alla risposta (= `credits` del manager meno la somma delle sue offerte `pending` nella sessione corrente, riusando il dict `my_bids` già costruito) — `credits` (saldo raw, invariato) resta anche nella risposta per compatibilità con la topbar di `rosa.html` che lo legge da `GET /coach/league/{id}/rosa`, non da qui.
+
+Frontend `rosa.html`, pannello mercato in fase `bids_open`: nuovo badge "💰 Crediti disponibili: N" sopra la tabella listing, sempre visibile e ricalcolato ad ogni `loadData()` (quindi si aggiorna subito dopo ogni offerta/ritiro, senza reload manuale). Nuova colonna "Valore di mercato" nella tabella. L'`<input>` dell'offerta ora ha `min`/`placeholder` = `market_value` del giocatore (prima era `min="1"` fisso) + validazione client-side che blocca l'invio sotto il minimo con messaggio esplicito — difesa in profondità, il backend resta comunque la fonte di verità (stesso pattern già in uso per crediti/slot di ruolo). Non toccato il lato admin (`mkListingTable` in `frontend/admin/index.html`): la richiesta era esplicitamente sulla "vista delle offerte che può lasciare un coach", l'admin non piazza offerte.
+
+**Test**: 3 nuovi in `backend/tests/test_market.py` (rifiuto offerta sotto il valore di mercato + accettazione esattamente al valore; `market_value` esposto nel listing admin con e senza rating; `available_credits` che scende con un'offerta pendente e torna al saldo pieno dopo il ritiro) + assert aggiuntivi su `market_value`/`available_credits` nel test coach già esistente. Suite completa: **266 passed** (la differenza rispetto ai 243 dell'ultima nota di sessione riflette il lavoro delle PR #103/#104/#105 nel frattempo, non solo questo task), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati).
+
+Verificato end-to-end contro un server `uvicorn` locale reale (non solo i test fixture): via curl, offerta di 29 su un giocatore con valore di mercato 30 (rating storico 8.0) rifiutata con HTTP 400 e messaggio esplicito, offerta di 30 accettata, `available_credits` sceso da 100 a 70, tornato a 100 dopo il ritiro. Poi con Playwright headless: badge "Crediti disponibili" e colonna "Valore di mercato" visibili e corretti nel pannello coach reale, tentativo di offerta sotto il minimo bloccato lato client con il messaggio d'errore mostrato in `#msgBox`. Zero errori console reali (solo il consueto `ERR_CONNECTION_RESET` su Google Fonts dal sandbox di rete).
+
+Committato e pushato sullo stesso branch. **Nessuna PR aperta per questo commit** — da aprire solo su richiesta esplicita dell'utente.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto. Se l'utente lo richiede in futuro: applicare lo stesso trattamento (colonna valore di mercato) alla vista admin del listing mercato (`mkListingTable` in `frontend/admin/index.html`), oggi non toccata perché la richiesta riguardava solo la vista offerte del coach.
+
+---
 
 **Sessione 2026-07-19 — Mercato dei giocatori storici (feature pianificata in plan mode, poi implementata):**
 Richiesta utente: (1) un manager può tagliare un giocatore storico dal proprio pool nostalgia per guadagnare crediti (10 base ±5 per ogni mezzo punto di media voto storica sopra/sotto 6.0); (2) l'admin indice un mercato scegliendo — come per i Gran Premi — un lotto variabile di storici liberi; (3) aperto il mercato i manager possono tagliare; (4) chiusa la fase tagli, i manager offrono in busta chiusa sui giocatori in vendita, somma offerte ≤ crediti disponibili; (5) l'admin apre le buste, vince l'offerta più alta per ciascun giocatore; (6) niente offerte su un ruolo senza slot liberi nel pool.
