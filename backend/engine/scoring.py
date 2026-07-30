@@ -66,6 +66,13 @@ def _nostalgia_score(
     rr = real_map.get(name_key)
     if rr is None:
         return 6.0
+    # Formazioni Excel import already ships a "voto senza bonus" (malus applied,
+    # no goal/assist bonus) computed by the real fantacalcio scoring — use it
+    # directly instead of rr["rating"], which for this path is score_bonus
+    # (the full bonus-inclusive vote) and would leak bonus back in here.
+    if "rating_no_bonus" in rr:
+        rating_no_bonus = rr["rating_no_bonus"]
+        return float(rating_no_bonus) if rating_no_bonus is not None else 6.0
     return _formula(
         rating=rr["rating"],
         role=role,
@@ -173,6 +180,7 @@ def calculate_scores(
                 real_map[s["name"].strip().lower()] = {
                     "player_name": s["name"],
                     "rating": s["score_bonus"],
+                    "rating_no_bonus": s["score_no_bonus"],
                     "goals": 0, "assists": 0, "yellow_cards": 0,
                     "red_cards": 0, "own_goals": 0,
                     "penalties_missed": 0, "goals_conceded": 0,

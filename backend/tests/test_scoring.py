@@ -260,6 +260,30 @@ def test_scores_no_alter_ego_with_real_rating(client):
     assert s["score_normal"] == pytest.approx(9.5)
 
 
+def test_scores_no_alter_ego_stored_lineup_excludes_bonus(client):
+    """Player with no alter ego, votes imported from Formazioni Excel (stored in
+    lineup.score_no_bonus/score_bonus, no real_ratings passed at calc time):
+    nostalgia score must use the no-bonus vote, not the bonus-inclusive one."""
+    from backend.api.db import get_db
+
+    league_id, manager_id, player_id = _full_setup(client, with_alter_ego=False)
+
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE lineup SET score_no_bonus = 6.5, score_bonus = 9.5"
+            " WHERE league_id = ? AND matchday = 1 AND player_current_id = ?",
+            (league_id, player_id),
+        )
+
+    r = client.post(f"/admin/league/{league_id}/scores/1", json={})
+    assert r.status_code == 200, r.text
+    s = r.json()["scores"][0]
+    # Nostalgia must use the imported no-bonus vote (6.5), never the bonus one (9.5).
+    assert s["score_nostalgia"] == pytest.approx(6.5)
+    # Normal score keeps the full bonus-inclusive vote, unaffected by this fix.
+    assert s["score_normal"] == pytest.approx(9.5)
+
+
 def test_scores_alter_ego_sv(client):
     """Alter ego exists but no historic_rating for that matchday → 6.0 (sv)."""
     from backend.api.db import get_db

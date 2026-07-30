@@ -1,9 +1,28 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-25
-**Branch attivo:** `claude/coach-offers-credits-market-value-cbrl9r` (imposto dall'harness per questa sessione, creato da `origin/main` già a `f6a4ddf` — PR #102/#103/#104/#105 tutte già mergiate)
+**Ultima sessione:** 2026-07-30
+**Branch attivo:** `claude/bonus-non-storici-giocatori-wgljd5` (imposto dall'harness per questa sessione)
 **PR in corso:** nessuna — solo push sul branch, da aprire su richiesta esplicita dell'utente.
+
+**Sessione 2026-07-30 — Fix bug: bonus contati per i giocatori senza alter ego (task ad-hoc, richiesto in chat):**
+Segnalazione utente: i voti dei giocatori non storici (senza alter ego) venivano salvati/importati contando anche i bonus, mentre per spec (`README.md`: "Giocatori senza alter ego: voto reale senza bonus, solo malus") devono ricevere solo malus, mai bonus.
+
+Causa in `backend/engine/scoring.py::calculate_scores`: quando `real_ratings` non è passato all'endpoint (`POST /admin/league/{id}/scores/{matchday}` con body `{}`, il caso normale quando i voti arrivano dall'import Excel Formazioni), il fallback "stored" legge `lineup.score_no_bonus`/`score_bonus` e costruiva `real_map[...]["rating"] = score_bonus` (il voto **già finale, con bonus incluso**) con tutte le altre statistiche azzerate. `_nostalgia_score()`, per un giocatore senza alter ego, chiamava `_formula(rating=rr["rating"], apply_bonus=False, ...)` — ma con `apply_bonus=False` e stat a zero, `_formula` restituisce semplicemente `rating` invariato, quindi il bonus già incorporato in `score_bonus` non veniva mai rimosso: il nostalgia score finiva per coincidere esattamente col voto con bonus. Il path `real_ratings` fornito esplicitamente (con gol/assist/cartellini reali, usato da `test_scores_no_alter_ego_with_real_rating`) non aveva questo problema, perché lì `rating` è il voto base senza bonus incorporato — motivo per cui il bug non era stato notato dai test esistenti.
+
+Fix: `real_map` nel path "stored" ora porta anche `rating_no_bonus = score_no_bonus` (il voto già "senza bonus, solo malus" che il Formazioni Excel fornisce direttamente, colonna `Voto_no_bonus`). `_nostalgia_score()` usa `rating_no_bonus` quando presente nel dict (ritorna 6.0 se `None`, es. voto "-"/sv), altrimenti mantiene il vecchio comportamento `_formula(..., apply_bonus=False)` per il path `real_ratings` esplicito. `score_normal` non è stato toccato: continua a usare `rating` (=`score_bonus`), corretto perché quello è il voto reale completo.
+
+Test: nuovo `test_scores_no_alter_ego_stored_lineup_excludes_bonus` in `backend/tests/test_scoring.py` (giocatore senza alter ego, `lineup.score_no_bonus=6.5`/`score_bonus=9.5` scritti direttamente come farebbe l'import Formazioni, calcolo punteggi senza `real_ratings` nel body → verificato che `score_nostalgia == 6.5`, non `9.5`, mentre `score_normal` resta `9.5`). Suite completa: 267 passed (266 + 1), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, confermato con `git stash` che sono identici sul branch pulito).
+
+Non verificato end-to-end con Playwright/server reale in questa sessione (fix puntuale di logica engine, ben coperto dal nuovo test + dai test esistenti — nessuna superficie UI toccata).
+
+Committato e pushato sullo stesso branch. **Nessuna PR aperta per questo commit** — da aprire solo su richiesta esplicita dell'utente.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto per questo fix.
+
+---
 
 **Sessione 2026-07-25 — Mercato: crediti disponibili sempre visibili + valore di mercato come offerta minima (task ad-hoc, richiesto in chat):**
 Richiesta utente: (1) nella vista offerte del coach deve essere sempre visibile il totale dei crediti disponibili, che diminuisce non appena viene lasciata un'offerta; (2) per ogni giocatore in vendita deve essere visibile il valore di mercato; (3) per evitare plusvalenze, le offerte devono partire da un minimo pari al valore di mercato del giocatore.
