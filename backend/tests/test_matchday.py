@@ -260,3 +260,79 @@ def test_list_matchdays_requires_auth(client):
     client.post("/auth/logout")
     r = client.get(f"/admin/league/{league_id}/matchdays")
     assert r.status_code == 401
+
+
+# ── DELETE /admin/league/{id}/matchdays/{matchday} ────────────────────────────
+
+def test_delete_matchday_ok(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    client.post(f"/admin/league/{league_id}/draw/1")
+    client.post(f"/admin/league/{league_id}/scores/1")
+
+    r = client.delete(f"/admin/league/{league_id}/matchdays/1")
+    assert r.status_code == 200, r.text
+    assert r.json() == {"deleted": True, "matchday": 1}
+
+    data = client.get(f"/admin/league/{league_id}/matchdays").json()
+    assert data == []
+
+    scores = client.get(f"/league/{league_id}/scores/1").json()
+    assert scores == []
+
+    standings = client.get(f"/league/{league_id}/standings").json()
+    assert all(s["total"] == 0 for s in standings["nostalgia"])
+
+
+def test_delete_matchday_only_targets_that_matchday(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    xlsx = _make_excel(
+        rows=[["Simone", "Buffon G.", 1]],
+        headers=["Manager", "Giocatore", "Titolare"],
+    )
+    client.post(
+        f"/admin/league/{league_id}/lineups/2",
+        files={"file": ("l.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    client.post(f"/admin/league/{league_id}/draw/1")
+    client.post(f"/admin/league/{league_id}/draw/2")
+    client.post(f"/admin/league/{league_id}/scores/1")
+    client.post(f"/admin/league/{league_id}/scores/2")
+
+    r = client.delete(f"/admin/league/{league_id}/matchdays/1")
+    assert r.status_code == 200
+
+    data = client.get(f"/admin/league/{league_id}/matchdays").json()
+    assert [d["matchday"] for d in data] == [2]
+
+
+def test_delete_matchday_blocked_when_gran_premio_resolved(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    client.post(f"/admin/league/{league_id}/draw/1")
+    client.post(f"/admin/league/{league_id}/scores/1")
+
+    from backend.api.db import get_db
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO gran_premio (league_id, matchday, criterion, prize_player_historic_id, status)"
+            " VALUES (?, 1, 'best_score', NULL, 'resolved')",
+            (league_id,),
+        )
+
+    r = client.delete(f"/admin/league/{league_id}/matchdays/1")
+    assert r.status_code == 400
+    assert "Gran Premio" in r.json()["detail"]
+
+    data = client.get(f"/admin/league/{league_id}/matchdays").json()
+    assert len(data) == 1
+
+
+def test_delete_matchday_league_not_found(client):
+    r = client.delete("/admin/league/99999/matchdays/1")
+    assert r.status_code == 404
+
+
+def test_delete_matchday_requires_auth(client):
+    league_id = _setup_league_with_lineup(client, 1)
+    client.post("/auth/logout")
+    r = client.delete(f"/admin/league/{league_id}/matchdays/1")
+    assert r.status_code == 401

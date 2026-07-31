@@ -1555,6 +1555,15 @@ document.getElementById('gtDetailUploadBtn').addEventListener('click', async () 
   }
 });
 
+async function gtConfirmDeleteMatchday(matchday) {
+  return DS.confirmDialog({
+    title: `Cancella giornata ${matchday}`,
+    message: 'Formazioni, sorteggio e punteggi di questa giornata verranno rimossi: tornerà come se non fosse mai stata caricata.',
+    consequence: 'Operazione irreversibile: la classifica verrà ricalcolata escludendo questa giornata.',
+    confirmLabel: 'Cancella giornata',
+  });
+}
+
 function gtUpdateReloadState(hasResolvedGp) {
   const details = document.getElementById('gtReloadDetails');
   const btn = document.getElementById('gtDetailUploadBtn');
@@ -1630,6 +1639,23 @@ async function loadGiornateList() {
       calcBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
       actions.appendChild(calcBtn);
     }
+
+    const deleteBtn = DS.Button({
+      children: 'Cancella', variant: 'danger',
+      onClick: async (e) => {
+        e.stopPropagation();
+        if (!(await gtConfirmDeleteMatchday(md.matchday))) return;
+        try {
+          await apiDeleteMatchday(currentLeagueId, md.matchday);
+          showMsg('giornateListMsg', `Giornata G${md.matchday} cancellata.`);
+          await loadGiornateList();
+        } catch (err) {
+          showMsg('giornateListMsg', err.message, true);
+        }
+      },
+    });
+    deleteBtn.style.cssText = 'font-size:0.72rem;padding:2px 8px';
+    actions.appendChild(deleteBtn);
 
     return [String(md.matchday), storica, `${md.managers_count}`, stato, actions];
   });
@@ -1708,6 +1734,20 @@ async function loadGiornataDetail() {
       },
     }));
   }
+  statusRow.appendChild(DS.Button({
+    children: 'Cancella giornata', variant: 'danger',
+    onClick: async () => {
+      if (!(await gtConfirmDeleteMatchday(detailMatchday))) return;
+      try {
+        await apiDeleteMatchday(currentLeagueId, detailMatchday);
+        showPage('pg-giornate');
+        await loadGiornateList();
+        showMsg('giornateListMsg', `Giornata G${detailMatchday} cancellata.`);
+      } catch (err) {
+        showMsg('giornataDetailMsg', err.message, true);
+      }
+    },
+  }));
   statusPanel.appendChild(statusRow);
   statusEl.replaceChildren(statusPanel);
 

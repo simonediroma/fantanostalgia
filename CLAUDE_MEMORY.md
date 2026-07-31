@@ -1,9 +1,30 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-25
-**Branch attivo:** `claude/coach-offers-credits-market-value-cbrl9r` (imposto dall'harness per questa sessione, creato da `origin/main` già a `f6a4ddf` — PR #102/#103/#104/#105 tutte già mergiate)
+**Ultima sessione:** 2026-07-31
+**Branch attivo:** `claude/admin-reload-regenerate-daily-data-dj291a` (imposto dall'harness per questa sessione)
 **PR in corso:** nessuna — solo push sul branch, da aprire su richiesta esplicita dell'utente.
+
+**Sessione 2026-07-31 — Admin: cancellazione singola giornata (task ad-hoc, richiesto in chat):**
+Richiesta utente: possibilità per l'admin di ricaricare/rigenerare i dati di una singola giornata (motivata da un errore di calcolo osservato per giocatori senza associazioni) + un bottone per cancellare singole giornate escludendole da tutti i calcoli dei punteggi.
+
+Chiarito con l'utente in 2 domande prima di scrivere codice: (1) il ricaricamento formazioni (`gtReloadDetails` nel dettaglio giornata) e il ricalcolo punteggi (bottone "Ricalcola") **esistevano già** dal task Giornate-in-Admin — l'utente ha confermato che gli basta poter sovrascrivere una giornata già esistente, quindi nessuna modifica lì, serviva solo il bottone di cancellazione; (2) "cancellazione totale" confermata esplicitamente come semantica (formazioni+sorteggio+punteggi rimossi, la giornata torna come se non fosse mai stata caricata), non un semplice azzeramento dei soli punteggi.
+
+Nuovo endpoint `DELETE /admin/league/{league_id}/matchdays/{matchday}` in `backend/api/routers/matchday.py`: cancella `lineup`, `h2h_match`, `matchday_score` per quella giornata + la riga `matchday_draw` corrispondente (`matchday_current = matchday`), poi richiama `_update_standings` (importata da `scoring.py`, già usata internamente da `calculate_scores` — riusa esattamente la stessa funzione, nessuna logica di ricalcolo classifica duplicata: `_update_standings` somma da zero da `matchday_score` per ogni manager, quindi una giornata cancellata sparisce automaticamente dai totali/rank). Stesso guard-rail già esistente per il re-upload formazioni (`upload_lineups` in `lineups.py`): bloccata con HTTP 400 se esiste un Gran Premio già `resolved` per quella giornata (stessa query, stesso messaggio in stile "Impossibile [azione]: un Gran Premio è già stato assegnato per questa giornata") — un Gran Premio *attivo* (non risolto) non blocca la cancellazione, stesso comportamento del reload preesistente, non esteso qui.
+
+Frontend `frontend/admin/index.html`: bottone "Cancella" (`DS.Button variant: 'danger'`) aggiunto sia nella riga azioni dell'elenco Giornate (accanto a Sorteggia/Ricalcola) sia nel pannello di stato del dettaglio giornata, entrambi dietro `DS.confirmDialog` (nuovo helper condiviso `gtConfirmDeleteMatchday`) con `consequence` esplicito sull'irreversibilità e sul ricalcolo della classifica. Dal dettaglio, dopo la cancellazione riuscita si torna automaticamente all'elenco Giornate (la giornata cancellata non esiste più, restare sulla pagina di dettaglio sarebbe uno stato orfano). Nuova funzione `apiDeleteMatchday` in `frontend/admin/js/matchday.js`.
+
+**Test:** 5 nuovi in `backend/tests/test_matchday.py` (cancellazione rimuove formazioni/sorteggio/punteggi e la classifica torna a zero per quel manager; cancellare una giornata non tocca le altre della stessa lega; bloccata con 400 se Gran Premio risolto sulla stessa giornata, riga non toccata; lega inesistente → 404; richiede auth) — 24 test in `test_matchday.py` (19 preesistenti + 5), suite completa 274 passed, stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, riconfermati con `git stash` su questo stesso branch prima della modifica).
+
+Verificato end-to-end contro un server `uvicorn` locale reale (non solo i test fixture): via curl, giornata con sorteggio+punteggi cancellata con successo (elenco vuoto, punteggi vuoti, classifica azzerata), cancellazione bloccata correttamente con messaggio esplicito quando esiste un Gran Premio risolto sulla stessa giornata. Poi con Playwright headless: bottone "Cancella" visibile in riga accanto a "Ricalcola", click apre il confirm-dialog rosso con testo di conseguenza, conferma → toast di successo → elenco torna allo stato vuoto ("Nessuna giornata caricata"). Zero errori console reali (solo il consueto `ERR_CONNECTION_RESET` su Google Fonts dal sandbox di rete e un 401 atteso pre-login).
+
+Committato e pushato sullo stesso branch. **Nessuna PR aperta per questo commit** — da aprire solo su richiesta esplicita dell'utente.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto.
+
+---
 
 **Sessione 2026-07-25 — Mercato: crediti disponibili sempre visibili + valore di mercato come offerta minima (task ad-hoc, richiesto in chat):**
 Richiesta utente: (1) nella vista offerte del coach deve essere sempre visibile il totale dei crediti disponibili, che diminuisce non appena viene lasciata un'offerta; (2) per ogni giocatore in vendita deve essere visibile il valore di mercato; (3) per evitare plusvalenze, le offerte devono partire da un minimo pari al valore di mercato del giocatore.
