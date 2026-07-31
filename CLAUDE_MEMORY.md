@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-07-31
 **Branch attivo:** `claude/admin-reload-regenerate-daily-data-dj291a` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna — solo push sul branch, da aprire su richiesta esplicita dell'utente.
+**PR in corso:** [#108](https://github.com/simonediroma/fantanostalgia/pull/108) — aperta dall'utente.
 
 **Sessione 2026-07-31 — Admin: cancellazione singola giornata (task ad-hoc, richiesto in chat):**
 Richiesta utente: possibilità per l'admin di ricaricare/rigenerare i dati di una singola giornata (motivata da un errore di calcolo osservato per giocatori senza associazioni) + un bottone per cancellare singole giornate escludendole da tutti i calcoli dei punteggi.
@@ -18,11 +18,30 @@ Frontend `frontend/admin/index.html`: bottone "Cancella" (`DS.Button variant: 'd
 
 Verificato end-to-end contro un server `uvicorn` locale reale (non solo i test fixture): via curl, giornata con sorteggio+punteggi cancellata con successo (elenco vuoto, punteggi vuoti, classifica azzerata), cancellazione bloccata correttamente con messaggio esplicito quando esiste un Gran Premio risolto sulla stessa giornata. Poi con Playwright headless: bottone "Cancella" visibile in riga accanto a "Ricalcola", click apre il confirm-dialog rosso con testo di conseguenza, conferma → toast di successo → elenco torna allo stato vuoto ("Nessuna giornata caricata"). Zero errori console reali (solo il consueto `ERR_CONNECTION_RESET` su Google Fonts dal sandbox di rete e un 401 atteso pre-login).
 
+Committato e pushato sullo stesso branch. **PR #108 aperta dall'utente** poco dopo il push — al momento dell'apertura `main` era nel frattempo avanzato con la PR #107 (sessione parallela sotto, fix bug bonus non storici), conflitto puramente testuale su questo stesso file (`CLAUDE_MEMORY.md`, entrambe le sessioni scrivevano in testa) risolto con un merge di `origin/main`, nessun conflitto di codice.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto. Nota per contesto: il bug "errore di calcolo per giocatori senza associazioni" che ha motivato questa richiesta era probabilmente lo stesso poi risolto separatamente dalla sessione parallela di PR #107 (vedi blocco sessione 2026-07-30 sotto) — non toccato in questa sessione perché fuori scope rispetto a quanto chiarito con l'utente (qui serviva solo il bottone di cancellazione).
+
+---
+
+**Sessione 2026-07-30 — Fix bug: bonus contati per i giocatori senza alter ego (task ad-hoc, richiesto in chat):**
+Segnalazione utente: i voti dei giocatori non storici (senza alter ego) venivano salvati/importati contando anche i bonus, mentre per spec (`README.md`: "Giocatori senza alter ego: voto reale senza bonus, solo malus") devono ricevere solo malus, mai bonus.
+
+Causa in `backend/engine/scoring.py::calculate_scores`: quando `real_ratings` non è passato all'endpoint (`POST /admin/league/{id}/scores/{matchday}` con body `{}`, il caso normale quando i voti arrivano dall'import Excel Formazioni), il fallback "stored" legge `lineup.score_no_bonus`/`score_bonus` e costruiva `real_map[...]["rating"] = score_bonus` (il voto **già finale, con bonus incluso**) con tutte le altre statistiche azzerate. `_nostalgia_score()`, per un giocatore senza alter ego, chiamava `_formula(rating=rr["rating"], apply_bonus=False, ...)` — ma con `apply_bonus=False` e stat a zero, `_formula` restituisce semplicemente `rating` invariato, quindi il bonus già incorporato in `score_bonus` non veniva mai rimosso: il nostalgia score finiva per coincidere esattamente col voto con bonus. Il path `real_ratings` fornito esplicitamente (con gol/assist/cartellini reali, usato da `test_scores_no_alter_ego_with_real_rating`) non aveva questo problema, perché lì `rating` è il voto base senza bonus incorporato — motivo per cui il bug non era stato notato dai test esistenti.
+
+Fix: `real_map` nel path "stored" ora porta anche `rating_no_bonus = score_no_bonus` (il voto già "senza bonus, solo malus" che il Formazioni Excel fornisce direttamente, colonna `Voto_no_bonus`). `_nostalgia_score()` usa `rating_no_bonus` quando presente nel dict (ritorna 6.0 se `None`, es. voto "-"/sv), altrimenti mantiene il vecchio comportamento `_formula(..., apply_bonus=False)` per il path `real_ratings` esplicito. `score_normal` non è stato toccato: continua a usare `rating` (=`score_bonus`), corretto perché quello è il voto reale completo.
+
+Test: nuovo `test_scores_no_alter_ego_stored_lineup_excludes_bonus` in `backend/tests/test_scoring.py` (giocatore senza alter ego, `lineup.score_no_bonus=6.5`/`score_bonus=9.5` scritti direttamente come farebbe l'import Formazioni, calcolo punteggi senza `real_ratings` nel body → verificato che `score_nostalgia == 6.5`, non `9.5`, mentre `score_normal` resta `9.5`). Suite completa: 267 passed (266 + 1), stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, confermato con `git stash` che sono identici sul branch pulito).
+
+Non verificato end-to-end con Playwright/server reale in questa sessione (fix puntuale di logica engine, ben coperto dal nuovo test + dai test esistenti — nessuna superficie UI toccata).
+
 Committato e pushato sullo stesso branch. **Nessuna PR aperta per questo commit** — da aprire solo su richiesta esplicita dell'utente.
 
 ## Prossima sessione — inizia da qui (per questo task)
 
-Nessun follow-up noto.
+Nessun follow-up noto per questo fix.
 
 ---
 
