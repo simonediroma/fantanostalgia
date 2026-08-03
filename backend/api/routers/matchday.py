@@ -13,7 +13,7 @@ from backend.api.notifications import (
 )
 from backend.api.routers.auth import get_current_admin_or_bearer
 from backend.engine.draw import perform_draw
-from backend.engine.scoring import calculate_scores
+from backend.engine.scoring import _update_standings, calculate_scores
 
 router = APIRouter(tags=["matchday"])
 
@@ -68,6 +68,35 @@ def list_matchdays(
             (league_id,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.delete("/admin/league/{league_id}/matchdays/{matchday}")
+def delete_matchday(
+    league_id: int,
+    matchday: int,
+    _: str = Depends(get_current_admin_or_bearer),
+):
+    """Cancella formazioni, sorteggio e punteggi di una giornata (come se non fosse mai stata caricata)."""
+    with get_db() as conn:
+        _require_league(conn, league_id)
+        resolved_gp = conn.execute(
+            "SELECT COUNT(*) AS c FROM gran_premio"
+            " WHERE league_id = ? AND matchday = ? AND status = 'resolved'",
+            (league_id, matchday),
+        ).fetchone()["c"]
+        if resolved_gp:
+            raise HTTPException(
+                status_code=400,
+                detail="Impossibile cancellare la giornata: un Gran Premio è già stato assegnato per questa giornata",
+            )
+        conn.execute("DELETE FROM lineup WHERE league_id = ? AND matchday = ?", (league_id, matchday))
+        conn.execute("DELETE FROM h2h_match WHERE league_id = ? AND matchday = ?", (league_id, matchday))
+        conn.execute("DELETE FROM matchday_score WHERE league_id = ? AND matchday = ?", (league_id, matchday))
+        conn.execute(
+            "DELETE FROM matchday_draw WHERE league_id = ? AND matchday_current = ?", (league_id, matchday)
+        )
+        _update_standings(conn, league_id)
+    return {"deleted": True, "matchday": matchday}
 
 
 @router.post("/admin/league/{league_id}/draw/{matchday_current}")

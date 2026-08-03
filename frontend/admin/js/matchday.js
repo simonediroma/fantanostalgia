@@ -22,6 +22,10 @@ async function apiListMatchdays(leagueId) {
   return apiFetch(`/admin/league/${leagueId}/matchdays`);
 }
 
+async function apiDeleteMatchday(leagueId, matchday) {
+  return apiFetch(`/admin/league/${leagueId}/matchdays/${matchday}`, { method: 'DELETE' });
+}
+
 async function apiGetScores(leagueId, matchday) {
   return apiFetch(`/league/${leagueId}/scores/${matchday}`);
 }
