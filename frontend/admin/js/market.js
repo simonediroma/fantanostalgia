@@ -20,3 +20,7 @@ async function apiCloseMarketCuts(leagueId, marketId) {
 async function apiResolveMarket(leagueId, marketId) {
   return apiFetch(`/admin/league/${leagueId}/market/${marketId}/resolve`, { method: 'POST' });
 }
+
+async function apiListMarketCuts(leagueId) {
+  return apiFetch(`/admin/league/${leagueId}/market/cuts`);
+}
