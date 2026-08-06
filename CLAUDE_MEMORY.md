@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-08-05
 **Branch attivo:** `claude/admin-tagli-crediti-squadre-vejj9f` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna aperta per questo commit — solo push del branch.
+**PR in corso:** [#109](https://github.com/simonediroma/fantanostalgia/pull/109) — aperta dall'utente dalla UI di Claude Code.
 
 **Sessione 2026-08-05 — Admin Mercato: sezione tagli e crediti per squadra (task ad-hoc, richiesto in chat):**
 Richiesta utente: nel pannello admin dedicato al Mercato serve una sezione che mostri, per ogni squadra (manager) della lega, i tagli effettuati e i crediti correnti accumulati.
@@ -454,3 +454,4 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 - [#98](https://github.com/simonediroma/fantanostalgia/pull/98) — reset password admin-triggered per i manager, stesso branch (`claude/manager-email-notifications-ftili7`) ✓ mergiata
 - [#101](https://github.com/simonediroma/fantanostalgia/pull/101) — Gran Premio: esclusione manager non joined, riassegnazione slot pieno, max 1 vinto a giornata (`claude/granpremio-winners-coaches-ezq04h`) ✓ mergiata
 - [#102](https://github.com/simonediroma/fantanostalgia/pull/102) — mercato dei giocatori storici (taglio per crediti + offerte in busta chiusa) (`claude/mercato-giocatori-storici-sf3m4e`) — aperta
+- [#109](https://github.com/simonediroma/fantanostalgia/pull/109) — Admin Mercato: sezione tagli e crediti per squadra (`claude/admin-tagli-crediti-squadre-vejj9f`) — aperta
