@@ -96,6 +96,7 @@ def cut_player(
     ).fetchone()
     if session is None:
         raise ValueError("Nessun mercato con fase tagli aperta in questa lega")
+    session_id = session["id"]
 
     pool_entry = conn.execute(
         "SELECT id, assigned_player_current_id FROM manager_nostalgia_pool"
@@ -115,6 +116,11 @@ def cut_player(
 
     conn.execute("DELETE FROM manager_nostalgia_pool WHERE id = ?", (pool_entry["id"],))
     conn.execute("UPDATE manager SET credits = credits + ? WHERE id = ?", (value, manager_id))
+    conn.execute(
+        "INSERT INTO market_cut (league_id, manager_id, market_session_id, player_historic_id, value)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (league_id, manager_id, session_id, player_historic_id, value),
+    )
     return value
 
 

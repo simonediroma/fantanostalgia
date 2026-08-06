@@ -1,9 +1,30 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-07-31
-**Branch attivo:** `claude/admin-reload-regenerate-daily-data-dj291a` (imposto dall'harness per questa sessione)
-**PR in corso:** [#108](https://github.com/simonediroma/fantanostalgia/pull/108) — aperta dall'utente.
+**Ultima sessione:** 2026-08-05
+**Branch attivo:** `claude/admin-tagli-crediti-squadre-vejj9f` (imposto dall'harness per questa sessione)
+**PR in corso:** [#109](https://github.com/simonediroma/fantanostalgia/pull/109) — aperta dall'utente dalla UI di Claude Code.
+
+**Sessione 2026-08-05 — Admin Mercato: sezione tagli e crediti per squadra (task ad-hoc, richiesto in chat):**
+Richiesta utente: nel pannello admin dedicato al Mercato serve una sezione che mostri, per ogni squadra (manager) della lega, i tagli effettuati e i crediti correnti accumulati.
+
+Scoperta chiave in fase di analisi: `cut_player` in `backend/engine/market.py` non lasciava alcuna traccia storica — cancellava la riga `manager_nostalgia_pool` e accreditava `manager.credits`, senza mai registrare quale giocatore fosse stato tagliato né quando. Per mostrare "i tagli effettuati" serviva quindi una nuova tabella persistente, non solo una nuova query sui dati esistenti.
+
+Nuova tabella `market_cut` in `backend/api/db.py::init_db()` (stesso pattern non-`schema.sql` già usato per `market_session`/`market_bid`/`gran_premio`, nessuna approvazione richiesta per questo tipo di modifica secondo il precedente consolidato): `id, league_id, manager_id, market_session_id, player_historic_id, value, created_at` + indice su `(league_id, manager_id)`. `cut_player` ora inserisce una riga in `market_cut` subito dopo aver accreditato i crediti (stessa transazione, nessun round-trip aggiuntivo) — `market_session_id` preso dalla sessione `cuts_open` già risolta a inizio funzione per la validazione esistente, nessuna query in più.
+
+Nuovo endpoint `GET /admin/league/{league_id}/market/cuts` in `backend/api/routers/market.py` (stessa auth `get_current_admin` di tutti gli altri endpoint admin del mercato): per ogni manager della lega ritorna `credits` (saldo attuale, sempre aggiornato — non solo quello guadagnato da tagli, ma il vero saldo spendibile, coerente con quanto già mostrato al coach in `rosa.html`), la lista `cuts` (nome/ruolo/valore/data di ogni giocatore tagliato, tutte le sessioni di mercato della lega, non solo quella corrente) e `total_cut_value` (somma). Un manager senza tagli compare comunque con `cuts: []` e il proprio saldo — la sezione deve mostrare tutte le squadre della lega, non solo quelle che hanno tagliato.
+
+Frontend `frontend/admin/index.html`: nuovo pannello "Tagli e crediti per squadra" (`DS.Table`, colonne Squadra/Crediti attuali/Giocatori tagliati/Totale da tagli) in un nuovo contenitore `#mercatoCutsSummary` sotto il pannello di stato del mercato esistente (creazione/tagli aperti/offerte aperte/risolto) — **sempre visibile indipendentemente dallo stato della sessione di mercato**, perché la richiesta era esplicitamente una vista aggregata per squadra, non scoped a una singola sessione. Popolato da `mkRenderCutsSummary()`, richiamata alla fine di `mkRender()` (quindi si aggiorna automaticamente dopo ogni azione admin: apertura mercato, chiusura tagli, apertura buste). Nuova funzione `apiListMarketCuts` in `frontend/admin/js/market.js`.
+
+**Test:** 4 nuovi in `backend/tests/test_market.py` (`cut_player` registra la riga `market_cut` con i valori corretti; endpoint riepilogo mostra crediti/tagli/totale corretti per un manager che ha tagliato e `cuts: []`/`credits: 0` per uno che non ha tagliato; richiede auth) — 42 test in `test_market.py` (38 preesistenti + 4), suite completa 279 passed, stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, comportamento invariato).
+
+Verificato end-to-end contro un server `uvicorn` locale reale (non solo i test fixture): via curl, creata lega con 2 manager, un mercato aperto, un taglio eseguito direttamente tramite il motore (non c'è ancora un login coach in questo giro di verifica) — `GET /admin/league/1/market/cuts` mostra correttamente il manager che ha tagliato con `credits: 30`/`total_cut_value: 30`/1 riga in `cuts`, e l'altro manager con `credits: 0`/`cuts: []`. Poi con Playwright headless: pannello "Tagli e crediti per squadra" visibile subito sotto il pannello "Mercato aperto — Tagli in corso", riga con il giocatore tagliato ("Baggio (A) — +30") e riga del secondo manager con "—"/0. Zero errori console reali (solo il consueto `ERR_CONNECTION_RESET` su Google Fonts dal sandbox di rete e un 401 atteso su `/auth/me` pre-login).
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto. Nota per contesto futuro: `total_cut_value` nella risposta del nuovo endpoint è la somma storica dei crediti guadagnati da tagli (tutte le sessioni), mentre `credits` è il saldo corrente spendibile (può essere inferiore se il manager ha già speso crediti in offerte vinte) — la tabella admin mostra entrambi i valori distintamente per evitare ambiguità.
+
+---
 
 **Sessione 2026-07-31 — Admin: cancellazione singola giornata (task ad-hoc, richiesto in chat):**
 Richiesta utente: possibilità per l'admin di ricaricare/rigenerare i dati di una singola giornata (motivata da un errore di calcolo osservato per giocatori senza associazioni) + un bottone per cancellare singole giornate escludendole da tutti i calcoli dei punteggi.
@@ -433,3 +454,4 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 - [#98](https://github.com/simonediroma/fantanostalgia/pull/98) — reset password admin-triggered per i manager, stesso branch (`claude/manager-email-notifications-ftili7`) ✓ mergiata
 - [#101](https://github.com/simonediroma/fantanostalgia/pull/101) — Gran Premio: esclusione manager non joined, riassegnazione slot pieno, max 1 vinto a giornata (`claude/granpremio-winners-coaches-ezq04h`) ✓ mergiata
 - [#102](https://github.com/simonediroma/fantanostalgia/pull/102) — mercato dei giocatori storici (taglio per crediti + offerte in busta chiusa) (`claude/mercato-giocatori-storici-sf3m4e`) — aperta
+- [#109](https://github.com/simonediroma/fantanostalgia/pull/109) — Admin Mercato: sezione tagli e crediti per squadra (`claude/admin-tagli-crediti-squadre-vejj9f`) — aperta

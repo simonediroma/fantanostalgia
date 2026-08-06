@@ -464,6 +464,7 @@
 
         <div id="mercatoMsg"></div>
         <div id="mercatoContent"></div>
+        <div id="mercatoCutsSummary" style="margin-top:1.5rem"></div>
       </div>
 
     </div><!-- .content -->
@@ -2055,6 +2056,52 @@ async function mkRender() {
     } else if (session.status === 'resolved') {
       mkRenderResolvedView(el, session);
     }
+  } catch (err) {
+    showMsg('mercatoMsg', err.message, true);
+  }
+  await mkRenderCutsSummary();
+}
+
+async function mkRenderCutsSummary() {
+  const el = document.getElementById('mercatoCutsSummary');
+  try {
+    const data = await apiListMarketCuts(currentLeagueId);
+    el.innerHTML = '';
+    const panel = document.createElement('div');
+    panel.className = 'ds-panel ds-panel--default';
+    const title = document.createElement('h4');
+    title.className = 'ds-panel__title';
+    title.textContent = 'Tagli e crediti per squadra';
+    panel.appendChild(title);
+
+    if (!data.length) {
+      panel.appendChild(DS.EmptyState({ message: 'Nessun manager in questa lega.' }));
+      el.appendChild(panel);
+      return;
+    }
+
+    const rows = data.map((m) => {
+      const cutsCell = document.createElement('div');
+      if (!m.cuts.length) {
+        cutsCell.textContent = '—';
+      } else {
+        m.cuts.forEach((c) => {
+          const line = document.createElement('div');
+          line.textContent = `${c.player_name} (${c.role}) — +${c.value}`;
+          cutsCell.appendChild(line);
+        });
+      }
+      return [m.manager_name, String(m.credits), cutsCell, String(m.total_cut_value)];
+    });
+
+    panel.appendChild(DS.Table({
+      columns: [
+        { label: 'Squadra' }, { label: 'Crediti attuali' },
+        { label: 'Giocatori tagliati' }, { label: 'Totale da tagli' },
+      ],
+      rows,
+    }));
+    el.appendChild(panel);
   } catch (err) {
     showMsg('mercatoMsg', err.message, true);
   }

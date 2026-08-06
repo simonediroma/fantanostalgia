@@ -223,6 +223,16 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_market_bid_session_manager ON market_bid(market_session_id, manager_id);
             CREATE INDEX IF NOT EXISTS idx_market_bid_session_player ON market_bid(market_session_id, player_historic_id);
+            CREATE TABLE IF NOT EXISTS market_cut (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL REFERENCES league(id),
+                manager_id INTEGER NOT NULL REFERENCES manager(id),
+                market_session_id INTEGER NOT NULL REFERENCES market_session(id),
+                player_historic_id INTEGER NOT NULL REFERENCES player_historic(id),
+                value INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_market_cut_league_manager ON market_cut(league_id, manager_id);
         """)
         conn.commit()
 

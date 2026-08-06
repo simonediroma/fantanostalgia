@@ -140,6 +140,46 @@ def get_current_market(
     return result
 
 
+@router.get("/admin/league/{league_id}/market/cuts")
+def list_market_cuts(
+    league_id: int,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        _require_league(conn, league_id)
+        managers = conn.execute(
+            "SELECT id, name, credits FROM manager WHERE league_id = ? ORDER BY name",
+            (league_id,),
+        ).fetchall()
+        cuts = conn.execute(
+            """
+            SELECT mc.manager_id, mc.value, mc.created_at, ph.name AS player_name, ph.role
+            FROM market_cut mc
+            JOIN player_historic ph ON ph.id = mc.player_historic_id
+            WHERE mc.league_id = ?
+            ORDER BY mc.created_at DESC
+            """,
+            (league_id,),
+        ).fetchall()
+
+        cuts_by_manager: dict[int, list[dict]] = {}
+        for c in cuts:
+            cuts_by_manager.setdefault(c["manager_id"], []).append(dict(c))
+
+        result = []
+        for m in managers:
+            manager_cuts = cuts_by_manager.get(m["id"], [])
+            result.append({
+                "manager_id": m["id"],
+                "manager_name": m["name"],
+                "credits": m["credits"],
+                "cuts": manager_cuts,
+                "total_cut_value": sum(c["value"] for c in manager_cuts),
+            })
+
+    return result
+
+
 @router.post("/admin/league/{league_id}/market/{market_session_id}/close-cuts")
 def close_cuts(
     league_id: int,

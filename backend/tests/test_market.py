@@ -195,6 +195,31 @@ def test_cut_player_denied_after_cuts_closed(client):
             market_engine.cut_player(conn, league_id, mgr, hid)
 
 
+def test_cut_player_records_market_cut_row(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mgr = _add_manager(conn, league_id)
+        hid = _add_historic(conn, "Recorded", "A")
+        for md in range(1, 3):
+            _add_rating(conn, hid, md, 8.0)
+        _add_to_pool(conn, mgr, league_id, hid)
+        dummy = _add_historic(conn, "Dummy4", "A")
+        sid = market_engine.create_market_session(conn, league_id, [dummy])
+
+        market_engine.cut_player(conn, league_id, mgr, hid)
+
+        row = conn.execute(
+            "SELECT league_id, manager_id, market_session_id, player_historic_id, value"
+            " FROM market_cut WHERE manager_id = ?",
+            (mgr,),
+        ).fetchone()
+        assert row is not None
+        assert row["league_id"] == league_id
+        assert row["market_session_id"] == sid
+        assert row["player_historic_id"] == hid
+        assert row["value"] == 30
+
+
 # ── create_market_session ────────────────────────────────────────────────────
 
 def test_create_market_session_rejects_non_free(client):
@@ -485,6 +510,40 @@ def test_resolve_leaves_player_unsold_if_no_valid_bidder(client):
 
 
 # ── admin router (HTTP) ───────────────────────────────────────────────────────
+
+def test_admin_list_market_cuts_summary(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        m1 = _add_manager(conn, league_id, name="M1", team="T1")
+        m2 = _add_manager(conn, league_id, name="M2", team="T2")
+        hid = _add_historic(conn, "CutForSummary", "D")
+        for md in range(1, 3):
+            _add_rating(conn, hid, md, 6.0)
+        _add_to_pool(conn, m1, league_id, hid)
+        dummy = _add_historic(conn, "Dummy5", "D")
+        market_engine.create_market_session(conn, league_id, [dummy])
+        market_engine.cut_player(conn, league_id, m1, hid)
+
+    r = client.get(f"/admin/league/{league_id}/market/cuts")
+    assert r.status_code == 200, r.text
+    by_name = {row["manager_name"]: row for row in r.json()}
+
+    assert by_name["M1"]["credits"] == 10
+    assert by_name["M1"]["total_cut_value"] == 10
+    assert len(by_name["M1"]["cuts"]) == 1
+    assert by_name["M1"]["cuts"][0]["player_name"] == "CutForSummary"
+
+    assert by_name["M2"]["credits"] == 0
+    assert by_name["M2"]["cuts"] == []
+    assert by_name["M2"]["total_cut_value"] == 0
+
+
+def test_admin_list_market_cuts_requires_auth(client):
+    league_id = _create_league(client)
+    client.post("/auth/logout")
+    r = client.get(f"/admin/league/{league_id}/market/cuts")
+    assert r.status_code == 401
+
 
 def test_admin_current_market_hides_amounts_during_bids_open(client):
     league_id = _create_league(client)
