@@ -2,7 +2,7 @@ import math
 import sqlite3
 
 from backend.engine.granpremio import free_historic_players
-from backend.engine.mapping import POOL_SIZE, ROLES
+from backend.engine.mapping import ROLES
 
 CUT_BASELINE_RATING = 6.0
 CUT_BASE_VALUE = 10
@@ -55,9 +55,29 @@ def pool_role_counts(conn: sqlite3.Connection, manager_id: int) -> dict[str, int
     return counts
 
 
+def roster_role_counts(conn: sqlite3.Connection, manager_id: int) -> dict[str, int]:
+    counts = {role: 0 for role in ROLES}
+    rows = conn.execute(
+        "SELECT role, COUNT(*) AS n FROM player_current WHERE manager_id = ? GROUP BY role",
+        (manager_id,),
+    ).fetchall()
+    for r in rows:
+        counts[r["role"]] = r["n"]
+    return counts
+
+
 def free_slots_by_role(conn: sqlite3.Connection, manager_id: int) -> dict[str, int]:
-    counts = pool_role_counts(conn, manager_id)
-    return {role: max(POOL_SIZE[role] - counts.get(role, 0), 0) for role in ROLES}
+    """Free role capacity for the market: bounded by the manager's real roster
+    (player_current) for that role, not the initial POOL_SIZE distribution — the
+    nostalgia pool can grow up to the total number of real players of a role the
+    manager owns. 'Taken' counts every existing pool entry for that role whether
+    or not it has been manually linked to a player_current yet, since each one
+    will eventually need one of those real players (this also makes a just-won
+    market listing immediately count against the winner's remaining capacity
+    within the same resolution pass, before any manual assignment happens)."""
+    pool_counts = pool_role_counts(conn, manager_id)
+    roster_counts = roster_role_counts(conn, manager_id)
+    return {role: max(roster_counts[role] - pool_counts[role], 0) for role in ROLES}
 
 
 def pending_bid_summary(
