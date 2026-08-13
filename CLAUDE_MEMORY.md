@@ -1,9 +1,30 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-08-05
-**Branch attivo:** `claude/admin-tagli-crediti-squadre-vejj9f` (imposto dall'harness per questa sessione)
-**PR in corso:** [#109](https://github.com/simonediroma/fantanostalgia/pull/109) — aperta dall'utente dalla UI di Claude Code.
+**Ultima sessione:** 2026-08-13
+**Branch attivo:** `claude/mercato-offerte-bloccate-wyn6j5` (imposto dall'harness per questa sessione)
+**PR in corso:** nessuna aperta per questo commit — da aprire su richiesta esplicita dell'utente.
+
+**Sessione 2026-08-13 — Fix bug: capacità di ruolo nel Mercato bloccata dalla dimensione iniziale del pool, non dalla rosa reale (segnalato con screenshot in chat):**
+Segnalazione utente: un allenatore con 40 crediti disponibili non riusciva a fare offerte nel Mercato — ogni riga aveva l'input importo e il bottone "OFFRI" disabilitati, badge "BLOCCATO" in topbar.
+
+Diagnosi: `free_slots_by_role` in `backend/engine/market.py` calcolava gli slot liberi per ruolo come `POOL_SIZE[ruolo] - (voci nel pool nostalgia per quel ruolo)`, dove `POOL_SIZE = {"P":1,"D":4,"C":4,"A":3}` (`mapping.py`) è la distribuzione **iniziale** del pool, non un tetto assoluto. Un manager che aveva già raggiunto quel numero di voci pool per un ruolo risultava "pieno" per sempre su quel ruolo nel Mercato, anche se la sua rosa reale (`player_current`) aveva più slot di quel ruolo mai assegnati a un alter ego — esattamente il caso dell'allenatore segnalante (rosa reale più ampia della distribuzione iniziale del pool).
+
+Chiarito con l'utente (in chat, non in plan mode iniziale — la richiesta è arrivata come domanda diagnostica, poi si è trasformata in una correzione con la sua risposta): la regola corretta è che il pool per un ruolo può superare la dimensione iniziale, fino al numero totale di giocatori di quel ruolo presenti nella rosa reale della squadra. Questa regola esiste già nel codice per il Gran Premio (`_has_free_role_slot` in `granpremio.py`, introdotta nella sessione Gran Premio del 2026-07-19/task 23 follow-up) — il Mercato non era mai stato allineato quando fu introdotta lì. Bug di disallineamento tra due sottosistemi che dovrebbero condividere la stessa regola di business.
+
+**Scoperta in fase di fix** (non ovvia dalla sola richiesta dell'utente): riusare esattamente la logica di `_has_free_role_slot` (taken = solo voci pool con `assigned_player_current_id` impostato) rompe `resolve_market_session`: quel metodo risolve **tutti** i listing di una sessione in un'unica chiamata/transazione, e l'assegnazione di un premio vinto non imposta subito `assigned_player_current_id` (resta da assegnare manualmente dal coach, come per il Gran Premio) — quindi un manager poteva vincere più giocatori dello stesso ruolo nella stessa risoluzione anche restando oltre la propria rosa reale, perché la vittoria di un listing non faceva scendere la capacità libera vista dal listing successivo nello stesso giro (test `test_resolve_cascades_when_winner_has_no_slot_left` scoperto rotto proprio da questo). Risolto mantenendo `taken` = **tutte** le voci pool di quel ruolo (assegnate o no, stessa logica della `pool_role_counts` preesistente) e cambiando solo il tetto di confronto da `POOL_SIZE[ruolo]` fisso al conteggio reale di `player_current` di quel ruolo per il manager (nuovo helper `roster_role_counts`). Così una vittoria appena assegnata (ancora non collegata a un giocatore reale) consuma comunque immediatamente capacità futura all'interno della stessa risoluzione, mentre il tetto riflette la rosa reale invece della distribuzione iniziale. `granpremio.py` non toccato — resta corretto per il proprio caso d'uso (risolve un premio alla volta, con commit immediato, nessun problema di batching).
+
+**Test:** `backend/tests/test_market.py` — 3 nuovi (`free_slots_by_role` oltre `POOL_SIZE` con rosa reale più ampia; azzeramento quando tutti i giocatori reali del ruolo sono presi; 0 slot liberi senza alcun giocatore reale di quel ruolo) + `test_place_bid_allows_exceeding_initial_pool_size` (offerta accettata oltre il vecchio tetto fisso, con rosa reale più ampia). 12 test preesistenti sul mercato che non testavano la capacità di ruolo (crediti, valore di mercato, tie-break, cascata, router admin/pubblico/coach) si affidavano implicitamente al vecchio tetto fisso per avere capacità libera "di default" senza creare righe `player_current` — aggiornati con l'helper esistente `_add_player` per dare a ciascun manager coinvolto almeno un giocatore reale del ruolo in gioco, preservando l'intento originale di ogni test (nessuna asserzione di business cambiata, solo il fixture setup). Suite completa: 278 passed, stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py` (non correlati, documentati da sessioni precedenti).
+
+Verificato end-to-end contro un server `uvicorn` locale reale (non solo i test fixture): creato un manager con 4 attaccanti reali (`player_current`) e 3 alter ego già assegnati nel pool nostalgia (pareggiando esattamente il vecchio `POOL_SIZE["A"]=3`) — `free_slots_by_role` restituisce correttamente `{"A": 1}` invece di `{"A": 0}`. Aperta una sessione di mercato con un 4° attaccante in vendita, registrato un coach reale via invito, offerta piazzata con successo tramite `POST /coach/league/{id}/market/bid` (prima avrebbe fallito con "Nessuno slot libero per il ruolo A"); `GET /coach/league/{id}/market` conferma `free_slots: {"A": 1}` e la riserva della capacità dopo l'offerta.
+
+Committato sul branch, non ancora pushato/PR aperta al termine di questa sessione — vedi istruzioni sotto.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto per questo fix. Push del branch e apertura PR da fare solo su richiesta esplicita dell'utente (nessuna richiesta ricevuta finora in questa sessione).
+
+---
 
 **Sessione 2026-08-05 — Admin Mercato: sezione tagli e crediti per squadra (task ad-hoc, richiesto in chat):**
 Richiesta utente: nel pannello admin dedicato al Mercato serve una sezione che mostri, per ogni squadra (manager) della lega, i tagli effettuati e i crediti correnti accumulati.

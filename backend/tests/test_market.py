@@ -262,6 +262,40 @@ def test_new_market_allowed_after_resolve(client):
         assert new_sid != sid
 
 
+# ── free_slots_by_role ───────────────────────────────────────────────────────
+
+def test_free_slots_by_role_bounded_by_real_roster(client):
+    """Free capacity for a role is the manager's real player_current count for
+    that role minus how many already have an assigned pool entry - it can exceed
+    POOL_SIZE, and drops to 0 once every real player of that role is taken."""
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mgr = _add_manager(conn, league_id)
+        assert POOL_SIZE["A"] == 3
+        pcs = [_add_player(conn, league_id, mgr, f"Fwd{i}", "A") for i in range(5)]
+        for pc in pcs[:2]:
+            fid = _add_historic(conn, f"Assigned{pc}", "A")
+            _add_to_pool(conn, mgr, league_id, fid, assigned_pc=pc)
+
+        free = market_engine.free_slots_by_role(conn, mgr)
+        assert free["A"] == 3  # 5 real forwards, 2 assigned -> 3 free, beyond POOL_SIZE["A"]
+
+        for pc in pcs[2:]:
+            fid = _add_historic(conn, f"Assigned{pc}", "A")
+            _add_to_pool(conn, mgr, league_id, fid, assigned_pc=pc)
+
+        free = market_engine.free_slots_by_role(conn, mgr)
+        assert free["A"] == 0  # all 5 real forwards taken
+
+
+def test_free_slots_by_role_zero_without_real_players(client):
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mgr = _add_manager(conn, league_id)
+        free = market_engine.free_slots_by_role(conn, mgr)
+        assert free == {"P": 0, "D": 0, "C": 0, "A": 0}
+
+
 # ── place_bid ────────────────────────────────────────────────────────────────
 
 def test_place_bid_rejects_over_credits(client):
@@ -281,6 +315,8 @@ def test_place_bid_counts_other_pending_bids_towards_credit_cap(client):
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 20)
+        _add_player(conn, league_id, mgr, "RealFwd0", "A")
+        _add_player(conn, league_id, mgr, "RealFwd1", "A")
         h1 = _add_historic(conn, "A1", "A")
         h2 = _add_historic(conn, "A2", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1, h2])
@@ -295,6 +331,7 @@ def test_place_bid_update_does_not_double_count(client):
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 20)
+        _add_player(conn, league_id, mgr, "RealFwd", "A")
         h1 = _add_historic(conn, "A1u", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
@@ -309,18 +346,42 @@ def test_place_bid_update_does_not_double_count(client):
 
 
 def test_place_bid_rejects_when_no_free_role_slots(client):
+    """Free role capacity is bounded by the manager's real roster (player_current),
+    not the initial POOL_SIZE distribution: 1 real goalkeeper, already taken by an
+    assigned alter ego, leaves 0 free P slots regardless of pool size."""
     league_id = _create_league(client)
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 100)
-        assert POOL_SIZE["P"] == 1
+        pc = _add_player(conn, league_id, mgr, "RealKeeper", "P")
         filler = _add_historic(conn, "FillerP", "P")
-        _add_to_pool(conn, mgr, league_id, filler)
+        _add_to_pool(conn, mgr, league_id, filler, assigned_pc=pc)
         h1 = _add_historic(conn, "NewP", "P")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
         with pytest.raises(ValueError):
             market_engine.place_bid(conn, sid, mgr, h1, 10)
+
+
+def test_place_bid_allows_exceeding_initial_pool_size(client):
+    """A manager can bid on a role beyond the initial POOL_SIZE distribution as
+    long as their real roster still has an unassigned player_current of that
+    role — the pool is not capped at the initial distribution."""
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mgr = _add_manager(conn, league_id)
+        _set_credits(conn, mgr, 100)
+        assert POOL_SIZE["A"] == 3
+        # 4 real forwards, 3 already assigned via the pool -> 1 free, beyond POOL_SIZE["A"]
+        for i in range(3):
+            pc = _add_player(conn, league_id, mgr, f"RealFwd{i}", "A")
+            fid = _add_historic(conn, f"FillerA{i}", "A")
+            _add_to_pool(conn, mgr, league_id, fid, assigned_pc=pc)
+        _add_player(conn, league_id, mgr, "RealFwd4", "A")
+        h1 = _add_historic(conn, "ExtraA", "A")
+        sid = market_engine.create_market_session(conn, league_id, [h1])
+        market_engine.close_cuts(conn, sid)
+        market_engine.place_bid(conn, sid, mgr, h1, 10)  # does not raise
 
 
 def test_place_bid_reserves_role_slot_across_pending_bids(client):
@@ -331,10 +392,11 @@ def test_place_bid_reserves_role_slot_across_pending_bids(client):
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 100)
-        assert POOL_SIZE["D"] == 4
         for i in range(3):
+            pc = _add_player(conn, league_id, mgr, f"RealDef{i}", "D")
             fid = _add_historic(conn, f"FillerD{i}", "D")
-            _add_to_pool(conn, mgr, league_id, fid)
+            _add_to_pool(conn, mgr, league_id, fid, assigned_pc=pc)
+        _add_player(conn, league_id, mgr, "RealDef3", "D")  # the only free D slot
         d1 = _add_historic(conn, "D1", "D")
         d2 = _add_historic(conn, "D2", "D")
         sid = market_engine.create_market_session(conn, league_id, [d1, d2])
@@ -349,6 +411,7 @@ def test_place_bid_rejects_below_market_value(client):
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 100)
+        _add_player(conn, league_id, mgr, "RealFwd", "A")
         h1 = _add_historic(conn, "Valuable", "A")
         for md in range(1, 3):
             _add_rating(conn, h1, md, 8.0)  # market value 10 + 5*4 = 30
@@ -364,6 +427,8 @@ def test_withdraw_bid_frees_reserved_capacity(client):
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 100)
+        _add_player(conn, league_id, mgr, "RealFwd0", "A")
+        _add_player(conn, league_id, mgr, "RealFwd1", "A")
         h1 = _add_historic(conn, "W1", "A")
         h2 = _add_historic(conn, "W2", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1, h2])
@@ -391,6 +456,8 @@ def test_resolve_assigns_best_bidder_and_deducts_credits(client):
         m2 = _add_manager(conn, league_id, "M2", "T2")
         _set_credits(conn, m1, 50)
         _set_credits(conn, m2, 50)
+        _add_player(conn, league_id, m1, "M1Fwd", "A")
+        _add_player(conn, league_id, m2, "M2Fwd", "A")
         h1 = _add_historic(conn, "Prize1", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
@@ -442,6 +509,8 @@ def test_resolve_tie_break_lowest_manager_id(client):
         m2 = _add_manager(conn, league_id, "M2", "T2")
         _set_credits(conn, m1, 50)
         _set_credits(conn, m2, 50)
+        _add_player(conn, league_id, m1, "M1Fwd", "A")
+        _add_player(conn, league_id, m2, "M2Fwd", "A")
         h1 = _add_historic(conn, "TieGuy", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
@@ -463,7 +532,8 @@ def test_resolve_cascades_when_winner_has_no_slot_left(client):
         m2 = _add_manager(conn, league_id, "M2", "T2")
         _set_credits(conn, m1, 100)
         _set_credits(conn, m2, 100)
-        assert POOL_SIZE["P"] == 1
+        _add_player(conn, league_id, m1, "M1Keeper", "P")  # exactly 1 free P slot
+        _add_player(conn, league_id, m2, "M2Keeper", "P")
         p1 = _add_historic(conn, "P1", "P")
         p2 = _add_historic(conn, "P2", "P")
         sid = market_engine.create_market_session(conn, league_id, [p1, p2])
@@ -550,6 +620,7 @@ def test_admin_current_market_hides_amounts_during_bids_open(client):
     with get_db() as conn:
         mgr = _add_manager(conn, league_id)
         _set_credits(conn, mgr, 50)
+        _add_player(conn, league_id, mgr, "RealFwd", "A")
         h1 = _add_historic(conn, "Hidden", "A")
 
     r = client.post(f"/admin/league/{league_id}/market", json={"player_historic_ids": [h1]})
@@ -622,6 +693,7 @@ def test_admin_resolve_enqueues_market_won_email(client):
         m1 = _add_manager(conn, league_id, "M1", "T1")
         _link_user(conn, m1, "winner_market@test.com", name="M1")
         _set_credits(conn, m1, 50)
+        _add_player(conn, league_id, m1, "M1Fwd", "A")
         h1 = _add_historic(conn, "EmailPrize", "A")
 
     r = client.post(f"/admin/league/{league_id}/market", json={"player_historic_ids": [h1]})
@@ -657,6 +729,7 @@ def test_public_market_listing_shows_results_after_resolve(client):
     with get_db() as conn:
         m1 = _add_manager(conn, league_id, "M1", "T1")
         _set_credits(conn, m1, 50)
+        _add_player(conn, league_id, m1, "M1Fwd", "A")
         h1 = _add_historic(conn, "PublicPrize", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
@@ -709,6 +782,7 @@ def test_coach_bid_endpoint_via_http_and_validation_error(client):
     mgr = manager["id"]
     with get_db() as conn:
         _set_credits(conn, mgr, 15)
+        _add_player(conn, league_id, mgr, "RealFwd", "A")
         h1 = _add_historic(conn, "HttpBid", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
@@ -739,6 +813,8 @@ def test_coach_get_market_reflects_state(client):
     mgr = manager["id"]
     with get_db() as conn:
         _set_credits(conn, mgr, 42)
+        for i in range(4):  # real roster of 4 forwards -> free_slots["A"] == 4
+            _add_player(conn, league_id, mgr, f"RealFwd{i}", "A")
         h1 = _add_historic(conn, "StateCheck", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
@@ -751,7 +827,7 @@ def test_coach_get_market_reflects_state(client):
     assert data["credits"] == 42
     assert data["available_credits"] == 42
     assert data["session"]["status"] == "bids_open"
-    assert data["free_slots"]["A"] == POOL_SIZE["A"]
+    assert data["free_slots"]["A"] == 4
     assert len(data["listing"]) == 1
     assert data["listing"][0]["market_value"] == 10
 
@@ -766,6 +842,7 @@ def test_coach_available_credits_decreases_with_pending_bids(client):
     mgr = manager["id"]
     with get_db() as conn:
         _set_credits(conn, mgr, 42)
+        _add_player(conn, league_id, mgr, "RealFwd", "A")
         h1 = _add_historic(conn, "AvailCheck", "A")
         sid = market_engine.create_market_session(conn, league_id, [h1])
         market_engine.close_cuts(conn, sid)
