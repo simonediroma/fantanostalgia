@@ -201,6 +201,22 @@ def coach_home(request: Request):
     return Response("Coach home not available", status_code=404)
 
 
+@router.get("/coach/password-dimenticata", include_in_schema=False)
+def coach_forgot_password(request: Request):
+    p = os.path.join(_coach_dir, "forgot-password.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach forgot-password not available", status_code=404)
+
+
+@router.get("/coach/reset-password", include_in_schema=False)
+def coach_reset_password(request: Request):
+    p = os.path.join(_coach_dir, "reset-password.html")
+    if os.path.isfile(p):
+        return FileResponse(p, media_type="text/html")
+    return Response("Coach reset-password not available", status_code=404)
+
+
 @router.get("/coach/lega/{league_id}", include_in_schema=False)
 def coach_rosa(request: Request, league_id: int):
     p = os.path.join(_coach_dir, "rosa.html")

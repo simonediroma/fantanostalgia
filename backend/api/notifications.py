@@ -25,6 +25,7 @@ EMAIL_FROM = os.getenv("EMAIL_FROM", "FantaNostalgia <no-reply@fantanostalgia.it
 
 DEFAULT_BATCH_SIZE = 20
 MAX_EMAIL_ATTEMPTS = 5
+PASSWORD_RECOVERY_LINK_MINUTES = 60
 
 
 def send_email(to: str, subject: str, html: str) -> None:
@@ -147,6 +148,19 @@ def _render_password_reset(params: dict, base_url: str) -> tuple[str, str]:
     return "La tua password è stata reimpostata", html
 
 
+def _render_password_recovery(params: dict, base_url: str) -> tuple[str, str]:
+    name, reset_url = params["name"], params["reset_url"]
+    html = _layout(
+        "Recupera la tua password",
+        f"<p>Ciao {name}, hai richiesto di recuperare la tua password. Il link è valido "
+        f"per {PASSWORD_RECOVERY_LINK_MINUTES} minuti e può essere usato una sola volta. "
+        "Se non hai fatto tu questa richiesta, ignora questa email.</p>",
+        "Imposta una nuova password",
+        reset_url,
+    )
+    return "Recupera la tua password", html
+
+
 TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
     "registration": _render_registration,
     "league_join": _render_league_join,
@@ -155,6 +169,7 @@ TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
     "gran_premio_won": _render_gran_premio_won,
     "market_won": _render_market_won,
     "password_reset": _render_password_reset,
+    "password_recovery": _render_password_recovery,
 }
 
 

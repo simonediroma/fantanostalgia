@@ -233,6 +233,15 @@ def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_market_cut_league_manager ON market_cut(league_id, manager_id);
+            CREATE TABLE IF NOT EXISTS password_reset_token (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES user(id),
+                token TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                used_at TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_password_reset_token_token ON password_reset_token(token);
         """)
         conn.commit()
 
