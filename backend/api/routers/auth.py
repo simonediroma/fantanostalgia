@@ -1,7 +1,8 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
 from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
@@ -296,6 +297,70 @@ def user_join_league(body: dict, user: dict = Depends(get_current_user)):
         enqueue_email(conn, "league_join", user["email"], {"name": user["name"], "league_name": league["name"]})
 
     return {"detail": "Unito alla lega con successo"}
+
+
+# ── Recupero password (self-service) ─────────────────────────────────────────
+
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 60
+
+
+class ForgotPasswordBody(BaseModel):
+    email: str
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/user/forgot-password")
+def forgot_password(body: ForgotPasswordBody, request: Request):
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT id, name FROM user WHERE email = ?", (body.email,)
+        ).fetchone()
+        if user is not None:
+            # Invalida eventuali token precedenti ancora validi: solo l'ultimo
+            # link richiesto deve funzionare.
+            conn.execute(
+                "UPDATE password_reset_token SET used_at = CURRENT_TIMESTAMP"
+                " WHERE user_id = ? AND used_at IS NULL",
+                (user["id"],),
+            )
+            token = secrets.token_urlsafe(32)
+            conn.execute(
+                "INSERT INTO password_reset_token (user_id, token, expires_at)"
+                " VALUES (?, ?, datetime('now', ?))",
+                (user["id"], token, f"+{PASSWORD_RESET_TOKEN_EXPIRE_MINUTES} minutes"),
+            )
+            base_url = str(request.base_url).rstrip("/")
+            enqueue_email(conn, "password_recovery", body.email, {
+                "name": user["name"],
+                "reset_url": f"{base_url}/coach/reset-password?token={token}",
+            })
+    # Risposta identica indipendentemente dall'esistenza dell'account, per non
+    # rivelare quali email sono registrate.
+    return {"detail": "Se l'indirizzo è registrato, riceverai a breve un'email con le istruzioni per il recupero."}
+
+
+@router.post("/user/reset-password")
+def reset_password(body: ResetPasswordBody):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT user_id FROM password_reset_token"
+            " WHERE token = ? AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP",
+            (body.token,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=400, detail="Link non valido o scaduto, richiedine uno nuovo")
+        password_hash = _pwd_ctx.hash(body.new_password)
+        conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, row["user_id"]))
+        conn.execute(
+            "UPDATE password_reset_token SET used_at = CURRENT_TIMESTAMP"
+            " WHERE user_id = ? AND used_at IS NULL",
+            (row["user_id"],),
+        )
+    return {"detail": "Password aggiornata con successo"}
 
 
 # ── Elevazione coach → admin ─────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -43,6 +44,16 @@ def _queue_rows_for(conn, to_email: str):
     return conn.execute(
         "SELECT * FROM email_queue WHERE to_email = ? ORDER BY id", (to_email,)
     ).fetchall()
+
+
+def _recovery_token_from_last_email(conn, to_email: str) -> str:
+    """Estrae il token dal reset_url dell'ultima email 'password_recovery'
+    accodata per quell'indirizzo (nel flusso reale il token viaggia solo
+    dentro il link email, mai in una risposta HTTP)."""
+    rows = [r for r in _queue_rows_for(conn, to_email) if r["template"] == "password_recovery"]
+    assert rows, f"nessuna email password_recovery accodata per {to_email}"
+    reset_url = json.loads(rows[-1]["params"])["reset_url"]
+    return parse_qs(urlparse(reset_url).query)["token"][0]
 
 
 # ── GET /auth/admin/users ─────────────────────────────────────────────────────
@@ -157,3 +168,111 @@ def test_reset_password_requires_admin_auth(client):
         "new_password": "whatever123",
     })
     assert r.status_code == 401
+
+
+# ── POST /auth/user/forgot-password + /auth/user/reset-password (self-service) ─
+
+def test_forgot_password_enqueues_recovery_email(client):
+    league_id = _create_league(client)
+    _register_manager(client, league_id, "forgot1@test.com", name="Sara")
+
+    r = client.post("/auth/user/forgot-password", json={"email": "forgot1@test.com"})
+    assert r.status_code == 200, r.text
+
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "forgot1@test.com")
+    recovery_rows = [row for row in rows if row["template"] == "password_recovery"]
+    assert len(recovery_rows) == 1
+    params = json.loads(recovery_rows[0]["params"])
+    assert params["name"] == "Sara"
+    assert "/coach/reset-password?token=" in params["reset_url"]
+
+
+def test_forgot_password_unknown_email_same_generic_response_no_email(client):
+    r_known_setup = _create_league(client)
+    _register_manager(client, r_known_setup, "known@test.com")
+
+    r_unknown = client.post("/auth/user/forgot-password", json={"email": "doesnotexist@test.com"})
+    r_known = client.post("/auth/user/forgot-password", json={"email": "known@test.com"})
+    assert r_unknown.status_code == 200
+    assert r_known.status_code == 200
+    assert r_unknown.json()["detail"] == r_known.json()["detail"]
+
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "doesnotexist@test.com")
+    assert rows == []
+
+
+def test_reset_password_with_valid_token_changes_password(client):
+    league_id = _create_league(client)
+    _register_manager(client, league_id, "recover1@test.com", password="oldpass123")
+
+    client.post("/auth/user/forgot-password", json={"email": "recover1@test.com"})
+    with get_db() as conn:
+        token = _recovery_token_from_last_email(conn, "recover1@test.com")
+
+    r = client.post("/auth/user/reset-password", json={"token": token, "new_password": "brandnew456"})
+    assert r.status_code == 200, r.text
+
+    old_login = client.post("/auth/user/login", json={"email": "recover1@test.com", "password": "oldpass123"})
+    assert old_login.status_code == 401
+    new_login = client.post("/auth/user/login", json={"email": "recover1@test.com", "password": "brandnew456"})
+    assert new_login.status_code == 200
+    client.post("/auth/user/logout")
+
+
+def test_reset_password_token_is_single_use(client):
+    league_id = _create_league(client)
+    _register_manager(client, league_id, "recover2@test.com")
+
+    client.post("/auth/user/forgot-password", json={"email": "recover2@test.com"})
+    with get_db() as conn:
+        token = _recovery_token_from_last_email(conn, "recover2@test.com")
+
+    r1 = client.post("/auth/user/reset-password", json={"token": token, "new_password": "firstuse123"})
+    assert r1.status_code == 200
+
+    r2 = client.post("/auth/user/reset-password", json={"token": token, "new_password": "seconduse456"})
+    assert r2.status_code == 400
+
+
+def test_reset_password_invalid_token(client):
+    r = client.post("/auth/user/reset-password", json={"token": "not-a-real-token", "new_password": "whatever123"})
+    assert r.status_code == 400
+
+
+def test_reset_password_expired_token(client):
+    league_id = _create_league(client)
+    _register_manager(client, league_id, "recover3@test.com")
+
+    client.post("/auth/user/forgot-password", json={"email": "recover3@test.com"})
+    with get_db() as conn:
+        token = _recovery_token_from_last_email(conn, "recover3@test.com")
+        conn.execute(
+            "UPDATE password_reset_token SET expires_at = datetime('now', '-1 minutes') WHERE token = ?",
+            (token,),
+        )
+
+    r = client.post("/auth/user/reset-password", json={"token": token, "new_password": "toolate123"})
+    assert r.status_code == 400
+
+
+def test_forgot_password_new_request_invalidates_previous_token(client):
+    league_id = _create_league(client)
+    _register_manager(client, league_id, "recover4@test.com")
+
+    client.post("/auth/user/forgot-password", json={"email": "recover4@test.com"})
+    with get_db() as conn:
+        first_token = _recovery_token_from_last_email(conn, "recover4@test.com")
+
+    client.post("/auth/user/forgot-password", json={"email": "recover4@test.com"})
+    with get_db() as conn:
+        second_token = _recovery_token_from_last_email(conn, "recover4@test.com")
+
+    assert first_token != second_token
+
+    r = client.post("/auth/user/reset-password", json={"token": first_token, "new_password": "shouldfail123"})
+    assert r.status_code == 400
+
+    r2 = client.post("/auth/user/reset-password", json={"token": second_token, "new_password": "shouldwork123"})
+    assert r2.status_code == 200
