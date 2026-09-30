@@ -161,7 +161,37 @@ def _render_password_recovery(params: dict, base_url: str) -> tuple[str, str]:
     return "Recupera la tua password", html
 
 
+def _render_league_invite(params: dict, base_url: str) -> tuple[str, str]:
+    manager_name, league_name = params["manager_name"], params["league_name"]
+    team_name, token = params["team_name"], params["token"]
+    html = _layout(
+        f"Invito a {league_name}",
+        f"<p>Ciao {manager_name}, sei stato invitato a unirti alla lega "
+        f"<strong>{league_name}</strong> come allenatore di <strong>{team_name}</strong>.</p>"
+        "<p>Clicca sul pulsante per registrarti. Se hai già un account, accedi e il "
+        "link ti collegherà alla nuova lega.</p>",
+        "Accetta l'invito",
+        f"{base_url}/coach/join?token={token}",
+    )
+    return f"Sei stato invitato in {league_name}", html
+
+
+def render_test_email(base_url: str) -> tuple[str, str]:
+    """Email inviata dal pannello admin per verificare la configurazione.
+    Non passa dalla coda: l'admin deve vedere subito l'esito dell'invio."""
+    html = _layout(
+        "Email di prova",
+        "<p>Se leggi questo messaggio, l'invio email di FantaNostalgia è configurato "
+        "correttamente.</p>"
+        f"<p style=\"font-size:12px;color:#888;\">Mittente configurato: {EMAIL_FROM}</p>",
+        "Vai al pannello admin",
+        f"{base_url}/admin/",
+    )
+    return "FantaNostalgia: email di prova", html
+
+
 TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
+    "league_invite": _render_league_invite,
     "registration": _render_registration,
     "league_join": _render_league_join,
     "matchday_results": _render_matchday_results,

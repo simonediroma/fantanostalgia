@@ -2,8 +2,30 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-09-30
-**Branch attivo:** `claude/zealous-euler-l4px29` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna aperta per questo commit — da aprire su richiesta esplicita dell'utente.
+**Branch attivo:** `claude/invito-email-admin` (creato su richiesta esplicita dell'utente da `main` aggiornato, dopo il merge di `claude/zealous-euler-l4px29` con #112; contiene invito via email, precompilazione join e pagina admin Email)
+**PR in corso:** [#113](https://github.com/simonediroma/fantanostalgia/pull/113) aperta dall'utente per `claude/invito-email-admin` (invito via email, precompilazione join, pagina admin Email) — non ancora mergiata. [#112](https://github.com/simonediroma/fantanostalgia/pull/112) (import Lista calciatori) mergiata in `main` (`1ee31ff`).
+
+**Sessione 2026-09-30 (seguito) — Invito allenatore via email invece del copia-incolla del link (task ad-hoc, richiesto in chat):**
+Stesso branch `claude/zealous-euler-l4px29`, ripartito da `main` dopo il merge di #112. `manager` non ha un campo email, quindi l'email si inserisce al momento dell'invito e viene salvata sull'invito stesso: nuova colonna `league_invite.email` (in `CREATE TABLE` + `ALTER TABLE` fallback in `backend/api/db.py::init_db()`, tabella non in `schema.sql`). `POST /admin/league/{id}/managers/{mid}/invite` (`league.py`) accetta ora un body opzionale `{email}` (`EmailStr`, 422 se non valida): senza body il comportamento è identico a prima (tutti i test/chiamate esistenti invariati), con email accoda il nuovo template `league_invite` (`notifications.py`, CTA `{base_url}/coach/join?token=...`, stessa route già esistente) nella stessa transazione e risponde anche `email_sent_to`. `coaches-status` (`mapping.py`) espone `invited_email` (ultima email invitata per quel manager, subquery su `league_invite`).
+
+Frontend `frontend/admin/index.html`: il modal "Link invito" è diventato "Invita allenatore" (`DS.Input` email + "Invia invito" primario, "Copia link" come ripiego che genera un link senza email e lo mostra/copia, "Chiudi"). Nella tabella stato allenatori, colonna Account mostra `✉ email` se invitato ma non ancora registrato; il bottone è "Invita" o "Reinvia" (precompila l'ultima email). `apiCreateInvite` in `frontend/admin/js/mapping.js` ora usa `jsonPost` con `{email}`. Aggiunta regola `.modal-url[hidden]` in `admin.css` (il `display:block` esistente annullava l'attributo `hidden`).
+
+Non fatto (fuori scope, possibile follow-up se richiesto): precompilare l'email nel form di registrazione di `/coach/join` a partire dall'invito; invalidare i link precedenti non usati quando si reinvia (oggi ogni click crea un nuovo token, i vecchi restano validi, comportamento preesistente).
+
+**Test:** 3 nuovi in `backend/tests/test_notifications.py` (email accodata con parametri e link corretti + `invited_email` in coaches-status; invito senza email non accoda nulla; email non valida → 422). Suite completa: 291 passed, stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py`. Verificato end-to-end con Playwright headless contro un `uvicorn` locale: Invita → email → messaggio di conferma → riga mostra `✉ email` e "Reinvia" → reinvio con email precompilata → "Copia link" mostra e copia il link; riga `league_invite` in `email_queue` elaborata con `sent` da `/admin/process-email-queue`. Unico errore console: certificato Google Fonts dal proxy del sandbox.
+
+Nota operativa: l'email parte al giro successivo del cron `process-email-queue.yml` (ogni 10 minuti), non all'istante.
+
+**Seguito, stessa sessione — precompilazione email nel join + pagina admin "Email" (richiesti in chat):**
+L'utente credeva il commit dell'invito via email già mergiato: verificato che no (unica PR del branch è #112), quindi tutto prosegue sullo stesso branch sopra `main`, nessuna PR aperta.
+
+Precompilazione: nuovo endpoint pubblico `GET /auth/invite/{token}` (`auth.py`) → `{email}` per un invito non ancora usato, 404 altrimenti (il token è il segreto, chi lo ha può leggere l'email). `frontend/coach/login.html` lo chiama quando c'è `?token=` e riempie `regEmail` e `loginEmail` se vuoti. **Bug preesistente corretto:** il click automatico sulla scheda "Registrati" avveniva prima che i listener delle schede fossero registrati, quindi con un link di invito la pagina restava su "Accedi" — spostato il blocco token dopo i listener.
+
+Pagina admin "✉ Email" (sidebar, sezione Amministrazione, `pg-email`, wrapper API in nuovo `frontend/admin/js/email.js`): mostra se `RESEND_API_KEY` è impostata e il mittente, contatori coda (pending/sent/failed) con bottone "Elabora coda ora" (riusa `POST /admin/process-email-queue`) e gli ultimi 5 errori di invio; form "Invia email di prova" che invia **subito, senza coda** e riporta l'errore esatto di Resend (codice + body). Backend in `matchday.py` accanto a process-email-queue: `GET /admin/email/status`, `POST /admin/email/test` (400 se chiave mancante, 502 con dettaglio se Resend rifiuta); template non in coda `render_test_email` in `notifications.py`.
+
+**Scoperta, non corretta (fuori scope):** senza `RESEND_API_KEY`, `send_email` è un no-op e `process_email_queue` segna comunque la riga come `sent` — le email "inviate" in assenza di chiave sono perse silenziosamente. L'avviso nella pagina Email lo dice esplicitamente. Possibile follow-up se l'utente lo chiede: lasciarle `pending` quando la chiave manca.
+
+**Test:** 6 nuovi in `test_notifications.py` (invite lookup con/senza email/inesistente/usato; status; test senza chiave 400; test invio immediato; errore Resend 403 riportato con body; auth richiesta). Suite: 297 passed, stessi 3+3 pre-esistenti. Verificato con Playwright headless: join con email precompilata e scheda Registrati aperta, registrazione ok, token usato non precompila; pagina Email con chiave mancante (badge rosso, messaggio 400 chiaro) e con chiave finta (invio fallito mostrato — nel sandbox è un 403 del proxy verso Resend, non verificabile l'invio reale).
 
 **Sessione 2026-09-30 — Import rose dal nuovo export piattaforma "Lista calciatori" (task ad-hoc, richiesto in chat con 2 file Excel):**
 L'utente ha caricato il nuovo export delle rose (foglio "ROSE", N squadre affiancate a triplette di colonne `Calciatore | costo | vuota`, riga "totale" a chiudere ogni squadra, **nessuna colonna Ruolo né Squadra reale**) e, dopo l'analisi, il listone della piattaforma (foglio "Lista calciatori", 599 righe, header `# | Nome | Fuori lista | Sq. | Under | R. | R.MANTRA | PGv | MV | FM | FVM/1000 | QUOT. | FantaSquadra | Costo`). Verificato che il solo listone basta: le 247 righe con `FantaSquadra` valorizzata coincidono 1:1 (nome, squadra fanta, costo) con il file rose, che quindi non serve più — il file rose **non** ha un parser dedicato, deciso con l'utente.
@@ -20,7 +42,7 @@ Verificato end-to-end contro un server `uvicorn` locale reale con il listone ver
 
 ## Prossima sessione — inizia da qui (per questo task)
 
-Nessun follow-up noto. Push del branch fatto; PR da aprire solo su richiesta esplicita dell'utente. Nota: `docs/design-system-brief.md` (riga tabella "Carica listone") e `docs/architecture.md` (sezione "Upload listone Excel") descrivono ancora il vecchio formato rose — non toccati, sono documenti storici, aggiornare se si rimette mano alla documentazione.
+Nessun follow-up noto. **PR #112 aperta e mergiata in `main`** su richiesta esplicita dell'utente. Nota: `docs/design-system-brief.md` (riga tabella "Carica listone") e `docs/architecture.md` (sezione "Upload listone Excel") descrivono ancora il vecchio formato rose — non toccati, sono documenti storici, aggiornare se si rimette mano alla documentazione.
 
 ---
 

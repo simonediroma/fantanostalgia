@@ -202,7 +202,10 @@ def coaches_status(
                 CASE WHEN m.user_id IS NOT NULL THEN 1 ELSE 0 END AS user_linked,
                 COALESCE(m.assignments_locked, 0) AS is_locked,
                 COUNT(mnp.id) AS pool_size,
-                SUM(CASE WHEN mnp.assigned_player_current_id IS NOT NULL THEN 1 ELSE 0 END) AS assigned_count
+                SUM(CASE WHEN mnp.assigned_player_current_id IS NOT NULL THEN 1 ELSE 0 END) AS assigned_count,
+                (SELECT li.email FROM league_invite li
+                  WHERE li.manager_id = m.id AND li.email IS NOT NULL
+                  ORDER BY li.id DESC LIMIT 1) AS invited_email
             FROM manager m
             LEFT JOIN manager_nostalgia_pool mnp ON mnp.manager_id = m.id
             WHERE m.league_id = ?

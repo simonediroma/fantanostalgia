@@ -197,6 +197,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
   margin-bottom: 1rem;
   display: block;
 }
+.modal-url[hidden] { display: none; }
 
 /* ── Giornate — risultati e statistiche (calendario) ──────────────────
  * Classi porate da backend/templates/classifica.html (tab Calendario),
