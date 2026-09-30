@@ -2,8 +2,8 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-09-30
-**Branch attivo:** `claude/zealous-euler-l4px29` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna aperta per l'invito via email — da aprire su richiesta esplicita dell'utente. [#112](https://github.com/simonediroma/fantanostalgia/pull/112) (import Lista calciatori) mergiata in `main` (`1ee31ff`).
+**Branch attivo:** `claude/invito-email-admin` (creato su richiesta esplicita dell'utente da `main` aggiornato, dopo il merge di `claude/zealous-euler-l4px29` con #112; contiene invito via email, precompilazione join e pagina admin Email)
+**PR in corso:** nessuna aperta per `claude/invito-email-admin` — da aprire su richiesta esplicita dell'utente. [#112](https://github.com/simonediroma/fantanostalgia/pull/112) (import Lista calciatori) mergiata in `main` (`1ee31ff`).
 
 **Sessione 2026-09-30 (seguito) — Invito allenatore via email invece del copia-incolla del link (task ad-hoc, richiesto in chat):**
 Stesso branch `claude/zealous-euler-l4px29`, ripartito da `main` dopo il merge di #112. `manager` non ha un campo email, quindi l'email si inserisce al momento dell'invito e viene salvata sull'invito stesso: nuova colonna `league_invite.email` (in `CREATE TABLE` + `ALTER TABLE` fallback in `backend/api/db.py::init_db()`, tabella non in `schema.sql`). `POST /admin/league/{id}/managers/{mid}/invite` (`league.py`) accetta ora un body opzionale `{email}` (`EmailStr`, 422 se non valida): senza body il comportamento è identico a prima (tutti i test/chiamate esistenti invariati), con email accoda il nuovo template `league_invite` (`notifications.py`, CTA `{base_url}/coach/join?token=...`, stessa route già esistente) nella stessa transazione e risponde anche `email_sent_to`. `coaches-status` (`mapping.py`) espone `invited_email` (ultima email invitata per quel manager, subquery su `league_invite`).
