@@ -40,6 +40,9 @@ Fatto:
 
 ---
 
+**Sessione 2026-09-30 (pool nostalgia) — Solo storici con almeno 10 presenze (richiesto in chat):**
+`assign_nostalgia_pools` (`backend/engine/mapping.py`) pesca ora solo tra i `player_historic` con almeno `MIN_APPEARANCES = 10` righe `historic_rating` con `rating` non nullo ("presenze" = giornate con voto). Non toccati `generate_mapping`, Gran Premio e Mercato (liberi = qualunque storico). Limite noto, preesistente: se per un ruolo gli eleggibili sono meno di `POOL_SIZE`, lo stesso storico verrebbe assegnato due volte allo stesso manager e l'INSERT fallisce (UNIQUE) — ora più probabile con dati storici scarsi. Test: `backend/tests/test_pool_min_appearances.py`. Suite: 271 passed, stessi 3 fallimenti in `test_scoring.py`.
+
 **Sessione 2026-09-30 (seguito) — Invito allenatore via email invece del copia-incolla del link (task ad-hoc, richiesto in chat):**
 Stesso branch `claude/zealous-euler-l4px29`, ripartito da `main` dopo il merge di #112. `manager` non ha un campo email, quindi l'email si inserisce al momento dell'invito e viene salvata sull'invito stesso: nuova colonna `league_invite.email` (in `CREATE TABLE` + `ALTER TABLE` fallback in `backend/api/db.py::init_db()`, tabella non in `schema.sql`). `POST /admin/league/{id}/managers/{mid}/invite` (`league.py`) accetta ora un body opzionale `{email}` (`EmailStr`, 422 se non valida): senza body il comportamento è identico a prima (tutti i test/chiamate esistenti invariati), con email accoda il nuovo template `league_invite` (`notifications.py`, CTA `{base_url}/coach/join?token=...`, stessa route già esistente) nella stessa transazione e risponde anche `email_sent_to`. `coaches-status` (`mapping.py`) espone `invited_email` (ultima email invitata per quel manager, subquery su `league_invite`).
 
