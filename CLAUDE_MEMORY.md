@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-09-30
 **Branch attivo:** `claude/zealous-euler-l4px29` (imposto dall'harness per questa sessione)
-**PR in corso:** nessuna aperta per questo commit — da aprire su richiesta esplicita dell'utente.
+**PR in corso:** nessuna — [#112](https://github.com/simonediroma/fantanostalgia/pull/112) mergiata in `main` (`1ee31ff`).
 
 **Sessione 2026-09-30 — Import rose dal nuovo export piattaforma "Lista calciatori" (task ad-hoc, richiesto in chat con 2 file Excel):**
 L'utente ha caricato il nuovo export delle rose (foglio "ROSE", N squadre affiancate a triplette di colonne `Calciatore | costo | vuota`, riga "totale" a chiudere ogni squadra, **nessuna colonna Ruolo né Squadra reale**) e, dopo l'analisi, il listone della piattaforma (foglio "Lista calciatori", 599 righe, header `# | Nome | Fuori lista | Sq. | Under | R. | R.MANTRA | PGv | MV | FM | FVM/1000 | QUOT. | FantaSquadra | Costo`). Verificato che il solo listone basta: le 247 righe con `FantaSquadra` valorizzata coincidono 1:1 (nome, squadra fanta, costo) con il file rose, che quindi non serve più — il file rose **non** ha un parser dedicato, deciso con l'utente.
@@ -20,7 +20,7 @@ Verificato end-to-end contro un server `uvicorn` locale reale con il listone ver
 
 ## Prossima sessione — inizia da qui (per questo task)
 
-Nessun follow-up noto. Push del branch fatto; PR da aprire solo su richiesta esplicita dell'utente. Nota: `docs/design-system-brief.md` (riga tabella "Carica listone") e `docs/architecture.md` (sezione "Upload listone Excel") descrivono ancora il vecchio formato rose — non toccati, sono documenti storici, aggiornare se si rimette mano alla documentazione.
+Nessun follow-up noto. **PR #112 aperta e mergiata in `main`** su richiesta esplicita dell'utente. Nota: `docs/design-system-brief.md` (riga tabella "Carica listone") e `docs/architecture.md` (sezione "Upload listone Excel") descrivono ancora il vecchio formato rose — non toccati, sono documenti storici, aggiornare se si rimette mano alla documentazione.
 
 ---
 
