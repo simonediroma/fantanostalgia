@@ -9,11 +9,13 @@ from backend.api.routers.auth import get_current_admin
 
 router = APIRouter(tags=["players"])
 
-_ROLE_ALIASES = {"r", "ruolo", "ruo"}
+_ROLE_ALIASES = {"r", "r.", "ruolo", "ruo"}
 _NAME_ALIASES = {"nome", "calciatore", "giocatore"}
-_TEAM_ALIASES = {"squadra", "sq", "team"}
+_TEAM_ALIASES = {"squadra", "sq", "sq.", "team"}
 _QUOTA_ALIASES = {"qt a", "quotazione", "q.a.", "quota", "costo"}
-_STARTS_ALIASES = {"pv", "presenze"}
+_STARTS_ALIASES = {"pv", "presenze", "pgv"}
+_FANTA_TEAM_ALIASES = {"fantasquadra"}
+_OUT_OF_LIST_ALIASES = {"fuori lista"}
 
 _ROLE_MAP = {
     "p": "P", "por": "P",
@@ -37,6 +39,10 @@ def _find_columns(headers: list) -> dict:
             cols.setdefault("quota", i)
         elif key in _STARTS_ALIASES:
             cols.setdefault("starts", i)
+        elif key in _FANTA_TEAM_ALIASES:
+            cols.setdefault("fanta_team", i)
+        elif key in _OUT_OF_LIST_ALIASES:
+            cols.setdefault("out_of_list", i)
     for required in ("role", "name", "team", "quota"):
         if required not in cols:
             raise ValueError(f"Colonna obbligatoria mancante: {required}")
@@ -135,6 +141,8 @@ def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
     cols = None
     rows_out = []
     skipped = 0
+    free = 0
+    out_of_list = 0
 
     for raw_row in all_rows:
         if all(v is None for v in raw_row):
@@ -157,6 +165,15 @@ def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
             skipped += 1
             continue
 
+        # Listone with FantaSquadra column (export piattaforma): only owned players
+        # are imported, free agents would pollute the alter-ego pool.
+        fanta_team = cells[cols["fanta_team"]] if "fanta_team" in cols else ""
+        if "fanta_team" in cols and not fanta_team:
+            free += 1
+            continue
+        if "out_of_list" in cols and cells[cols["out_of_list"]]:
+            out_of_list += 1
+
         team = cells[cols["team"]]
         quota = _safe_int(cells[cols["quota"]], default=1) or 1
 
@@ -164,7 +181,10 @@ def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
         if "starts" in cols:
             starts = _safe_int(cells[cols["starts"]], default=0)
 
-        rows_out.append({"name": name, "role": role, "team": team, "quota": quota, "starts": starts})
+        rows_out.append({
+            "name": name, "role": role, "team": team, "quota": quota,
+            "starts": starts, "fanta_team": fanta_team,
+        })
 
     if cols is None:
         raise ValueError("Header non trovato: colonne obbligatorie (ruolo, nome, squadra, quotazione) non trovate")
@@ -174,6 +194,10 @@ def _parse_flat_rows(all_rows: list) -> tuple[list[dict], list[str]]:
         warnings.append("Colonna presenze non trovata, starts=0 per tutti")
     if skipped:
         warnings.append(f"{skipped} righe saltate (ruolo non valido o nome vuoto)")
+    if free:
+        warnings.append(f"{free} giocatori senza FantaSquadra non importati (svincolati)")
+    if out_of_list:
+        warnings.append(f"{out_of_list} giocatori fuori lista importati perché in rosa")
 
     return rows_out, warnings
 
