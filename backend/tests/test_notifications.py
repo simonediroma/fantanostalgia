@@ -114,6 +114,29 @@ def test_invite_with_email_enqueues_invite(client):
     assert status[0]["invited_email"] == "gino@test.com"
 
 
+def test_get_invite_returns_email_for_prefill(client):
+    league_id = _create_league(client, name="InvitoLegaPrefill")
+    manager = client.post(
+        f"/admin/league/{league_id}/managers", json={"name": "Ugo", "team_name": "Ugo FC"}
+    ).json()
+    with_email = client.post(
+        f"/admin/league/{league_id}/managers/{manager['id']}/invite", json={"email": "ugo@test.com"},
+    ).json()["token"]
+    without_email = client.post(f"/admin/league/{league_id}/managers/{manager['id']}/invite").json()["token"]
+    client.post("/auth/logout")
+
+    r = client.get(f"/auth/invite/{with_email}")
+    assert r.status_code == 200
+    assert r.json() == {"email": "ugo@test.com"}
+    assert client.get(f"/auth/invite/{without_email}").json() == {"email": None}
+    assert client.get("/auth/invite/tokeninesistente").status_code == 404
+
+    client.post("/auth/register", json={
+        "name": "Ugo", "email": "ugo@test.com", "password": "pass1234", "invite_token": with_email,
+    })
+    assert client.get(f"/auth/invite/{with_email}").status_code == 404
+
+
 def test_invite_without_email_enqueues_nothing(client):
     league_id = _create_league(client, name="InvitoLega2")
     manager = client.post(

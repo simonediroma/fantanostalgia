@@ -72,15 +72,6 @@ function showMsg(text, isErr) {
   el.innerHTML = `<div class="ds-message ds-message--${isErr ? 'err' : 'ok'}">${esc(text)}</div>`;
 }
 
-// Parse invite token from URL
-const params = new URLSearchParams(location.search);
-const token = params.get('token');
-if (token) {
-  document.getElementById('regToken').value = token;
-  // Auto-switch to register tab
-  document.querySelector('[data-tab="register"]').click();
-}
-
 // Tab switching
 document.querySelectorAll('.ds-tabs__tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -90,6 +81,26 @@ document.querySelectorAll('.ds-tabs__tab').forEach(btn => {
     document.getElementById('tab-' + btn.dataset.tab).hidden = false;
   });
 });
+
+// Parse invite token from URL
+const params = new URLSearchParams(location.search);
+const token = params.get('token');
+if (token) {
+  document.getElementById('regToken').value = token;
+  // Auto-switch to register tab
+  document.querySelector('[data-tab="register"]').click();
+  // Precompila l'email se l'invito è stato inviato via email
+  fetch(`/auth/invite/${encodeURIComponent(token)}`)
+    .then(res => (res.ok ? res.json() : null))
+    .then(inv => {
+      if (!inv || !inv.email) return;
+      for (const id of ['regEmail', 'loginEmail']) {
+        const el = document.getElementById(id);
+        if (!el.value) el.value = inv.email;
+      }
+    })
+    .catch(() => {});
+}
 
 async function apiPost(url, body) {
   const res = await fetch(url, {

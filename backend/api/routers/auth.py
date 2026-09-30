@@ -299,6 +299,21 @@ def user_join_league(body: dict, user: dict = Depends(get_current_user)):
     return {"detail": "Unito alla lega con successo"}
 
 
+@router.get("/invite/{token}")
+def get_invite(token: str):
+    """Dati pubblici di un invito non ancora usato, per precompilare la pagina di
+    join. Il token è segreto (128 bit, arriva solo via email o link dell'admin),
+    quindi chi lo possiede può leggere l'email a cui è stato inviato."""
+    with get_db() as conn:
+        invite = conn.execute(
+            "SELECT email FROM league_invite WHERE token = ? AND used_by_user_id IS NULL",
+            (token,),
+        ).fetchone()
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Invito non valido o già utilizzato")
+    return {"email": invite["email"]}
+
+
 # ── Recupero password (self-service) ─────────────────────────────────────────
 
 PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 60
