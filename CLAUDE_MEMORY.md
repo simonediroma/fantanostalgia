@@ -1,9 +1,28 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-08-18
-**Branch attivo:** `claude/password-recovery-feature-4095vv` (imposto dall'harness per questa sessione)
+**Ultima sessione:** 2026-09-30
+**Branch attivo:** `claude/zealous-euler-l4px29` (imposto dall'harness per questa sessione)
 **PR in corso:** nessuna aperta per questo commit — da aprire su richiesta esplicita dell'utente.
+
+**Sessione 2026-09-30 — Import rose dal nuovo export piattaforma "Lista calciatori" (task ad-hoc, richiesto in chat con 2 file Excel):**
+L'utente ha caricato il nuovo export delle rose (foglio "ROSE", N squadre affiancate a triplette di colonne `Calciatore | costo | vuota`, riga "totale" a chiudere ogni squadra, **nessuna colonna Ruolo né Squadra reale**) e, dopo l'analisi, il listone della piattaforma (foglio "Lista calciatori", 599 righe, header `# | Nome | Fuori lista | Sq. | Under | R. | R.MANTRA | PGv | MV | FM | FVM/1000 | QUOT. | FantaSquadra | Costo`). Verificato che il solo listone basta: le 247 righe con `FantaSquadra` valorizzata coincidono 1:1 (nome, squadra fanta, costo) con il file rose, che quindi non serve più — il file rose **non** ha un parser dedicato, deciso con l'utente.
+
+Decisioni chiuse con l'utente in chat: `quotation` = colonna `Costo` (prezzo d'asta, coerente col vecchio formato rose), non `QUOT.` ufficiale; i giocatori marcati `Fuori lista` (`*`) vengono importati comunque se in rosa (con warning); i 352 svincolati (senza `FantaSquadra`) **non** vengono importati perché `mapping.py` legge tutti i `player_current` della lega senza filtrare per manager e li metterebbe nel pool alter ego.
+
+Modifiche a `backend/api/routers/players.py`, solo parser flat (nessuna nuova funzione): nuovi alias header `r.`, `sq.`, `pgv` (→ `starts_current_season`, prima sempre 0 col formato rose: ora il mapping ordina davvero per titolarità), `fantasquadra`, `fuori lista`. Con la colonna FantaSquadra presente il parser salta le righe vuote in quella colonna e passa `fanta_team` a `upload_listone`, che riusa l'auto-creazione manager per `team_name` già scritta per il formato rose (strip degli spazi finali tipo "AC Tuan " già gestito lì). `QUOT.` deliberatamente non aggiunto agli alias quota: `_find_columns` usa `setdefault` e `QUOT.` precede `Costo` nell'header, l'avrebbe vinta. Il vecchio parser rose ("TutteLeRose") resta intatto e testato.
+
+UI: testo `FileSpec` Step 1 in `frontend/admin/index.html` e `frontend/shared/demo.html` descrive il nuovo formato; `backend/static/examples/Rose_esempio.xlsx` sostituito da `Lista_calciatori_esempio.xlsx` (validato col parser di produzione: 8 importati, 2 svincolati saltati).
+
+**Test:** 3 nuovi in `backend/tests/test_players.py` (solo righe con FantaSquadra, ruolo/squadra/PGv/Costo corretti, manager auto-creati; FantaSquadra con spazi finali collegata a manager esistente case-insensitive; fuori lista importato con warning). Suite completa: 288 passed, stessi 3 fallimenti pre-esistenti in `test_scoring.py` + 3 errori pre-esistenti in `test_fbref_scraper.py`.
+
+Verificato end-to-end contro un server `uvicorn` locale reale con il listone vero dell'utente: 247 importati (P30/D79/C80/A58), 10 manager auto-creati, 0 giocatori senza manager, 235 con `starts_current_season > 0`, download dell'esempio 200, zero errori nel log.
+
+## Prossima sessione — inizia da qui (per questo task)
+
+Nessun follow-up noto. Push del branch fatto; PR da aprire solo su richiesta esplicita dell'utente. Nota: `docs/design-system-brief.md` (riga tabella "Carica listone") e `docs/architecture.md` (sezione "Upload listone Excel") descrivono ancora il vecchio formato rose — non toccati, sono documenti storici, aggiornare se si rimette mano alla documentazione.
+
+---
 
 **Sessione 2026-08-18 — Recupero password self-service per i coach (task ad-hoc, richiesto in chat):**
 Richiesta utente: "voglio implementare una funzionalità di recupero password". Nel progetto esisteva già solo un reset **admin-triggered** (`POST /admin/users/{user_id}/reset-password`, sessione 2026-07-19 parallela — l'admin sceglie la password, comunicata via email) — quando quella feature fu decisa, l'utente aveva esplicitamente respinto un flusso self-service a token proposto allora. Data l'ambiguità e il precedente esplicito, chiesto con `AskUserQuestion` prima di scrivere codice: confermato che questa volta si vuole il flusso self-service via email (nuovo), non un'estensione dell'admin reset esistente — i due flussi restano entrambi disponibili, indipendenti.
@@ -429,7 +448,13 @@ Ordine di esecuzione: 24→31 tutti fatti. Le task 32-35 restano bloccate finch�
 
 ## Formato Excel reale (da Rose_erculotuo.xlsx e Formazioni_erculotuo_36_giornata.xlsx)
 
-### Rose (listone con rose):
+### Lista calciatori (formato corrente, dal 2026-09-30):
+- Export piattaforma, foglio "Lista calciatori", una riga per giocatore
+- Header: `# | Nome | Fuori lista | Sq. | Under | R. | R.MANTRA | PGv | MV | FM | FVM/1000 | QUOT. | FantaSquadra | Costo`
+- Importati solo i giocatori con `FantaSquadra`; `quotation` = `Costo`, `starts_current_season` = `PGv`
+- Parser: `_parse_flat_rows` in `backend/api/routers/players.py` (stesso parser del formato Gazzetta, alias estesi)
+
+### Rose (formato precedente, ancora supportato):
 - Sheet unico "TutteLeRose", 9 colonne (A-I)
 - Due squadre affiancate: left (A-D), separator col E vuota, right (F-I)
 - Colonne: Ruolo | Calciatore | Squadra (reale, es. 'Juve') | Costo (prezzo asta)

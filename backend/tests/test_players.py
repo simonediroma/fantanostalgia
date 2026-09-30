@@ -407,3 +407,64 @@ def test_upload_listone_rose_format_costo_as_quota(client, league_id):
     by_name = {p["name"]: p for p in players}
     assert by_name["Portiere X"]["quotation"] == 42
     assert by_name["Attaccante Y"]["quotation"] == 99
+
+
+# ── Listone piattaforma (export "Lista calciatori" con FantaSquadra) ─────────
+
+_LISTA_HEADERS = ["#", "Nome", "Fuori lista", "Sq.", "Under", "R.", "R.MANTRA",
+                  "PGv", "MV", "FM", "FVM/1000", "QUOT.", "FantaSquadra", "Costo"]
+
+
+def _lista_row(name, team, role, pgv, quot, fanta_team, costo, out=None):
+    return [1, name, out, team, 25, role, "Pc", pgv, 6.0, 6.5, 100, quot, fanta_team, costo]
+
+
+def test_upload_listone_lista_calciatori_only_owned(client, league_id):
+    """Export piattaforma: importa solo le righe con FantaSquadra, ruolo/squadra/PGv dal listone,
+    quotazione = Costo d'asta (non QUOT. ufficiale), manager auto-creati dal nome fanta."""
+    xlsx = _make_excel(headers=_LISTA_HEADERS, rows=[
+        _lista_row("Malen", "Roma", "A", 5, 37, "AC Tuan ", "603"),
+        _lista_row("Vicario", "Torino", "P", 4, 12, "Fc Fornaretto", "101"),
+        _lista_row("Radunovic", "Cagliari", "P", 0, 1, None, None),   # svincolato
+    ])
+    r = client.post(f"/admin/league/{league_id}/listone", files={"file": ("lista.xlsx", xlsx)})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["imported"] == 2
+    assert body["by_role"] == {"P": 1, "D": 0, "C": 0, "A": 1}
+    assert body["teams_created"] == ["AC Tuan", "Fc Fornaretto"]
+    assert any("1 giocatori senza FantaSquadra" in w for w in body["warnings"])
+
+    players = client.get(f"/league/{league_id}/players").json()
+    malen = next(p for p in players if p["name"] == "Malen")
+    assert malen["role"] == "A"
+    assert malen["team"] == "Roma"
+    assert malen["quotation"] == 603
+    assert malen["starts_current_season"] == 5
+    assert malen["manager_id"] is not None
+    assert all(p["name"] != "Radunovic" for p in players)
+
+
+def test_upload_listone_lista_calciatori_matches_existing_manager(client, league_id):
+    """FantaSquadra con spazi finali viene collegata al manager esistente (case-insensitive)."""
+    m = client.post(f"/admin/league/{league_id}/managers",
+                    json={"name": "Simone", "team_name": "ac tuan"}).json()
+    xlsx = _make_excel(headers=_LISTA_HEADERS, rows=[
+        _lista_row("Malen", "Roma", "A", 5, 37, "AC Tuan ", "603"),
+    ])
+    r = client.post(f"/admin/league/{league_id}/listone", files={"file": ("lista.xlsx", xlsx)})
+    assert r.status_code == 200, r.text
+    assert r.json()["teams_created"] == []
+    players = client.get(f"/league/{league_id}/players").json()
+    assert players[0]["manager_id"] == m["id"]
+
+
+def test_upload_listone_lista_calciatori_imports_out_of_list(client, league_id):
+    """Un giocatore 'Fuori lista' (*) ma in rosa viene importato, con warning."""
+    xlsx = _make_excel(headers=_LISTA_HEADERS, rows=[
+        _lista_row("Vecchio", "Roma", "D", 2, 5, "AC Tuan", "10", out="*"),
+    ])
+    r = client.post(f"/admin/league/{league_id}/listone", files={"file": ("lista.xlsx", xlsx)})
+    assert r.status_code == 200, r.text
+    assert r.json()["imported"] == 1
+    assert any("1 giocatori fuori lista importati" in w for w in r.json()["warnings"])
