@@ -2,8 +2,27 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-09-30
-**Branch attivo:** `claude/invito-email-admin` (creato su richiesta esplicita dell'utente da `main` aggiornato, dopo il merge di `claude/zealous-euler-l4px29` con #112; contiene invito via email, precompilazione join e pagina admin Email)
-**PR in corso:** [#113](https://github.com/simonediroma/fantanostalgia/pull/113) aperta dall'utente per `claude/invito-email-admin` (invito via email, precompilazione join, pagina admin Email) — non ancora mergiata. [#112](https://github.com/simonediroma/fantanostalgia/pull/112) (import Lista calciatori) mergiata in `main` (`1ee31ff`).
+**Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
+**PR in corso:** nessuna aperta per questo branch. [#113](https://github.com/simonediroma/fantanostalgia/pull/113) mergiata in `main` (`de54946`).
+
+**Sessione 2026-09-30 (sera) — Collegamento Leghe Fantacalcio via API non ufficiale, fase 1 (richiesto in chat):**
+Contesto: fantacalcio.it potrebbe aver tolto l'export Excel delle formazioni. Ipotesi discusse in chat: file voti pubblico + formazioni via copia-incolla (le formazioni sono su più pagine), screenshot letti da Claude (fallback), API interna `apileague.fantacalcio.it`. L'utente ha fornito un client Python e una spec (pensata per un'altra app: Neon/servizio separato) ricavati dal bundle JS del sito: auth = header `app_key` pubblica + Bearer JWT (user JWT → `/onboarding/v2/profile` → `leghe[i].jwt` di lega), validità ~1 anno. Endpoint verificati dall'utente: status, competitions, calendar/{competitionId}, competition/teams, settings. **Nessun endpoint noto per formazioni/voti per giocatore** (solo un indizio non verificato: `gaming/v1/teamLineup/visualizza/...`).
+
+Decisione utente: il token è **per utente FantaNostalgia**, non variabile d'ambiente. Fatto:
+- colonna `user.fantacalcio_jwt` (in `CREATE TABLE user` + ALTER fallback in `db.py`, tabella non in `schema.sql`), **cifrata** con Fernet da chiave derivata da `SECRET_KEY` (se `SECRET_KEY` cambia il token risulta non collegato e va reincollato);
+- `backend/api/fantacalcio.py`: client minimale (rate limit 0,5 s, errori tipizzati, `token_expiry` senza verifica firma, `redact` di jwt/token nelle risposte);
+- `backend/api/routers/fantacalcio.py`: `GET/PUT/DELETE /auth/user/fantacalcio` (utente loggato: stato + scadenza + leghe visibili, mai il token) e `GET /admin/fantacalcio/explore?league=&path=` (admin **loggato come utente** con token collegato: GET grezzo con il JWT di lega, risposta oscurata). L'admin da env var non ha utente → 400 esplicito;
+- UI: pannello "Account Fantacalcio" in `frontend/coach/index.html` (incolla token, scadenza, scollega); pagina admin "⚽ Fantacalcio" (`pg-fantacalcio`, `frontend/admin/js/fantacalcio.js`) con stato ed esploratore (preset status/competizioni/calendario). La chiamata di stato usa `fetch` diretta, non `apiFetch`, per non fare logout dell'admin env su 401.
+
+**Test:** `backend/tests/test_fantacalcio.py` (8). Suite: 308 passed, restano solo i 3 fallimenti pre-esistenti di `test_scoring.py` (i 3 errori fbref spariscono installando `pytest-mock`). Verificato con Playwright (chromium in `/opt/pw-browsers/chromium`) contro uvicorn locale: collegamento token dal coach, pagina admin raggiunta con cookie coach elevato. Il sandbox blocca `apileague.fantacalcio.it` (proxy 403), quindi **nessuna chiamata reale verificata**: il primo test vero è in produzione (Cloud Run potrebbe essere bloccato dal WAF: se sì fermarsi e decidere con l'utente, niente aggiramenti).
+
+## Prossima sessione — inizia da qui (per questo task)
+
+1. Dopo il deploy: l'utente collega il proprio token e apre admin → Fantacalcio → "Stato". Se l'API risponde da Cloud Run, con l'esploratore trovare l'endpoint delle formazioni con voti (partire da DevTools sulla pagina formazioni, filtro `gaming`, e dal calendario per gli id partita).
+2. Con un JSON di esempio: fase 2 = bottone "Importa da Fantacalcio" nel tab Giornate che scrive `lineup` + `h2h_match` come l'import Excel (mapping squadre per `team_name`), l'upload Excel resta.
+3. Se l'API non basta o è bloccata: fallback = screenshot delle formazioni letti da Claude (ipotesi C).
+
+---
 
 **Sessione 2026-09-30 (seguito) — Invito allenatore via email invece del copia-incolla del link (task ad-hoc, richiesto in chat):**
 Stesso branch `claude/zealous-euler-l4px29`, ripartito da `main` dopo il merge di #112. `manager` non ha un campo email, quindi l'email si inserisce al momento dell'invito e viene salvata sull'invito stesso: nuova colonna `league_invite.email` (in `CREATE TABLE` + `ALTER TABLE` fallback in `backend/api/db.py::init_db()`, tabella non in `schema.sql`). `POST /admin/league/{id}/managers/{mid}/invite` (`league.py`) accetta ora un body opzionale `{email}` (`EmailStr`, 422 se non valida): senza body il comportamento è identico a prima (tutti i test/chiamate esistenti invariati), con email accoda il nuovo template `league_invite` (`notifications.py`, CTA `{base_url}/coach/join?token=...`, stessa route già esistente) nella stessa transazione e risponde anche `email_sent_to`. `coaches-status` (`mapping.py`) espone `invited_email` (ultima email invitata per quel manager, subquery su `league_invite`).

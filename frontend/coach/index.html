@@ -29,6 +29,8 @@
 
   <div id="leagueList"><div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div></div>
 
+  <div id="fantacalcioSlot" style="margin-top:2rem"></div>
+
   <div id="elevationSlot" style="margin-top:2rem"></div>
 </div>
 
@@ -92,6 +94,84 @@ function renderElevationPanel(me) {
   slot.replaceChildren(DS.Panel({ children: [helpBox, footer] }));
 }
 
+function showError(message) {
+  const box = document.createElement('div');
+  box.className = 'ds-message ds-message--err';
+  box.textContent = message;
+  document.getElementById('msgBox').replaceChildren(box);
+}
+
+async function renderFantacalcioPanel() {
+  const slot = document.getElementById('fantacalcioSlot');
+  let st;
+  try {
+    const res = await fetch('/auth/user/fantacalcio');
+    st = await res.json();
+    if (!res.ok) throw new Error(st.detail || `HTTP ${res.status}`);
+  } catch (e) {
+    showError(e.message);
+    return;
+  }
+
+  const helpBox = DS.HelpBox({
+    title: 'Account Fantacalcio',
+    children: 'Collega il tuo account di leghe.fantacalcio.it per importare automaticamente i dati delle giornate. ' +
+      'Il token si trova sul sito, da loggato: F12 → Application → Local Storage → chiave LEAGUES2024_LOCAL → campo jwt di current-user. ' +
+      'Viene salvato cifrato e non viene mai mostrato.',
+  });
+
+  const body = [];
+  if (st.connected) {
+    const info = document.createElement('p');
+    info.style.cssText = 'margin-top:0.75rem;font-size:0.82rem;line-height:1.8';
+    info.append(DS.Badge({ children: 'Collegato', variant: 'green' }));
+    if (st.token) info.append(` Scade tra ${st.token.days_left} giorni.`);
+    if (st.leagues.length) info.append(document.createElement('br'), `Leghe: ${st.leagues.map(l => l.name || l.alias).join(', ')}`);
+    body.push(info);
+    if (st.error) body.push(DS.HelpBox({ variant: 'warn', children: st.error }));
+    if (st.token && st.token.days_left < 30) {
+      body.push(DS.HelpBox({ variant: 'warn', children: 'Il token scade a breve: incollane uno nuovo.' }));
+    }
+  }
+
+  const input = DS.Input({ label: st.connected ? 'Sostituisci token' : 'Token (JWT)', id: 'fcJwt', type: 'password', placeholder: 'eyJ…' });
+  const saveBtn = DS.Button({
+    children: st.connected ? 'Aggiorna' : 'Collega', variant: 'default',
+    onClick: async () => {
+      saveBtn.disabled = true;
+      try {
+        const res = await fetch('/auth/user/fantacalcio', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt: input.querySelector('input').value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        document.getElementById('msgBox').replaceChildren();
+        await renderFantacalcioPanel();
+      } catch (e) {
+        saveBtn.disabled = false;
+        showError(e.message);
+      }
+    },
+  });
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:0.5rem;margin-top:0.5rem';
+  actions.append(saveBtn);
+  if (st.connected) {
+    actions.append(DS.Button({
+      children: 'Scollega', variant: 'secondary',
+      onClick: async () => {
+        await fetch('/auth/user/fantacalcio', { method: 'DELETE' });
+        await renderFantacalcioPanel();
+      },
+    }));
+  }
+  body.push(input, actions);
+
+  slot.replaceChildren(DS.Panel({ children: [helpBox, ...body] }));
+}
+
 async function init() {
   let me;
   try {
@@ -108,6 +188,7 @@ async function init() {
 
   document.getElementById('userName').textContent = me.name;
   renderElevationPanel(me);
+  renderFantacalcioPanel();
 
   const list = document.getElementById('leagueList');
 

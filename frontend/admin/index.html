@@ -49,6 +49,7 @@
       <nav>
         <a href="#" id="usersNavLink" class="nav-link">👤 Utenti</a>
         <a href="#" id="emailNavLink" class="nav-link">✉ Email</a>
+        <a href="#" id="fcNavLink" class="nav-link">⚽ Fantacalcio</a>
       </nav>
       <div class="section-label" style="margin-top:0.5rem">Pubblico</div>
       <nav>
@@ -121,6 +122,30 @@
         <div class="ds-panel ds-panel--default">
           <h4 class="ds-panel__title">Coda email</h4>
           <div id="emailQueue"></div>
+        </div>
+      </div>
+
+      <!-- Collegamento Leghe Fantacalcio (pannello globale) -->
+      <div id="pg-fantacalcio" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2>Fantacalcio</h2>
+          <button class="ds-button ds-button--secondary" id="fcToDashBtn" style="font-size:0.8rem">← Leghe</button>
+        </div>
+        <div id="fcMsg"></div>
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Account collegato</h4>
+          <div id="fcStatus"></div>
+        </div>
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Esplora API</h4>
+          <div class="ds-help-box ds-help-box--info">
+            <span class="ds-help-box__icon" aria-hidden="true">i</span>
+            <div class="ds-help-box__body">
+              <p class="ds-help-box__text">Esegue una GET su apileague.fantacalcio.it con il token della lega scelta e mostra la risposta (token oscurati). Serve a individuare l'endpoint di formazioni e voti.</p>
+            </div>
+          </div>
+          <div id="fcExploreSlot" class="col-gap mt-sm"></div>
+          <pre id="fcOutput" style="margin-top:1rem;max-height:32rem;overflow:auto;font-size:0.75rem;white-space:pre-wrap;word-break:break-all" hidden></pre>
         </div>
       </div>
 
@@ -510,6 +535,7 @@
 <script src="js/elevation.js"></script>
 <script src="js/users.js"></script>
 <script src="js/email.js"></script>
+<script src="js/fantacalcio.js"></script>
 <script>
 'use strict';
 
@@ -573,7 +599,7 @@ function showApp(username) {
 }
 
 function showPage(id) {
-  ['pg-dashboard', 'pg-users', 'pg-email', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
+  ['pg-dashboard', 'pg-users', 'pg-email', 'pg-fantacalcio', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
     const el = document.getElementById(pid);
     if (el) el.classList.toggle('active', pid === id);
   });
@@ -843,6 +869,81 @@ document.getElementById('emailNavLink').addEventListener('click', (e) => {
   loadEmailStatus();
 });
 document.getElementById('emailToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
+
+// ── Fantacalcio ─────────────────────────────────────────────────────────────
+async function loadFantacalcio() {
+  const statusEl = document.getElementById('fcStatus');
+  const exploreEl = document.getElementById('fcExploreSlot');
+  let st;
+  try {
+    st = await apiFantacalcioLink();
+  } catch (err) {
+    showMsg('fcMsg', err.message, true);
+    return;
+  }
+  if (!st || !st.connected) {
+    statusEl.replaceChildren(DS.HelpBox({
+      variant: 'warn',
+      children: st
+        ? 'Il tuo utente non ha un account Fantacalcio collegato. Collegalo da “Le mie leghe” nell\'area allenatore.'
+        : 'Il token Fantacalcio è legato a un utente: accedi con il tuo account allenatore (con permessi admin) per usare questa pagina.',
+    }));
+    exploreEl.replaceChildren();
+    return;
+  }
+
+  const info = document.createElement('p');
+  info.style.cssText = 'font-size:0.85rem;line-height:1.8';
+  info.append(DS.Badge({ children: 'Collegato', variant: 'green' }));
+  if (st.token) info.append(` Scade tra ${st.token.days_left} giorni.`);
+  const els = [info];
+  if (st.error) els.push(DS.HelpBox({ variant: 'warn', children: st.error }));
+  statusEl.replaceChildren(...els);
+  if (!st.leagues.length) { exploreEl.replaceChildren(); return; }
+
+  const select = document.createElement('select');
+  st.leagues.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.alias || l.id;
+    o.textContent = l.name || l.alias;
+    select.appendChild(o);
+  });
+  const pathInput = DS.Input({ label: 'Percorso', id: 'fcPath', value: '/onboarding/v1/league/competitions' });
+  const presets = document.createElement('div');
+  presets.style.cssText = 'display:flex;gap:0.5rem;flex-wrap:wrap';
+  [
+    ['Stato', '/onboarding/v1/league/status'],
+    ['Competizioni', '/onboarding/v1/league/competitions'],
+    ['Calendario', '/onboarding/v1/league/competition/calendar/'],
+  ].forEach(([label, path]) => presets.appendChild(DS.Button({
+    children: label, variant: 'secondary',
+    onClick: () => { pathInput.querySelector('input').value = path; },
+  })));
+  const out = document.getElementById('fcOutput');
+  const runBtn = DS.Button({
+    children: 'Esegui GET',
+    onClick: async () => {
+      runBtn.disabled = true;
+      try {
+        const data = await apiFantacalcioExplore(select.value, pathInput.querySelector('input').value.trim());
+        out.textContent = JSON.stringify(data, null, 2);
+        out.hidden = false;
+      } catch (err) {
+        showMsg('fcMsg', err.message, true);
+      } finally {
+        runBtn.disabled = false;
+      }
+    },
+  });
+  exploreEl.replaceChildren(select, presets, pathInput, runBtn);
+}
+
+document.getElementById('fcNavLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  showPage('pg-fantacalcio');
+  loadFantacalcio();
+});
+document.getElementById('fcToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
 
 // Sidebar manage links
 document.getElementById('leagueNav').addEventListener('click', (e) => {
