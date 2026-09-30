@@ -16,6 +16,17 @@ Non fatto (fuori scope, possibile follow-up se richiesto): precompilare l'email 
 
 Nota operativa: l'email parte al giro successivo del cron `process-email-queue.yml` (ogni 10 minuti), non all'istante.
 
+**Seguito, stessa sessione — precompilazione email nel join + pagina admin "Email" (richiesti in chat):**
+L'utente credeva il commit dell'invito via email già mergiato: verificato che no (unica PR del branch è #112), quindi tutto prosegue sullo stesso branch sopra `main`, nessuna PR aperta.
+
+Precompilazione: nuovo endpoint pubblico `GET /auth/invite/{token}` (`auth.py`) → `{email}` per un invito non ancora usato, 404 altrimenti (il token è il segreto, chi lo ha può leggere l'email). `frontend/coach/login.html` lo chiama quando c'è `?token=` e riempie `regEmail` e `loginEmail` se vuoti. **Bug preesistente corretto:** il click automatico sulla scheda "Registrati" avveniva prima che i listener delle schede fossero registrati, quindi con un link di invito la pagina restava su "Accedi" — spostato il blocco token dopo i listener.
+
+Pagina admin "✉ Email" (sidebar, sezione Amministrazione, `pg-email`, wrapper API in nuovo `frontend/admin/js/email.js`): mostra se `RESEND_API_KEY` è impostata e il mittente, contatori coda (pending/sent/failed) con bottone "Elabora coda ora" (riusa `POST /admin/process-email-queue`) e gli ultimi 5 errori di invio; form "Invia email di prova" che invia **subito, senza coda** e riporta l'errore esatto di Resend (codice + body). Backend in `matchday.py` accanto a process-email-queue: `GET /admin/email/status`, `POST /admin/email/test` (400 se chiave mancante, 502 con dettaglio se Resend rifiuta); template non in coda `render_test_email` in `notifications.py`.
+
+**Scoperta, non corretta (fuori scope):** senza `RESEND_API_KEY`, `send_email` è un no-op e `process_email_queue` segna comunque la riga come `sent` — le email "inviate" in assenza di chiave sono perse silenziosamente. L'avviso nella pagina Email lo dice esplicitamente. Possibile follow-up se l'utente lo chiede: lasciarle `pending` quando la chiave manca.
+
+**Test:** 6 nuovi in `test_notifications.py` (invite lookup con/senza email/inesistente/usato; status; test senza chiave 400; test invio immediato; errore Resend 403 riportato con body; auth richiesta). Suite: 297 passed, stessi 3+3 pre-esistenti. Verificato con Playwright headless: join con email precompilata e scheda Registrati aperta, registrazione ok, token usato non precompila; pagina Email con chiave mancante (badge rosso, messaggio 400 chiaro) e con chiave finta (invio fallito mostrato — nel sandbox è un 403 del proxy verso Resend, non verificabile l'invio reale).
+
 **Sessione 2026-09-30 — Import rose dal nuovo export piattaforma "Lista calciatori" (task ad-hoc, richiesto in chat con 2 file Excel):**
 L'utente ha caricato il nuovo export delle rose (foglio "ROSE", N squadre affiancate a triplette di colonne `Calciatore | costo | vuota`, riga "totale" a chiudere ogni squadra, **nessuna colonna Ruolo né Squadra reale**) e, dopo l'analisi, il listone della piattaforma (foglio "Lista calciatori", 599 righe, header `# | Nome | Fuori lista | Sq. | Under | R. | R.MANTRA | PGv | MV | FM | FVM/1000 | QUOT. | FantaSquadra | Costo`). Verificato che il solo listone basta: le 247 righe con `FantaSquadra` valorizzata coincidono 1:1 (nome, squadra fanta, costo) con il file rose, che quindi non serve più — il file rose **non** ha un parser dedicato, deciso con l'utente.
 

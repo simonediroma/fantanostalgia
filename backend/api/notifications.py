@@ -176,6 +176,20 @@ def _render_league_invite(params: dict, base_url: str) -> tuple[str, str]:
     return f"Sei stato invitato in {league_name}", html
 
 
+def render_test_email(base_url: str) -> tuple[str, str]:
+    """Email inviata dal pannello admin per verificare la configurazione.
+    Non passa dalla coda: l'admin deve vedere subito l'esito dell'invio."""
+    html = _layout(
+        "Email di prova",
+        "<p>Se leggi questo messaggio, l'invio email di FantaNostalgia è configurato "
+        "correttamente.</p>"
+        f"<p style=\"font-size:12px;color:#888;\">Mittente configurato: {EMAIL_FROM}</p>",
+        "Vai al pannello admin",
+        f"{base_url}/admin/",
+    )
+    return "FantaNostalgia: email di prova", html
+
+
 TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
     "league_invite": _render_league_invite,
     "registration": _render_registration,

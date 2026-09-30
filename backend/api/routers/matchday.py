@@ -1,9 +1,11 @@
 import sqlite3
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
+from backend.api import notifications
 from backend.api.db import get_db
 from backend.api.notifications import (
     DEFAULT_BATCH_SIZE,
@@ -11,7 +13,7 @@ from backend.api.notifications import (
     league_manager_emails,
     process_email_queue,
 )
-from backend.api.routers.auth import get_current_admin_or_bearer
+from backend.api.routers.auth import get_current_admin, get_current_admin_or_bearer
 from backend.engine.draw import perform_draw
 from backend.engine.scoring import _update_standings, calculate_scores
 
@@ -221,6 +223,55 @@ def process_email_queue_endpoint(
     with get_db() as conn:
         result = process_email_queue(conn, base_url, batch_size=batch_size)
     return result
+
+
+# ── Diagnostica email (pannello admin) ──────────────────────────────────────
+
+class EmailTestBody(BaseModel):
+    to: EmailStr
+
+
+@router.get("/admin/email/status")
+def email_status(_: str = Depends(get_current_admin)):
+    """Configurazione email lato server + stato della coda, per capire
+    perché un'email non è arrivata."""
+    with get_db() as conn:
+        counts = {
+            r["status"]: r["n"]
+            for r in conn.execute("SELECT status, COUNT(*) AS n FROM email_queue GROUP BY status")
+        }
+        failures = conn.execute(
+            "SELECT template, to_email, attempts, last_error, created_at FROM email_queue"
+            " WHERE last_error IS NOT NULL ORDER BY id DESC LIMIT 5"
+        ).fetchall()
+    return {
+        "configured": bool(notifications.RESEND_API_KEY),
+        "email_from": notifications.EMAIL_FROM,
+        "queue": {s: counts.get(s, 0) for s in ("pending", "sent", "failed")},
+        "recent_errors": [dict(r) for r in failures],
+    }
+
+
+@router.post("/admin/email/test")
+def email_test(body: EmailTestBody, request: Request, _: str = Depends(get_current_admin)):
+    """Invia subito (senza coda) un'email di prova e riporta l'errore esatto di Resend."""
+    if not notifications.RESEND_API_KEY:
+        raise HTTPException(
+            status_code=400,
+            detail="RESEND_API_KEY non configurata sul server: nessuna email può essere inviata.",
+        )
+    base_url = str(request.base_url).rstrip("/")
+    subject, html = notifications.render_test_email(base_url)
+    try:
+        notifications.send_email(body.to, subject, html)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Resend ha rifiutato l'invio ({exc.response.status_code}): {exc.response.text[:500]}",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Invio non riuscito: {exc}")
+    return {"sent_to": body.to, "email_from": notifications.EMAIL_FROM}
 
 
 @router.get("/league/{league_id}/scores/{matchday}")

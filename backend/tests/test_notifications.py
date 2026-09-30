@@ -433,3 +433,63 @@ def test_send_email_raises_on_failure(monkeypatch):
     monkeypatch.setattr(notifications.httpx, "post", _boom)
     with pytest.raises(RuntimeError):
         notifications.send_email("x@test.com", "subj", "<p>hi</p>")
+
+
+# ── Diagnostica email (pannello admin) ────────────────────────────────────────
+
+def test_email_status_reports_config_and_queue(client, monkeypatch):
+    monkeypatch.setattr(notifications, "RESEND_API_KEY", None)
+    with get_db() as conn:
+        notifications.enqueue_email(conn, "registration", "stato@test.com", {"name": "X", "league_name": "Y"})
+        conn.execute(
+            "UPDATE email_queue SET last_error = 'boom' WHERE to_email = 'stato@test.com'"
+        )
+    r = client.get("/admin/email/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["configured"] is False
+    assert body["email_from"] == notifications.EMAIL_FROM
+    assert body["queue"]["pending"] >= 1
+    assert any(e["to_email"] == "stato@test.com" and e["last_error"] == "boom" for e in body["recent_errors"])
+
+
+def test_email_test_fails_clearly_without_api_key(client, monkeypatch):
+    monkeypatch.setattr(notifications, "RESEND_API_KEY", None)
+    r = client.post("/admin/email/test", json={"to": "admin@test.com"})
+    assert r.status_code == 400
+    assert "RESEND_API_KEY" in r.json()["detail"]
+
+
+def test_email_test_sends_immediately(client, monkeypatch):
+    monkeypatch.setattr(notifications, "RESEND_API_KEY", "re_test")
+    calls = []
+    monkeypatch.setattr(notifications, "send_email", lambda to, subject, html: calls.append((to, subject, html)))
+    r = client.post("/admin/email/test", json={"to": "admin@test.com"})
+    assert r.status_code == 200, r.text
+    assert r.json()["sent_to"] == "admin@test.com"
+    assert len(calls) == 1
+    assert calls[0][0] == "admin@test.com"
+    assert "prova" in calls[0][1]
+
+
+def test_email_test_reports_resend_error(client, monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(notifications, "RESEND_API_KEY", "re_test")
+
+    def _reject(to, subject, html):
+        req = httpx.Request("POST", notifications.RESEND_API_URL)
+        resp = httpx.Response(403, request=req, text='{"message":"The domain is not verified"}')
+        raise httpx.HTTPStatusError("403", request=req, response=resp)
+
+    monkeypatch.setattr(notifications, "send_email", _reject)
+    r = client.post("/admin/email/test", json={"to": "admin@test.com"})
+    assert r.status_code == 502
+    assert "403" in r.json()["detail"]
+    assert "domain is not verified" in r.json()["detail"]
+
+
+def test_email_admin_endpoints_require_auth(client):
+    client.post("/auth/logout")
+    assert client.get("/admin/email/status").status_code == 401
+    assert client.post("/admin/email/test", json={"to": "a@test.com"}).status_code == 401

@@ -48,6 +48,7 @@
       <div class="section-label" style="margin-top:0.5rem">Amministrazione</div>
       <nav>
         <a href="#" id="usersNavLink" class="nav-link">👤 Utenti</a>
+        <a href="#" id="emailNavLink" class="nav-link">✉ Email</a>
       </nav>
       <div class="section-label" style="margin-top:0.5rem">Pubblico</div>
       <nav>
@@ -93,6 +94,33 @@
         <div id="usersMsg"></div>
         <div id="usersList">
           <div class="ds-empty-state"><div class="ds-empty-state__message">Caricamento…</div></div>
+        </div>
+      </div>
+
+      <!-- Diagnostica email (pannello globale) -->
+      <div id="pg-email" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2>Email</h2>
+          <button class="ds-button ds-button--secondary" id="emailToDashBtn" style="font-size:0.8rem">← Leghe</button>
+        </div>
+        <div id="emailMsg"></div>
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Configurazione</h4>
+          <div id="emailConfig"></div>
+        </div>
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Invia email di prova</h4>
+          <div class="ds-help-box ds-help-box--info">
+            <span class="ds-help-box__icon" aria-hidden="true">i</span>
+            <div class="ds-help-box__body">
+              <p class="ds-help-box__text">L'email di prova parte subito, senza passare dalla coda. Se l'invio fallisce vedrai l'errore esatto restituito da Resend.</p>
+            </div>
+          </div>
+          <div id="emailTestSlot" class="col-gap mt-sm"></div>
+        </div>
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Coda email</h4>
+          <div id="emailQueue"></div>
         </div>
       </div>
 
@@ -481,6 +509,7 @@
 <script src="js/market.js"></script>
 <script src="js/elevation.js"></script>
 <script src="js/users.js"></script>
+<script src="js/email.js"></script>
 <script>
 'use strict';
 
@@ -544,7 +573,7 @@ function showApp(username) {
 }
 
 function showPage(id) {
-  ['pg-dashboard', 'pg-users', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
+  ['pg-dashboard', 'pg-users', 'pg-email', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
     const el = document.getElementById(pid);
     if (el) el.classList.toggle('active', pid === id);
   });
@@ -729,6 +758,91 @@ document.getElementById('usersNavLink').addEventListener('click', (e) => {
   loadUsers();
 });
 document.getElementById('usersToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
+
+// ── Diagnostica email (pannello globale) ─────────────────────────────────────
+const emailTestInput = DS.Input({
+  id: 'emailTestInput', type: 'email', label: 'Destinatario', placeholder: 'tua@email.it', required: true,
+});
+const emailTestBtn = DS.Button({
+  children: 'Invia email di prova', variant: 'default',
+  onClick: async () => {
+    const to = emailTestInput.querySelector('.ds-input').value.trim();
+    if (!to) return;
+    try {
+      emailTestBtn.textContent = 'Invio...';
+      const res = await apiEmailTest(to);
+      showMsg('emailMsg', `Email di prova inviata a ${res.sent_to} da ${res.email_from}. Controlla la casella, anche lo spam.`);
+    } catch (err) {
+      showMsg('emailMsg', err.message, true);
+    } finally {
+      emailTestBtn.textContent = 'Invia email di prova';
+    }
+  },
+});
+document.getElementById('emailTestSlot').replaceChildren(emailTestInput, emailTestBtn);
+
+async function loadEmailStatus() {
+  let st;
+  try {
+    st = await apiEmailStatus();
+  } catch (err) {
+    showMsg('emailMsg', err.message, true);
+    return;
+  }
+
+  const cfg = document.createElement('p');
+  cfg.style.cssText = 'font-size:0.85rem;line-height:1.8';
+  cfg.append(
+    'Chiave Resend: ',
+    DS.Badge({ children: st.configured ? 'Configurata' : 'Mancante', variant: st.configured ? 'green' : 'red' }),
+    document.createElement('br'),
+    `Mittente: ${st.email_from}`,
+  );
+  const cfgEls = [cfg];
+  if (!st.configured) {
+    cfgEls.push(DS.HelpBox({
+      variant: 'warn',
+      children: 'Senza RESEND_API_KEY sul server nessuna email parte davvero, ma la coda le segna comunque come inviate. Impostala nelle variabili di Cloud Run.',
+    }));
+  }
+  document.getElementById('emailConfig').replaceChildren(...cfgEls);
+
+  const counts = document.createElement('p');
+  counts.style.cssText = 'font-size:0.85rem;margin-bottom:0.75rem';
+  counts.textContent = `In attesa: ${st.queue.pending} · Inviate: ${st.queue.sent} · Fallite: ${st.queue.failed}`;
+
+  const processBtn = DS.Button({
+    children: 'Elabora coda ora', variant: 'secondary',
+    onClick: async () => {
+      try {
+        const r = await apiProcessEmailQueue();
+        showMsg('emailMsg', `Coda elaborata: ${r.sent} inviate, ${r.retrying} da ritentare, ${r.failed} fallite.`, r.retrying + r.failed > 0);
+      } catch (err) {
+        showMsg('emailMsg', err.message, true);
+      }
+      await loadEmailStatus();
+    },
+  });
+
+  const queueEls = [counts, processBtn];
+  if (st.recent_errors.length) {
+    const title = document.createElement('p');
+    title.style.cssText = 'font-size:0.78rem;color:var(--muted);margin:1rem 0 0.5rem';
+    title.textContent = 'Ultimi errori di invio';
+    queueEls.push(title, DS.Table({
+      columns: [{ label: 'Tipo' }, { label: 'Destinatario' }, { label: 'Tentativi', align: 'center' }, { label: 'Errore' }],
+      rows: st.recent_errors.map(e => [e.template, e.to_email, String(e.attempts), e.last_error]),
+    }));
+  }
+  document.getElementById('emailQueue').replaceChildren(...queueEls);
+}
+
+document.getElementById('emailNavLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  showPage('pg-email');
+  loadEmailStatus();
+});
+document.getElementById('emailToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
 
 // Sidebar manage links
 document.getElementById('leagueNav').addEventListener('click', (e) => {
