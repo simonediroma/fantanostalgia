@@ -3,9 +3,10 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from backend.api.db import get_db
+from backend.api.notifications import enqueue_email
 from backend.api.routers.auth import get_current_admin
 
 router = APIRouter(tags=["league"])
@@ -246,16 +247,24 @@ def create_manager(
     return dict(manager_row)
 
 
+class InviteBody(BaseModel):
+    email: Optional[EmailStr] = None
+
+
 @router.post("/admin/league/{league_id}/managers/{manager_id}/invite")
 def create_invite(
     league_id: int,
     manager_id: int,
     request: Request,
+    body: Optional[InviteBody] = None,
     _: str = Depends(get_current_admin),
 ):
+    email = body.email if body else None
     with get_db() as conn:
         mgr = conn.execute(
-            "SELECT id FROM manager WHERE id = ? AND league_id = ?",
+            "SELECT m.id, m.name, m.team_name, l.name AS league_name"
+            " FROM manager m JOIN league l ON l.id = m.league_id"
+            " WHERE m.id = ? AND m.league_id = ?",
             (manager_id, league_id),
         ).fetchone()
         if mgr is None:
@@ -263,9 +272,20 @@ def create_invite(
 
         token = uuid.uuid4().hex
         conn.execute(
-            "INSERT INTO league_invite (league_id, manager_id, token) VALUES (?, ?, ?)",
-            (league_id, manager_id, token),
+            "INSERT INTO league_invite (league_id, manager_id, token, email) VALUES (?, ?, ?, ?)",
+            (league_id, manager_id, token, email),
         )
+        if email:
+            enqueue_email(conn, "league_invite", email, {
+                "manager_name": mgr["name"],
+                "team_name": mgr["team_name"],
+                "league_name": mgr["league_name"],
+                "token": token,
+            })
 
     base_url = str(request.base_url).rstrip("/")
-    return {"token": token, "join_url": f"{base_url}/coach/join?token={token}"}
+    return {
+        "token": token,
+        "join_url": f"{base_url}/coach/join?token={token}",
+        "email_sent_to": email,
+    }

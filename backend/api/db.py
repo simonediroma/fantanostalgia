@@ -119,6 +119,10 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE league ADD COLUMN {_col} {_def}")
             except sqlite3.OperationalError:
                 pass
+        try:
+            conn.execute("ALTER TABLE league_invite ADD COLUMN email TEXT")
+        except sqlite3.OperationalError:
+            pass
         for _col, _def in [
             ("is_admin", "INTEGER DEFAULT 0"),
         ]:
@@ -150,7 +154,8 @@ def init_db() -> None:
                 token TEXT NOT NULL UNIQUE,
                 used_by_user_id INTEGER REFERENCES user(id),
                 used_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                email TEXT
             );
             CREATE TABLE IF NOT EXISTS manager_nostalgia_pool (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

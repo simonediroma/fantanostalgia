@@ -204,7 +204,7 @@
             <div class="ds-help-box ds-help-box--info">
               <span class="ds-help-box__icon" aria-hidden="true">i</span>
               <div class="ds-help-box__body">
-                <p class="ds-help-box__text">Genera link invito per ogni allenatore e monitora lo stato delle associazioni.</p>
+                <p class="ds-help-box__text">Invita ogni allenatore via email (oppure copia il link) e monitora lo stato delle associazioni.</p>
               </div>
             </div>
             <button class="ds-button ds-button--secondary" id="refreshCoachStatusBtn" style="font-size:0.75rem;margin-bottom:0.75rem">↻ Aggiorna stato</button>
@@ -1160,7 +1160,9 @@ async function refreshCoachStatus() {
     const tableRows = rows.map((r) => {
       const linked = document.createElement('span');
       linked.style.color = r.user_linked ? 'var(--green)' : 'var(--muted)';
-      linked.textContent = r.user_linked ? '✓' : '—';
+      if (r.user_linked) linked.textContent = '✓';
+      else if (r.invited_email) linked.textContent = `✉ ${r.invited_email}`;
+      else linked.textContent = '—';
 
       let stato;
       if (r.is_locked) {
@@ -1172,19 +1174,8 @@ async function refreshCoachStatus() {
       }
 
       const inviteBtn = DS.Button({
-        children: 'Genera link', variant: 'secondary',
-        onClick: async () => {
-          try {
-            const inv = await apiCreateInvite(currentLeagueId, r.manager_id);
-            const url = inv.join_url;
-            inviteBtn.textContent = 'Copiato!';
-            await navigator.clipboard.writeText(url).catch(() => {});
-            window.showInviteModal(url);
-            setTimeout(() => { inviteBtn.textContent = 'Genera link'; }, 2000);
-          } catch (err) {
-            showMsg('mappingMsg', err.message, true);
-          }
-        },
+        children: r.invited_email && !r.user_linked ? 'Reinvia' : 'Invita', variant: 'secondary',
+        onClick: () => window.showInviteModal(r),
       });
       inviteBtn.style.cssText = 'font-size:0.65rem;padding:2px 8px';
 
@@ -1947,37 +1938,68 @@ document.getElementById('gtGpCreateBtn').addEventListener('click', async () => {
   }
 });
 
-// ── Modal link invito ──────────────────────────────────────────────────────────
-let inviteUrlText = '';
+// ── Modal invito allenatore ─────────────────────────────────────────────────
+let inviteManager = null;
+const inviteEmailInput = DS.Input({
+  id: 'inviteEmailInput', type: 'email', label: 'Email allenatore', placeholder: 'nome@esempio.it', required: true,
+});
+const inviteSendBtn = DS.Button({
+  children: 'Invia invito', variant: 'default',
+  onClick: async () => {
+    const email = inviteEmailInput.querySelector('.ds-input').value.trim();
+    if (!email) return;
+    try {
+      inviteSendBtn.textContent = 'Invio...';
+      await apiCreateInvite(currentLeagueId, inviteManager.manager_id, email);
+      inviteModal.close();
+      showMsg('mappingMsg', `Invito inviato a ${email}. L'email arriva entro pochi minuti.`);
+      await refreshCoachStatus();
+    } catch (err) {
+      inviteSendBtn.textContent = 'Invia invito';
+      inviteLinkEl.hidden = false;
+      inviteLinkEl.textContent = err.message;
+    }
+  },
+});
 const inviteCopyBtn = DS.Button({
-  children: 'Copia link', variant: 'default',
+  children: 'Copia link', variant: 'secondary',
   onClick: async () => {
     try {
-      await navigator.clipboard.writeText(inviteUrlText);
+      const inv = await apiCreateInvite(currentLeagueId, inviteManager.manager_id);
+      inviteLinkEl.hidden = false;
+      inviteLinkEl.textContent = inv.join_url;
+      await navigator.clipboard.writeText(inv.join_url);
       inviteCopyBtn.textContent = '✓ Copiato!';
-    } catch {
+    } catch (err) {
       inviteCopyBtn.textContent = 'Errore copia';
     }
   },
 });
 const inviteModal = DS.Modal({
-  title: 'Link invito allenatore',
+  title: 'Invita allenatore',
   actions: [
+    inviteSendBtn,
     inviteCopyBtn,
     DS.Button({ children: 'Chiudi', variant: 'secondary', onClick: () => inviteModal.close() }),
   ],
 });
 const inviteIntro = document.createElement('p');
 inviteIntro.style.cssText = 'font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem';
-inviteIntro.textContent = "Condividi questo link con l'allenatore per farlo registrare direttamente nella lega.";
-const inviteUrlEl = document.createElement('code');
-inviteUrlEl.className = 'modal-url';
-inviteModal.querySelector('.ds-modal__body').replaceChildren(inviteIntro, inviteUrlEl);
+const inviteLinkEl = document.createElement('code');
+inviteLinkEl.className = 'modal-url';
+inviteLinkEl.style.marginTop = '0.75rem';
+inviteModal.querySelector('.ds-modal__body').replaceChildren(inviteIntro, inviteEmailInput, inviteLinkEl);
 document.body.appendChild(inviteModal);
 
-window.showInviteModal = function (url) {
-  inviteUrlText = url;
-  inviteUrlEl.textContent = url;
+window.showInviteModal = function (managerRow) {
+  inviteManager = managerRow;
+  inviteIntro.textContent =
+    `Invieremo a ${managerRow.manager_name} (${managerRow.team_name}) un'email con il link per registrarsi nella lega. ` +
+    'In alternativa copia il link e mandalo tu.';
+  inviteEmailInput.querySelector('.ds-input').value = managerRow.invited_email || '';
+  inviteLinkEl.hidden = true;
+  inviteLinkEl.textContent = '';
+  inviteSendBtn.textContent = 'Invia invito';
   inviteCopyBtn.textContent = 'Copia link';
   inviteModal.open();
 };

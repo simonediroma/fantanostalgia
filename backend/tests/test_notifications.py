@@ -76,6 +76,72 @@ def test_registration_enqueues_welcome_email(client):
     assert json.loads(rows[0]["params"]) == {"name": "Mario", "league_name": "NotifLega"}
 
 
+# ── Invito via email ──────────────────────────────────────────────────────────
+
+def test_invite_with_email_enqueues_invite(client):
+    league_id = _create_league(client, name="InvitoLega")
+    manager = client.post(
+        f"/admin/league/{league_id}/managers", json={"name": "Gino", "team_name": "Gino FC"}
+    ).json()
+    r = client.post(
+        f"/admin/league/{league_id}/managers/{manager['id']}/invite",
+        json={"email": "gino@test.com"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["email_sent_to"] == "gino@test.com"
+
+    with get_db() as conn:
+        rows = _queue_rows_for(conn, "gino@test.com")
+        invite = conn.execute(
+            "SELECT email FROM league_invite WHERE token = ?", (body["token"],)
+        ).fetchone()
+    assert len(rows) == 1
+    assert rows[0]["template"] == "league_invite"
+    assert json.loads(rows[0]["params"]) == {
+        "manager_name": "Gino", "team_name": "Gino FC",
+        "league_name": "InvitoLega", "token": body["token"],
+    }
+    assert invite["email"] == "gino@test.com"
+
+    subject, html = notifications.render_email(
+        "league_invite", json.loads(rows[0]["params"]), "https://fanta.test"
+    )
+    assert "InvitoLega" in subject
+    assert f"https://fanta.test/coach/join?token={body['token']}" in html
+
+    status = client.get(f"/admin/league/{league_id}/coaches-status").json()
+    assert status[0]["invited_email"] == "gino@test.com"
+
+
+def test_invite_without_email_enqueues_nothing(client):
+    league_id = _create_league(client, name="InvitoLega2")
+    manager = client.post(
+        f"/admin/league/{league_id}/managers", json={"name": "Pino", "team_name": "Pino FC"}
+    ).json()
+    with get_db() as conn:
+        before = conn.execute("SELECT COUNT(*) FROM email_queue").fetchone()[0]
+    r = client.post(f"/admin/league/{league_id}/managers/{manager['id']}/invite")
+    assert r.status_code == 200, r.text
+    assert r.json()["email_sent_to"] is None
+    assert "/coach/join?token=" in r.json()["join_url"]
+    with get_db() as conn:
+        after = conn.execute("SELECT COUNT(*) FROM email_queue").fetchone()[0]
+    assert after == before
+
+
+def test_invite_rejects_invalid_email(client):
+    league_id = _create_league(client, name="InvitoLega3")
+    manager = client.post(
+        f"/admin/league/{league_id}/managers", json={"name": "Lino", "team_name": "Lino FC"}
+    ).json()
+    r = client.post(
+        f"/admin/league/{league_id}/managers/{manager['id']}/invite",
+        json={"email": "non-una-email"},
+    )
+    assert r.status_code == 422
+
+
 # ── Join lega ─────────────────────────────────────────────────────────────────
 
 def test_join_league_enqueues_confirmation_email(client):
