@@ -177,8 +177,13 @@ class PoolAssignmentResult:
     assigned_by_manager: list[dict] = field(default_factory=list)
 
 
+MIN_APPEARANCES = 10  # presenze minime (giornate con voto) per entrare nel pool nostalgia
+
+
 def assign_nostalgia_pools(conn: sqlite3.Connection, league_id: int) -> PoolAssignmentResult:
     """Assign 12 historic nostalgia players (1P+4D+4C+3A) to each manager.
+
+    Only historic players with at least MIN_APPEARANCES rated matchdays are eligible.
 
     Each role pool is shared across managers without replacement; if the pool
     runs out, we allow duplicates (same historic player to multiple managers).
@@ -194,8 +199,12 @@ def assign_nostalgia_pools(conn: sqlite3.Connection, league_id: int) -> PoolAssi
     pools: dict[str, list[int]] = {}
     for role in ROLES:
         rows = conn.execute(
-            "SELECT id FROM player_historic WHERE season = ? AND role = ?",
-            (season_historic, role),
+            "SELECT ph.id FROM player_historic ph"
+            " JOIN historic_rating hr ON hr.player_historic_id = ph.id"
+            " WHERE ph.season = ? AND ph.role = ? AND hr.rating IS NOT NULL"
+            " GROUP BY ph.id HAVING COUNT(*) >= ?"
+            " ORDER BY ph.id",
+            (season_historic, role, MIN_APPEARANCES),
         ).fetchall()
         pools[role] = [r["id"] for r in rows]
 
