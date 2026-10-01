@@ -45,7 +45,7 @@
     <thead>
       <tr>
         <th>#</th>
-        <th>Manager</th>
+        <th>Squadra</th>
         <th>FantaNostalgia</th>
         <th>Normale</th>
       </tr>
@@ -54,7 +54,7 @@
       {% for s in scores %}
       <tr>
         <td class="rank" data-label="#">{{ loop.index }}</td>
-        <td data-label="Manager">{{ s.manager_name }}</td>
+        <td data-label="Squadra">{{ s.manager_name }}</td>
         <td class="score" data-label="FantaNostalgia">{{ '%.1f'|format(s.score_nostalgia or 0) }}</td>
         <td class="score" data-label="Normale">
           {% if s.score_normal is not none %}{{ '%.1f'|format(s.score_normal) }}{% else %}—{% endif %}

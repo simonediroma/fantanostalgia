@@ -477,3 +477,79 @@ def test_upload_formazioni_panchina_flag(client, formazioni_setup):
     assert by_name["Pirlo"] == 0
     assert by_name["Toldo"] == 1
     assert by_name["Albertini"] == 0
+
+
+def test_team_name_is_pivot_for_lineups_and_calendario(client, login):
+    """Due manager con lo stesso nome e un nome manager uguale alla squadra di un altro:
+    formazioni e calendario seguono sempre il nome squadra."""
+    from backend.api.db import get_db
+    from backend.api.routers.lineups import save_lineups
+
+    r = client.post("/admin/league", json={"name": "PivotLega", "season_current": "2024/25",
+                                           "season_historic": "2003/04", "budget": 500})
+    league_id = r.json()["id"]
+    with get_db() as conn:
+        # "Simone" gestisce "Real Tuan"; il manager di "Simone" (squadra) si chiama anche lui Simone
+        a = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Simone', 'Real Tuan')",
+                         (league_id,)).lastrowid
+        b = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Simone', 'Simone')",
+                         (league_id,)).lastrowid
+        for name, mid in (("Alfa", a), ("Beta", b)):
+            conn.execute("INSERT INTO player_current (league_id, name, role, team, manager_id)"
+                         " VALUES (?, ?, 'A', 'X', ?)", (league_id, name, mid))
+        rows = [
+            {"manager": "Real Tuan", "player": "Alfa", "is_starter": 1, "score_no_bonus": 6.0, "score_bonus": 6.0},
+            {"manager": "Simone", "player": "Beta", "is_starter": 1, "score_no_bonus": 7.0, "score_bonus": 7.0},
+        ]
+        out = save_lineups(conn, league_id, 1, rows, [], [("Real Tuan", "Simone")])
+        assert out["warnings"] == []
+        owners = dict(conn.execute(
+            "SELECT pc.name, l.manager_id FROM lineup l JOIN player_current pc ON pc.id = l.player_current_id"
+            " WHERE l.league_id = ?", (league_id,)).fetchall())
+        assert owners == {"Alfa": a, "Beta": b}
+        conn.execute("INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
+                     " VALUES (?, 1, 10, 1)", (league_id,))
+
+    m = client.get(f"/api/lega/{league_id}/calendario/1").json()["matches"][0]
+    assert (m["home_manager"], m["away_manager"]) == ("Real Tuan", "Simone")
+    assert [p["player_name"] for p in m["home_players"]["starters"]] == ["Alfa"]
+    assert [p["player_name"] for p in m["away_players"]["starters"]] == ["Beta"]
+
+
+def test_save_lineups_warns_when_player_in_other_roster(client, setup):
+    from backend.api.db import get_db
+    from backend.api.routers.lineups import save_lineups
+
+    league_id = setup[0]
+    with get_db() as conn:
+        mgrs = conn.execute("SELECT id, team_name FROM manager WHERE league_id = ? ORDER BY id",
+                            (league_id,)).fetchall()
+        p = conn.execute("SELECT name FROM player_current WHERE manager_id = ? LIMIT 1",
+                         (mgrs[0]["id"],)).fetchone()
+        out = save_lineups(conn, league_id, 9, [{"manager": mgrs[1]["team_name"], "player": p["name"],
+                                                  "is_starter": 1}], [], [])
+    assert any("ma in rosa a" in w for w in out["warnings"])
+
+
+def test_classifica_shows_team_name(client, login):
+    from backend.api.db import get_db
+
+    r = client.post("/admin/league", json={"name": "ClassificaSquadre", "season_current": "2024/25",
+                                           "season_historic": "2003/04", "budget": 500})
+    league_id = r.json()["id"]
+    with get_db() as conn:
+        a = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Simone', 'Real Tuan')",
+                         (league_id,)).lastrowid
+        b = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Paolo', 'Atletico Ma Non Troppo')",
+                         (league_id,)).lastrowid
+        for mid in (a, b):
+            conn.execute("INSERT INTO standings (league_id, manager_id, total_score_normal, total_score_nostalgia,"
+                         " rank_normal, rank_nostalgia) VALUES (?, ?, 0, 0, 1, 1)", (league_id, mid))
+        conn.execute("INSERT INTO h2h_match (league_id, matchday, manager_home_id, manager_away_id)"
+                     " VALUES (?, 1, ?, ?)", (league_id, a, b))
+
+    html = client.get(f"/lega/{league_id}/classifica").text
+    assert "Real Tuan" in html and "Atletico Ma Non Troppo" in html
+    assert "Simone" not in html and "Paolo" not in html
+    csv_text = client.get(f"/league/{league_id}/classifica/export.csv").text
+    assert "Real Tuan" in csv_text and "Simone" not in csv_text

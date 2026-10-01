@@ -123,7 +123,8 @@ def calculate_scores(
 
     lineups = conn.execute(
         """
-        SELECT l.manager_id, l.player_current_id, pc.name, pc.role
+        SELECT l.manager_id, l.player_current_id, pc.name, pc.role,
+               l.score_no_bonus, l.score_bonus
         FROM lineup l
         JOIN player_current pc ON pc.id = l.player_current_id
         WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
@@ -248,8 +249,8 @@ def compute_player_breakdown(
     from persisted data (alter_ego + historic_rating). Returns one dict per
     starter: {manager_id, player_current_id, role, name, ns}.
 
-    Real ratings are not persisted, so players without an alter ego fall back to
-    6.0 (matching scoring without real_ratings)."""
+    Players without an alter ego use the stored lineup.score_no_bonus (voto in
+    pagella), matching calculate_scores without real_ratings."""
     draw = conn.execute(
         "SELECT matchday_historic FROM matchday_draw"
         " WHERE league_id = ? AND matchday_current = ?",
@@ -261,7 +262,8 @@ def compute_player_breakdown(
 
     lineups = conn.execute(
         """
-        SELECT l.manager_id, l.player_current_id, pc.name, pc.role
+        SELECT l.manager_id, l.player_current_id, pc.name, pc.role,
+               l.score_no_bonus, l.score_bonus
         FROM lineup l
         JOIN player_current pc ON pc.id = l.player_current_id
         WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
@@ -293,6 +295,11 @@ def compute_player_breakdown(
         ).fetchall()
         rating_map = {r["player_historic_id"]: dict(r) for r in rows}
 
+    real_map = {
+        r["name"].strip().lower(): {"rating": r["score_bonus"], "rating_no_bonus": r["score_no_bonus"]}
+        for r in lineups if r["score_bonus"] is not None
+    }
+
     breakdown: list[dict] = []
     for row in lineups:
         p = dict(row)
@@ -301,7 +308,7 @@ def compute_player_breakdown(
             "player_current_id": p["player_current_id"],
             "role": p["role"],
             "name": p["name"],
-            "ns": round(_nostalgia_score(p, alter_ego_map, rating_map, {}), 1),
+            "ns": round(_nostalgia_score(p, alter_ego_map, rating_map, real_map), 1),
         })
     return breakdown
 

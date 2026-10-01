@@ -146,13 +146,13 @@ def export_classifica_csv(league_id: int):
         league = _require_league(conn, league_id)
         rows = conn.execute(
             """
-            SELECT m.name AS manager,
+            SELECT COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager,
                    s.rank_nostalgia, s.total_score_nostalgia,
                    s.rank_normal,    s.total_score_normal
             FROM standings s
             JOIN manager m ON m.id = s.manager_id
             WHERE s.league_id = ?
-            ORDER BY s.rank_nostalgia, m.name
+            ORDER BY s.rank_nostalgia, manager
             """,
             (league_id,),
         ).fetchall()
@@ -160,7 +160,7 @@ def export_classifica_csv(league_id: int):
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        "Pos FantaNostalgia", "Manager", "Totale FantaNostalgia",
+        "Pos FantaNostalgia", "Squadra", "Totale FantaNostalgia",
         "Pos Normale", "Totale Normale",
     ])
     for r in rows:
