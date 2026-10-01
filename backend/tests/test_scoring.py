@@ -283,6 +283,12 @@ def test_scores_no_alter_ego_stored_lineup_excludes_bonus(client):
     # Normal score keeps the full bonus-inclusive vote, unaffected by this fix.
     assert s["score_normal"] == pytest.approx(9.5)
 
+    # Gran Premio breakdown uses the same pagella vote.
+    from backend.engine.scoring import compute_player_breakdown
+    with get_db() as conn:
+        bd = compute_player_breakdown(conn, league_id, 1)
+    assert [b["ns"] for b in bd if b["player_current_id"] == player_id] == [6.5]
+
 
 def test_scores_alter_ego_sv(client):
     """Alter ego exists but no historic_rating for that matchday → 6.0 (sv)."""

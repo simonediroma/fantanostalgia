@@ -5,6 +5,8 @@
 **Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
 **PR in corso:** nessuna. [#114](https://github.com/simonediroma/fantanostalgia/pull/114) (collegamento + import Fantacalcio) mergiata in `main` (`88b3670`); branch ripartito da `main` per il fix sotto.
 
+**Sessione 2026-10-01 — NS senza alter ego = voto in pagella (segnalato con screenshot):** l'utente vedeva 12.5 per Soulè dopo il reimport. Salvataggio corretto (`score_no_bonus` = `scr`): la colonna FC del Calendario mostra il fantavoto (`score_bonus`, punteggio classico), mentre NS mostrava "—" per chi non ha alter ego. Ora NS (`calendario_dati` e pagina giornata in `views.py`) mostra `score_no_bonus` per i giocatori senza alter ego; `compute_player_breakdown` (Gran Premio) usa lo stesso voto invece del vecchio fallback 6.0. Test esteso in `test_scoring.py`; suite 316 passed + soliti 3 fallimenti.
+
 **Sessione 2026-10-01 — Grafica email allineata al sito (richiesto in chat):** `_layout` in `backend/api/notifications.py` ora usa la palette 8-bit dei token (sfondo `#050510`, pannello `#0d0d2b` bordo `#3333aa`, titolo e bottone giallo `#ffe600` con testo scuro e ombra pixel, font Press Start 2P con fallback Courier New) al posto del verde `#1a7a3c`. Struttura a tabelle con `bgcolor` per compatibilità client email. Tutti i template ereditano il layout. Test notifiche/password: 34 passed; anteprima verificata con screenshot Chromium.
 
 **Sessione 2026-09-30 (sera) — Collegamento Leghe Fantacalcio via API non ufficiale, fase 1 (richiesto in chat):**

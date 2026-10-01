@@ -308,6 +308,9 @@ def calendario_dati(league_id: int, matchday: int):
             ns_score = float(r["rating"])
         elif r["alter_ego_name"]:
             ns_score = 6.0
+        elif r["score_no_bonus"] is not None:
+            # senza alter ego: voto in pagella, lo stesso usato dallo scoring
+            ns_score = float(r["score_no_bonus"])
         entry = {
             "role": r["role"],
             "player_name": r["player_name"],
@@ -408,7 +411,7 @@ def giornata(request: Request, league_id: int, matchday: int):
         lineup_rows = conn.execute(
             """
             SELECT m.name AS manager_name, pc.name AS player_name, pc.role,
-                   pc.team AS current_team, l.is_starter,
+                   pc.team AS current_team, l.is_starter, l.score_no_bonus,
                    ph.name AS alter_ego_name, ph.team AS alter_ego_team,
                    hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
                    hr.own_goals, hr.penalties_missed, hr.goals_conceded,
@@ -466,6 +469,8 @@ def giornata(request: Request, league_id: int, matchday: int):
             ns_score = float(r["rating"])
         elif r["alter_ego_name"]:
             ns_score = 6.0  # sv o non trovato
+        elif r["score_no_bonus"] is not None:
+            ns_score = float(r["score_no_bonus"])  # senza alter ego: voto in pagella
 
         entry = {
             "player_name": r["player_name"],
