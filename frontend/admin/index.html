@@ -925,11 +925,24 @@ async function loadFantacalcio() {
   [
     ['Stato', '/onboarding/v1/league/status'],
     ['Competizioni', '/onboarding/v1/league/competitions'],
-    ['Calendario', '/onboarding/v1/league/competition/calendar/'],
   ].forEach(([label, path]) => presets.appendChild(DS.Button({
     children: label, variant: 'secondary',
     onClick: () => { pathInput.querySelector('input').value = path; },
   })));
+  // Il calendario vuole l'id della competizione in fondo al percorso: lo
+  // prende dalla prima competizione della lega scelta.
+  presets.appendChild(DS.Button({
+    children: 'Calendario', variant: 'secondary',
+    onClick: async () => {
+      try {
+        const comps = await apiFantacalcioCompetitions(select.value);
+        if (!comps.length) { showMsg('fcMsg', 'Nessuna competizione in questa lega.', true); return; }
+        pathInput.querySelector('input').value = `/onboarding/v1/league/competition/calendar/${comps[0].id}`;
+      } catch (err) {
+        showMsg('fcMsg', err.message, true);
+      }
+    },
+  }));
   const out = document.getElementById('fcOutput');
   const runBtn = DS.Button({
     children: 'Esegui GET',
