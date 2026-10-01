@@ -3,6 +3,7 @@ jinja2==3.1.4
 aiofiles==23.2.1
 itsdangerous==2.2.0
 python-jose[cryptography]==3.3.0
+cryptography>=41              # cifratura token Fantacalcio per utente
 uvicorn==0.29.0
 python-multipart==0.0.9     # upload file Excel
 openpyxl==3.1.2              # parsing Excel listone

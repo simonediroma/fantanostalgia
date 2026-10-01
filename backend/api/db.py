@@ -125,6 +125,7 @@ def init_db() -> None:
             pass
         for _col, _def in [
             ("is_admin", "INTEGER DEFAULT 0"),
+            ("fantacalcio_jwt", "TEXT"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE user ADD COLUMN {_col} {_def}")
@@ -145,6 +146,7 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
                 is_admin INTEGER DEFAULT 0,
+                fantacalcio_jwt TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS league_invite (
