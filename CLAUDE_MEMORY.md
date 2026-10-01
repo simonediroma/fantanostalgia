@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-10-01
 **Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
-**PR in corso:** nessuna aperta per questo branch. [#113](https://github.com/simonediroma/fantanostalgia/pull/113) mergiata in `main` (`de54946`).
+**PR in corso:** nessuna. [#114](https://github.com/simonediroma/fantanostalgia/pull/114) (collegamento + import Fantacalcio) mergiata in `main` (`88b3670`); branch ripartito da `main` per il fix sotto.
 
 **Sessione 2026-09-30 (sera) — Collegamento Leghe Fantacalcio via API non ufficiale, fase 1 (richiesto in chat):**
 Contesto: fantacalcio.it potrebbe aver tolto l'export Excel delle formazioni. Ipotesi discusse in chat: file voti pubblico + formazioni via copia-incolla (le formazioni sono su più pagine), screenshot letti da Claude (fallback), API interna `apileague.fantacalcio.it`. L'utente ha fornito un client Python e una spec (pensata per un'altra app: Neon/servizio separato) ricavati dal bundle JS del sito: auth = header `app_key` pubblica + Bearer JWT (user JWT → `/onboarding/v2/profile` → `leghe[i].jwt` di lega), validità ~1 anno. Endpoint verificati dall'utente: status, competitions, calendar/{competitionId}, competition/teams, settings. **Nessun endpoint noto per formazioni/voti per giocatore** (solo un indizio non verificato: `gaming/v1/teamLineup/visualizza/...`).
@@ -27,6 +27,8 @@ Fatto:
 - **bug preesistente corretto**: `get_current_admin_or_bearer` (endpoint giornate/sorteggio/punteggi) accettava solo l'admin da env, quindi un utente elevato ad admin veniva sloggato aprendo il tab Giornate. Ora delega a `get_current_admin` (Bearer invariato).
 
 **Test:** `test_fantacalcio.py` 15 test (conversione voti: s.v. 55/56, doppietta, rigore segnato, gol subiti; mapping squadre/giocatori/pairing; import end-to-end con API finta; giornata non calcolata/assente; calendario; utente admin sugli endpoint giornate). Suite: 315 passed + i soliti 3 fallimenti di `test_scoring.py`. Verificato con Playwright contro uvicorn con API Fantacalcio finta: collegamento token → admin come utente → Giornate → import → giornata "Caricata" con 2 manager e avviso giocatore sconosciuto.
+
+**Seguito (2026-10-01) — primo test reale in produzione:** l'utente conferma che da Cloud Run l'API risponde (status e competizioni ok, quindi niente blocco WAF). Il calendario dava 404 dall'esploratore perché il preset "Calendario" inseriva il percorso senza l'id competizione in fondo: ora il preset recupera le competizioni della lega scelta e compila `/onboarding/v1/league/competition/calendar/{id}` con la prima. Verificato con Playwright contro API finta.
 
 ## Prossima sessione — inizia da qui (per questo task)
 
