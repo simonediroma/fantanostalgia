@@ -163,21 +163,16 @@ def team_lineup(token: str, competition_id: int, match_day: int, championship_ma
 
 # ── Conversione formazioni → righe per lineups.save_lineups ─────────────────
 
-# Bonus positivi nell'array `b` (16 contatori eventi): indice → valore. Ricavati
-# dai dati reali (cscr - scr torna su tutte le righe osservate); gli indici non
-# elencati sono malus o mai osservati e restano quindi nel voto "senza bonus".
-POSITIVE_BONUS = {2: 3.0, 4: 3.0, 6: 3.0, 12: 0.5, 13: 1.0}
 NO_VOTE_THRESHOLD = 50  # scr 55/56 (con cscr 100) = senza voto
 
 
 def _scores(p: dict) -> tuple[float | None, float | None]:
-    """(voto senza bonus ma con malus, fantavoto) di un giocatore; (None, None) se s.v."""
+    """(voto in pagella `scr`, fantavoto `cscr`) di un giocatore; (None, None) se s.v.
+    Per i giocatori senza alter ego il calcolo usa solo il voto in pagella."""
     scr, cscr = p.get("scr"), p.get("cscr")
     if scr is None or cscr is None or scr >= NO_VOTE_THRESHOLD:
         return None, None
-    counts = [int(x) for x in str(p.get("b") or "").split(";") if x.strip().lstrip("-").isdigit()]
-    bonus = sum(POSITIVE_BONUS.get(i, 0) * n for i, n in enumerate(counts))
-    return round(cscr - bonus, 2), float(cscr)
+    return float(scr), float(cscr)
 
 
 def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict

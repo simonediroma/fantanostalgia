@@ -129,12 +129,10 @@ def _b(**events) -> str:
 def test_scores_conversion():
     assert fc._scores({"scr": 56, "cscr": 100, "b": _b()}) == (None, None)
     assert fc._scores({"scr": 55, "cscr": 100, "b": _b()}) == (None, None)
-    # doppietta + ammonizione: senza bonus resta il malus
-    assert fc._scores({"scr": 7, "cscr": 12.5, "b": _b(i2=2, i0=1)}) == (6.5, 12.5)
-    # rigore segnato conta sia come gol (2) sia come rigore (6)
-    assert fc._scores({"scr": 7, "cscr": 13, "b": _b(i2=1, i6=1)}) == (7.0, 13.0)
-    # portiere: 2 gol subiti, nessun bonus
-    assert fc._scores({"scr": 6, "cscr": 4, "b": _b(i3=2)}) == (4.0, 4.0)
+    # voto senza bonus = voto in pagella (scr), senza malus: doppietta + ammonizione
+    assert fc._scores({"scr": 7, "cscr": 12.5, "b": _b(i2=2, i0=1)}) == (7.0, 12.5)
+    # portiere con 2 gol subiti: resta il voto in pagella
+    assert fc._scores({"scr": 6, "cscr": 4, "b": _b(i3=2)}) == (6.0, 4.0)
 
 
 def _match(home_tid, away_tid, home_players, away_players):
@@ -223,7 +221,7 @@ def test_import_lineups_saves_like_excel(client, import_setup):
             " WHERE l.league_id = ? AND l.matchday = 1 ORDER BY pc.name", (lid,)).fetchall()
         h2h = conn.execute("SELECT manager_home_id, manager_away_id FROM h2h_match"
                            " WHERE league_id = ? AND matchday = 1", (lid,)).fetchall()
-    assert [tuple(r) for r in rows] == [("Rossi A.", 1, 7.0, 10.0), ("Verdi C.", 1, 5.0, 5.0)]
+    assert [tuple(r) for r in rows] == [("Rossi A.", 1, 7.0, 10.0), ("Verdi C.", 1, 5.5, 5.0)]
     assert [tuple(h) for h in h2h] == [(ids["Casa"], ids["Ospite"])]
     assert "/gaming/v1/teamLineup/5/1/5/10/20" in calls
 
