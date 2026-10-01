@@ -528,7 +528,7 @@ def test_save_lineups_warns_when_player_in_other_roster(client, setup):
                          (mgrs[0]["id"],)).fetchone()
         out = save_lineups(conn, league_id, 9, [{"manager": mgrs[1]["team_name"], "player": p["name"],
                                                   "is_starter": 1}], [], [])
-    assert any("ma in rosa a" in w for w in out["warnings"])
+    assert any("rilancia la sync rose" in w for w in out["warnings"])
 
 
 def test_classifica_shows_team_name(client, login):

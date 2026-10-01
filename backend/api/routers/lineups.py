@@ -238,12 +238,29 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
 
     # Build lookup: name.lower() -> player_current_id per i giocatori della lega
     players = conn.execute(
-        "SELECT id, name, manager_id FROM player_current WHERE league_id = ?",
+        "SELECT id, name, manager_id, fc_id FROM player_current WHERE league_id = ?",
         (league_id,),
     ).fetchall()
     player_map: dict[str, dict] = {
         p["name"].strip().lower(): {"id": p["id"], "manager_id": p["manager_id"]}
         for p in players
+    }
+    fc_map = {p["fc_id"]: {"id": p["id"], "manager_id": p["manager_id"]}
+              for p in players if p["fc_id"] is not None}
+
+    # Avvisi "non in rosa" solo per la giornata più recente: le formazioni passate
+    # contengono legittimamente giocatori poi ceduti.
+    last = conn.execute("SELECT MAX(matchday) AS m FROM lineup WHERE league_id = ?",
+                        (league_id,)).fetchone()["m"]
+    is_current = last is None or matchday >= last
+    # Alter ego già congelati per questa giornata: un reimport non riscrive lo storico
+    frozen = {
+        r["player_current_id"]: r["alter_ego_id"]
+        for r in conn.execute(
+            "SELECT player_current_id, alter_ego_id FROM lineup"
+            " WHERE league_id = ? AND matchday = ? AND alter_ego_frozen = 1",
+            (league_id, matchday),
+        )
     }
 
     # Build lookup: team_name (pivot) or manager name (case-insensitive) -> manager_id.
@@ -283,19 +300,17 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
             )
             continue
 
-        player_info = player_map.get(player_name_key)
+        player_info = fc_map.get(row.get("fc_id")) or player_map.get(player_name_key)
         if player_info is None and row.get("role"):
-            # Import Fantacalcio: giocatore acquistato dopo il listone → in rosa a chi lo schiera
+            # Import Fantacalcio: giocatore assente dall'anagrafica → lo crea senza squadra.
+            # La rosa la decide solo la sync rose.
             cur = conn.execute(
-                "INSERT INTO player_current (league_id, name, role, team, manager_id)"
-                " VALUES (?, ?, ?, '', ?)",
-                (league_id, row["player"].strip(), row["role"], manager_id),
+                "INSERT INTO player_current (league_id, name, role, team, manager_id, fc_id)"
+                " VALUES (?, ?, ?, '', NULL, ?)",
+                (league_id, row["player"].strip(), row["role"], row.get("fc_id")),
             )
-            player_info = {"id": cur.lastrowid, "manager_id": manager_id}
+            player_info = {"id": cur.lastrowid, "manager_id": None}
             player_map[player_name_key] = player_info
-            warnings.append(
-                f"Giocatore '{row['player']}' ({row['role']}) aggiunto alla rosa di {team_label[manager_id]}"
-            )
         if player_info is None:
             warnings.append(
                 f"Giocatore '{row['player']}' non trovato nella rosa di {row['manager']} — saltato"
@@ -303,26 +318,29 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
             continue
 
         owner_id = player_info["manager_id"]
-        if owner_id is not None and owner_id != manager_id:
+        if is_current and owner_id != manager_id:
             warnings.append(
-                f"Giocatore '{row['player']}' in formazione di {team_label[manager_id]}"
-                f" ma in rosa a {team_label.get(owner_id, owner_id)}"
+                f"{row['player']} schierato da {team_label[manager_id]} ma non nella sua rosa"
+                + (f" (in rosa a {team_label.get(owner_id, owner_id)})" if owner_id else "")
+                + ": rilancia la sync rose"
             )
 
+        pcid = player_info["id"]
         to_insert.append((
-            league_id, manager_id, matchday, player_info["id"],
+            league_id, manager_id, matchday, pcid,
             row["is_starter"],
             row.get("score_no_bonus"),
             row.get("score_bonus"),
             locked_at,
+            frozen.get(pcid), 1 if pcid in frozen else 0,
         ))
         managers_imported.add(manager_id)
 
     conn.executemany(
         "INSERT INTO lineup"
         " (league_id, manager_id, matchday, player_current_id, is_starter,"
-        "  score_no_bonus, score_bonus, locked_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "  score_no_bonus, score_bonus, locked_at, alter_ego_id, alter_ego_frozen)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         to_insert,
     )
 

@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from backend.api import fantacalcio as fc
 from backend.api.db import get_db
 from backend.api.routers.lineups import save_lineups
+from backend.engine.rosters import RosterSyncError, sync_rosters
 from backend.api.routers.auth import (
     USER_COOKIE_NAME,
     _verify_user_session_cookie,
@@ -176,6 +177,7 @@ def import_lineups_from_fantacalcio(
     team_names = {t.get("id"): (t.get("n") or t.get("name") or "").strip()
                   for t in _call(fc.teams, token, body.competition_id)}
     fc_players = _call(fc.players, token)
+    roster_sync = _sync_rosters(league_id, token, fc_players)
     player_names = {p.get("id"): p.get("name") for p in fc_players}
     player_roles = {p.get("id"): fc.FC_ROLES.get(p.get("fcrle")) for p in fc_players}
     lineups = [
@@ -185,4 +187,40 @@ def import_lineups_from_fantacalcio(
     ]
     rows, warnings, pairings = fc.lineup_rows(lineups, team_names, player_names, player_roles)
     with get_db() as conn:
-        return save_lineups(conn, league_id, matchday, rows, warnings, pairings)
+        result = save_lineups(conn, league_id, matchday, rows, warnings, pairings)
+    return {**result, "roster_sync": roster_sync}
+
+
+def _sync_rosters(league_id: int, token: str, fc_players: list[dict], force: bool = False) -> dict:
+    """Sync rose prima dell'import: se fallisce l'import va avanti e l'errore va nel riepilogo."""
+    try:
+        teams, total = fc.league_teams(token)
+        with get_db() as conn:
+            return sync_rosters(conn, league_id, teams, total, fc_players)
+    except (RosterSyncError, fc.FantacalcioError, requests.RequestException) as exc:
+        return {"error": str(exc)}
+
+
+class RosterSyncBody(BaseModel):
+    fc_league: str
+    force: bool = False
+
+
+@router.post("/admin/league/{league_id}/rosters/fantacalcio")
+def sync_rosters_from_fantacalcio(
+    league_id: int,
+    body: RosterSyncBody,
+    _: str = Depends(get_current_admin),
+    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
+):
+    """Allinea le rose a Leghe Fantacalcio: acquisti, spostamenti, svincoli."""
+    token = _league_token(user_session, body.fc_league)
+    fc_players = _call(fc.players, token)
+    teams, total = _call(fc.league_teams, token)
+    with get_db() as conn:
+        if conn.execute("SELECT 1 FROM league WHERE id = ?", (league_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Lega non trovata")
+        try:
+            return sync_rosters(conn, league_id, teams, total, fc_players, force=body.force)
+        except RosterSyncError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))

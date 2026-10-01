@@ -26,3 +26,7 @@ async function apiFantacalcioCalendar(league, competitionId) {
 async function apiImportLineupsFromFantacalcio(leagueId, matchday, body) {
   return jsonPost(`/admin/league/${leagueId}/lineups/${matchday}/fantacalcio`, body);
 }
+
+async function apiSyncRostersFromFantacalcio(leagueId, body) {
+  return jsonPost(`/admin/league/${leagueId}/rosters/fantacalcio`, body);
+}

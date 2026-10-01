@@ -151,7 +151,7 @@ def test_lineup_rows_maps_teams_players_and_pairings():
                                               {1: "Rossi A.", 2: "Bianchi B.", 3: "Verdi C."})
     assert pairings == [("Casa FC", "Ospite FC")]
     assert rows[0] == {"manager": "Casa FC", "player": "Rossi A.", "is_starter": 1,
-                       "score_no_bonus": 7.0, "score_bonus": 10.0}
+                       "score_no_bonus": 7.0, "score_bonus": 10.0, "fc_id": 1}
     assert rows[1]["is_starter"] == 0 and rows[1]["score_bonus"] is None
     assert [r["player"] for r in rows] == ["Rossi A.", "Bianchi B.", "Verdi C."]
     assert any("999" in w for w in warnings)
@@ -198,7 +198,11 @@ def import_setup(client, coach, monkeypatch):
         if path == "/onboarding/v1/league/competition/teams":
             return {"nextPage": False, "data": [{"id": 10, "n": "Casa FC "}, {"id": 20, "n": "OSPITE FC"}]}
         if path == "/onboarding/v1/league/players":
-            return {"players": [{"id": 1, "name": "Rossi A."}, {"id": 3, "name": "Verdi C."}]}
+            return {"players": [{"id": 1, "name": "Rossi A.", "fcrle": 4}, {"id": 3, "name": "Verdi C.", "fcrle": 4}]}
+        if path == "/onboarding/v1/league/teams":
+            return {"nextPage": False, "item": 2, "data": [
+                {"id": 10, "n": "Casa FC", "cal": "1", "cs": "12", "r": {"p": 0, "d": 0, "c": 0, "a": 1}},
+                {"id": 20, "n": "Ospite FC", "cal": "3", "cs": "8", "r": {"p": 0, "d": 0, "c": 0, "a": 1}}]}
         if path == "/gaming/v1/teamLineup/5/1/5/10/20":
             return _match(10, 20, [{"pid": 1, "scr": 7, "cscr": 10, "b": _b(i2=1)}],
                           [{"pid": 3, "scr": 5.5, "cscr": 5, "b": _b(i0=1)}])
@@ -224,6 +228,8 @@ def test_import_lineups_saves_like_excel(client, import_setup):
     assert [tuple(r) for r in rows] == [("Rossi A.", 1, 7.0, 10.0), ("Verdi C.", 1, 5.5, 5.0)]
     assert [tuple(h) for h in h2h] == [(ids["Casa"], ids["Ospite"])]
     assert "/gaming/v1/teamLineup/5/1/5/10/20" in calls
+    # La sync rose parte prima dell'import: rose già allineate, nessuna modifica
+    assert r.json()["roster_sync"] == {"added": [], "moved": [], "released": [], "realign": []}
 
 
 def test_import_lineups_rejects_uncalculated_or_missing_day(client, import_setup):
@@ -252,8 +258,9 @@ def test_elevated_user_can_use_matchday_admin_endpoints(client, coach):
     assert client.get(f"/admin/league/{lid}/matchdays").status_code == 200
 
 
-def test_import_adds_player_missing_from_listone(client, import_setup, monkeypatch):
-    """Giocatore acquistato dopo il listone: entra nella rosa della squadra che lo schiera."""
+def test_import_never_writes_rosters(client, import_setup, monkeypatch):
+    """Giocatore sconosciuto: creato in anagrafica senza squadra, formazione salvata,
+    avviso per rilanciare la sync rose. La rosa non cambia, anche reimportando."""
     lid, ids, _ = import_setup
     base_get = fc.get
 
@@ -261,6 +268,8 @@ def test_import_adds_player_missing_from_listone(client, import_setup, monkeypat
         if path == "/onboarding/v1/league/players":
             return {"players": [{"id": 1, "name": "Rossi A.", "fcrle": 4}, {"id": 3, "name": "Verdi C.", "fcrle": 4},
                                 {"id": 4, "name": "Nuovo P.", "fcrle": 1}]}
+        if path == "/onboarding/v1/league/teams":
+            raise fc.FantacalcioError(500, None, "down", path)
         if path == "/gaming/v1/teamLineup/5/1/5/10/20":
             return _match(10, 20, [{"pid": 4, "scr": 6.5, "cscr": 5.5, "b": _b()},
                                    {"pid": 1, "scr": 7, "cscr": 10, "b": _b(i2=1)}],
@@ -268,22 +277,38 @@ def test_import_adds_player_missing_from_listone(client, import_setup, monkeypat
         return base_get(path, token, params, headers)
 
     monkeypatch.setattr(fc, "get", fake_get)
-    r = client.post(f"/admin/league/{lid}/lineups/1/fantacalcio",
-                    json={"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1})
+    body = {"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1}
+    r = client.post(f"/admin/league/{lid}/lineups/1/fantacalcio", json=body)
     assert r.status_code == 200, r.text
-    assert any("Nuovo P." in w and "aggiunto alla rosa" in w for w in r.json()["warnings"])
+    res = r.json()
+    assert res["roster_sync"]["error"]  # sync fallita: l'import va avanti e lo segnala
+    assert any("Nuovo P." in w and "rilancia la sync rose" in w for w in res["warnings"])
+    client.post(f"/admin/league/{lid}/lineups/1/fantacalcio", json=body)
     with get_db() as conn:
-        p = conn.execute("SELECT id, role, manager_id FROM player_current WHERE league_id = ? AND name = 'Nuovo P.'",
-                         (lid,)).fetchone()
-        lu = conn.execute("SELECT manager_id, is_starter, score_no_bonus FROM lineup"
-                          " WHERE league_id = ? AND matchday = 1 AND player_current_id = ?", (lid, p["id"])).fetchone()
-    assert (p["role"], p["manager_id"]) == ("P", ids["Casa"])
-    assert tuple(lu) == (ids["Casa"], 1, 6.5)
+        ps = conn.execute("SELECT id, role, manager_id, fc_id FROM player_current"
+                          " WHERE league_id = ? AND name = 'Nuovo P.'", (lid,)).fetchall()
+        lu = conn.execute("SELECT manager_id, score_no_bonus FROM lineup"
+                          " WHERE league_id = ? AND matchday = 1 AND player_current_id = ?",
+                          (lid, ps[0]["id"])).fetchone()
+    assert len(ps) == 1 and (ps[0]["role"], ps[0]["manager_id"], ps[0]["fc_id"]) == ("P", None, 4)
+    assert tuple(lu) == (ids["Casa"], 6.5)
 
-    # Reimport: nessun duplicato
-    client.post(f"/admin/league/{lid}/lineups/1/fantacalcio",
-                json={"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1})
-    with get_db() as conn:
-        n = conn.execute("SELECT COUNT(*) FROM player_current WHERE league_id = ? AND name = 'Nuovo P.'",
-                         (lid,)).fetchone()[0]
-    assert n == 1
+
+def test_roster_sync_endpoint(client, import_setup, monkeypatch):
+    lid, ids, _ = import_setup
+    base_get = fc.get
+    teams = {"nextPage": False, "item": 2, "data": [
+        {"id": 10, "n": "Casa FC", "cal": "1;3", "cs": "12;8", "r": {"p": 0, "d": 0, "c": 0, "a": 2}},
+        {"id": 20, "n": "Ospite FC", "cal": "", "cs": "", "r": {"p": 0, "d": 0, "c": 0, "a": 0}}]}
+    monkeypatch.setattr(fc, "get", lambda path, token, params=None, headers=None:
+                        teams if path == "/onboarding/v1/league/teams" else base_get(path, token, params, headers))
+    url = f"/admin/league/{lid}/rosters/fantacalcio"
+    r = client.post(url, json={"fc_league": "mia-lega"})
+    assert r.status_code == 409 and "Rosa vuota" in r.json()["detail"]
+
+    teams["data"][1].update(cal="", r={})
+    teams["data"] = teams["data"][:1]
+    teams["item"] = 1
+    r = client.post(url, json={"fc_league": "mia-lega"})
+    assert r.status_code == 200, r.text
+    assert r.json()["moved"] == ["Verdi C.: Ospite FC → Casa FC"]
