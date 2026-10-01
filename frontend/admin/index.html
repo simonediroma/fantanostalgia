@@ -1835,7 +1835,7 @@ async function loadGtFantacalcio() {
             });
             gtFcSavePrefs({ league: leagueSel.value, competition: compSel.value });
             let msg = `Formazioni G${matchday} importate da Fantacalcio — manager: ${res.managers_imported}.`;
-            if (res.warnings?.length) msg += ` Avvisi (${res.warnings.length}): ${res.warnings.slice(0, 5).join(' · ')}`;
+            if (res.warnings?.length) msg += ` Avvisi (${res.warnings.length}): ${res.warnings.join(' · ')}`;
             showMsg('giornateListMsg', msg, res.warnings?.length > 0);
             await loadGiornateList();
           } catch (err) {

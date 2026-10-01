@@ -175,9 +175,15 @@ def _scores(p: dict) -> tuple[float | None, float | None]:
     return float(scr), float(cscr)
 
 
-def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict
+FC_ROLES = {1: "P", 2: "D", 3: "C", 4: "A"}
+
+
+def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict,
+                player_roles: dict | None = None
                 ) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
-    """Converte le risposte teamLineup di una giornata nel formato del parser Excel."""
+    """Converte le risposte teamLineup di una giornata nel formato del parser Excel.
+    `player_roles` (pid → P/D/C/A) aggiunge `role` alle righe: serve a save_lineups
+    per inserire in rosa i giocatori acquistati dopo l'import del listone."""
     rows, warnings, pairings = [], [], []
     for match in lineups:
         names = []
@@ -196,8 +202,12 @@ def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict
                         warnings.append(f"Giocatore Fantacalcio {p.get('pid')} non in anagrafica — saltato")
                         continue
                     no_bonus, with_bonus = _scores(p)
-                    rows.append({"manager": tname, "player": pname, "is_starter": is_starter,
-                                 "score_no_bonus": no_bonus, "score_bonus": with_bonus})
+                    row = {"manager": tname, "player": pname, "is_starter": is_starter,
+                           "score_no_bonus": no_bonus, "score_bonus": with_bonus}
+                    role = (player_roles or {}).get(p.get("pid"))
+                    if role:
+                        row["role"] = role
+                    rows.append(row)
         if all(names):
             pairings.append((names[0], names[1]))
     return rows, warnings, pairings

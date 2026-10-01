@@ -175,12 +175,14 @@ def import_lineups_from_fantacalcio(
 
     team_names = {t.get("id"): (t.get("n") or t.get("name") or "").strip()
                   for t in _call(fc.teams, token, body.competition_id)}
-    player_names = {p.get("id"): p.get("name") for p in _call(fc.players, token)}
+    fc_players = _call(fc.players, token)
+    player_names = {p.get("id"): p.get("name") for p in fc_players}
+    player_roles = {p.get("id"): fc.FC_ROLES.get(p.get("fcrle")) for p in fc_players}
     lineups = [
         _call(fc.team_lineup, token, body.competition_id, day["matchDay"],
               day["championshipMatchDay"], m["tIdH"], m["tIdA"])
         for m in day.get("matches") or []
     ]
-    rows, warnings, pairings = fc.lineup_rows(lineups, team_names, player_names)
+    rows, warnings, pairings = fc.lineup_rows(lineups, team_names, player_names, player_roles)
     with get_db() as conn:
         return save_lineups(conn, league_id, matchday, rows, warnings, pairings)

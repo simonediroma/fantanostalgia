@@ -250,3 +250,40 @@ def test_elevated_user_can_use_matchday_admin_endpoints(client, coach):
     with get_db() as conn:
         conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (coach,))
     assert client.get(f"/admin/league/{lid}/matchdays").status_code == 200
+
+
+def test_import_adds_player_missing_from_listone(client, import_setup, monkeypatch):
+    """Giocatore acquistato dopo il listone: entra nella rosa della squadra che lo schiera."""
+    lid, ids, _ = import_setup
+    base_get = fc.get
+
+    def fake_get(path, token, params=None, headers=None):
+        if path == "/onboarding/v1/league/players":
+            return {"players": [{"id": 1, "name": "Rossi A.", "fcrle": 4}, {"id": 3, "name": "Verdi C.", "fcrle": 4},
+                                {"id": 4, "name": "Nuovo P.", "fcrle": 1}]}
+        if path == "/gaming/v1/teamLineup/5/1/5/10/20":
+            return _match(10, 20, [{"pid": 4, "scr": 6.5, "cscr": 5.5, "b": _b()},
+                                   {"pid": 1, "scr": 7, "cscr": 10, "b": _b(i2=1)}],
+                          [{"pid": 3, "scr": 5.5, "cscr": 5, "b": _b(i0=1)}])
+        return base_get(path, token, params, headers)
+
+    monkeypatch.setattr(fc, "get", fake_get)
+    r = client.post(f"/admin/league/{lid}/lineups/1/fantacalcio",
+                    json={"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1})
+    assert r.status_code == 200, r.text
+    assert any("Nuovo P." in w and "aggiunto alla rosa" in w for w in r.json()["warnings"])
+    with get_db() as conn:
+        p = conn.execute("SELECT id, role, manager_id FROM player_current WHERE league_id = ? AND name = 'Nuovo P.'",
+                         (lid,)).fetchone()
+        lu = conn.execute("SELECT manager_id, is_starter, score_no_bonus FROM lineup"
+                          " WHERE league_id = ? AND matchday = 1 AND player_current_id = ?", (lid, p["id"])).fetchone()
+    assert (p["role"], p["manager_id"]) == ("P", ids["Casa"])
+    assert tuple(lu) == (ids["Casa"], 1, 6.5)
+
+    # Reimport: nessun duplicato
+    client.post(f"/admin/league/{lid}/lineups/1/fantacalcio",
+                json={"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1})
+    with get_db() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM player_current WHERE league_id = ? AND name = 'Nuovo P.'",
+                         (lid,)).fetchone()[0]
+    assert n == 1

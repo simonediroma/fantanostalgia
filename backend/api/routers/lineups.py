@@ -284,6 +284,18 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
             continue
 
         player_info = player_map.get(player_name_key)
+        if player_info is None and row.get("role"):
+            # Import Fantacalcio: giocatore acquistato dopo il listone → in rosa a chi lo schiera
+            cur = conn.execute(
+                "INSERT INTO player_current (league_id, name, role, team, manager_id)"
+                " VALUES (?, ?, ?, '', ?)",
+                (league_id, row["player"].strip(), row["role"], manager_id),
+            )
+            player_info = {"id": cur.lastrowid, "manager_id": manager_id}
+            player_map[player_name_key] = player_info
+            warnings.append(
+                f"Giocatore '{row['player']}' ({row['role']}) aggiunto alla rosa di {team_label[manager_id]}"
+            )
         if player_info is None:
             warnings.append(
                 f"Giocatore '{row['player']}' non trovato nella rosa di {row['manager']} — saltato"
