@@ -98,7 +98,7 @@ def classifica(request: Request, league_id: int):
 
         rows = conn.execute(
             """
-            SELECT m.name AS manager,
+            SELECT COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager,
                    s.total_score_normal    AS total_normal,
                    s.total_score_nostalgia AS total_nostalgia,
                    s.rank_normal,
@@ -125,8 +125,8 @@ def classifica(request: Request, league_id: int):
         h2h_matches = conn.execute(
             """
             SELECT h.matchday,
-                   mh.name AS home_manager,
-                   ma.name AS away_manager,
+                   COALESCE(NULLIF(TRIM(mh.team_name), ''), mh.name) AS home_manager,
+                   COALESCE(NULLIF(TRIM(ma.team_name), ''), ma.name) AS away_manager,
                    ms_h.score_nostalgia AS home_score,
                    ms_a.score_nostalgia AS away_score
             FROM h2h_match h

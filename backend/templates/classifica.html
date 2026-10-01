@@ -33,7 +33,7 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Manager</th>
+          <th>Squadra</th>
           <th>Totale</th>
           <th>Ultima giornata</th>
         </tr>
@@ -42,7 +42,7 @@
         {% for row in nostalgia %}
         <tr>
           <td class="rank" data-label="#">{{ row.rank or '—' }}</td>
-          <td data-label="Manager">{{ row.manager }}</td>
+          <td data-label="Squadra">{{ row.manager }}</td>
           <td class="total" data-label="Totale">{{ '%.1f'|format(row.total or 0) }}</td>
           <td class="score" data-label="Ultima giornata">
             {% if row.last_matchday is not none %}
@@ -66,7 +66,7 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Manager</th>
+          <th>Squadra</th>
           <th>Totale</th>
           <th>Ultima giornata</th>
         </tr>
@@ -75,7 +75,7 @@
         {% for row in normal %}
         <tr>
           <td class="rank" data-label="#">{{ row.rank or '—' }}</td>
-          <td data-label="Manager">{{ row.manager }}</td>
+          <td data-label="Squadra">{{ row.manager }}</td>
           <td class="total" data-label="Totale">{{ '%.1f'|format(row.total or 0) }}</td>
           <td class="score" data-label="Ultima giornata">
             {% if row.last_matchday is not none %}
@@ -99,7 +99,7 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Manager</th>
+          <th>Squadra</th>
           <th title="Partite giocate">G</th>
           <th title="Vittorie">V</th>
           <th title="Pareggi">P</th>
@@ -114,7 +114,7 @@
         {% for row in h2h %}
         <tr>
           <td class="rank" data-label="#">{{ row.rank }}</td>
-          <td data-label="Manager">{{ row.manager }}</td>
+          <td data-label="Squadra">{{ row.manager }}</td>
           <td data-label="Giocate">{{ row.played }}</td>
           <td data-label="Vittorie">{{ row.wins }}</td>
           <td data-label="Pareggi">{{ row.draws }}</td>

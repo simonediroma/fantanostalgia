@@ -529,3 +529,27 @@ def test_save_lineups_warns_when_player_in_other_roster(client, setup):
         out = save_lineups(conn, league_id, 9, [{"manager": mgrs[1]["team_name"], "player": p["name"],
                                                   "is_starter": 1}], [], [])
     assert any("ma in rosa a" in w for w in out["warnings"])
+
+
+def test_classifica_shows_team_name(client, login):
+    from backend.api.db import get_db
+
+    r = client.post("/admin/league", json={"name": "ClassificaSquadre", "season_current": "2024/25",
+                                           "season_historic": "2003/04", "budget": 500})
+    league_id = r.json()["id"]
+    with get_db() as conn:
+        a = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Simone', 'Real Tuan')",
+                         (league_id,)).lastrowid
+        b = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Paolo', 'Atletico Ma Non Troppo')",
+                         (league_id,)).lastrowid
+        for mid in (a, b):
+            conn.execute("INSERT INTO standings (league_id, manager_id, total_score_normal, total_score_nostalgia,"
+                         " rank_normal, rank_nostalgia) VALUES (?, ?, 0, 0, 1, 1)", (league_id, mid))
+        conn.execute("INSERT INTO h2h_match (league_id, matchday, manager_home_id, manager_away_id)"
+                     " VALUES (?, 1, ?, ?)", (league_id, a, b))
+
+    html = client.get(f"/lega/{league_id}/classifica").text
+    assert "Real Tuan" in html and "Atletico Ma Non Troppo" in html
+    assert "Simone" not in html and "Paolo" not in html
+    csv_text = client.get(f"/league/{league_id}/classifica/export.csv").text
+    assert "Real Tuan" in csv_text and "Simone" not in csv_text
