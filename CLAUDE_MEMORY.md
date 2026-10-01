@@ -5,6 +5,8 @@
 **Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
 **PR in corso:** nessuna. [#114](https://github.com/simonediroma/fantanostalgia/pull/114) (collegamento + import Fantacalcio) mergiata in `main` (`88b3670`); branch ripartito da `main` per il fix sotto.
 
+**Sessione 2026-10-01 — Grafica email allineata al sito (richiesto in chat):** `_layout` in `backend/api/notifications.py` ora usa la palette 8-bit dei token (sfondo `#050510`, pannello `#0d0d2b` bordo `#3333aa`, titolo e bottone giallo `#ffe600` con testo scuro e ombra pixel, font Press Start 2P con fallback Courier New) al posto del verde `#1a7a3c`. Struttura a tabelle con `bgcolor` per compatibilità client email. Tutti i template ereditano il layout. Test notifiche/password: 34 passed; anteprima verificata con screenshot Chromium.
+
 **Sessione 2026-09-30 (sera) — Collegamento Leghe Fantacalcio via API non ufficiale, fase 1 (richiesto in chat):**
 Contesto: fantacalcio.it potrebbe aver tolto l'export Excel delle formazioni. Ipotesi discusse in chat: file voti pubblico + formazioni via copia-incolla (le formazioni sono su più pagine), screenshot letti da Claude (fallback), API interna `apileague.fantacalcio.it`. L'utente ha fornito un client Python e una spec (pensata per un'altra app: Neon/servizio separato) ricavati dal bundle JS del sito: auth = header `app_key` pubblica + Bearer JWT (user JWT → `/onboarding/v2/profile` → `leghe[i].jwt` di lega), validità ~1 anno. Endpoint verificati dall'utente: status, competitions, calendar/{competitionId}, competition/teams, settings. **Nessun endpoint noto per formazioni/voti per giocatore** (solo un indizio non verificato: `gaming/v1/teamLineup/visualizza/...`).
 

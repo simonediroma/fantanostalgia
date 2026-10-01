@@ -46,16 +46,32 @@ def send_email(to: str, subject: str, html: str) -> None:
 
 
 def _layout(title: str, body_html: str, cta_label: str, cta_url: str) -> str:
+    # Stessa palette 8-bit del sito (frontend/shared/tokens). Stili inline e tabella
+    # con bgcolor perché i client email ignorano CSS esterno e spesso i <div> di sfondo.
+    pixel = "'Press Start 2P','Courier New',monospace"
     return f"""
-    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#222;">
-      <h2 style="color:#1a7a3c;">{title}</h2>
-      {body_html}
-      <p style="margin:24px 0;">
-        <a href="{cta_url}" style="background:#1a7a3c;color:#fff;padding:12px 20px;
-           text-decoration:none;border-radius:4px;font-weight:bold;">{cta_label}</a>
-      </p>
-      <p style="margin-top:32px;font-size:12px;color:#888;">FantaNostalgia</p>
-    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#050510"
+           style="background:#050510;">
+      <tr><td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d0d2b"
+               style="max-width:520px;background:#0d0d2b;border:2px solid #3333aa;">
+          <tr><td style="padding:24px;font-family:'Courier New',monospace;font-size:15px;
+                         line-height:1.5;color:#ffffff;">
+            <h2 style="font-family:{pixel};font-size:16px;line-height:1.4;color:#ffe600;
+                       margin:0 0 16px;text-transform:uppercase;">{title}</h2>
+            {body_html}
+            <p style="margin:24px 0;">
+              <a href="{cta_url}" style="display:inline-block;background:#ffe600;color:#050510;
+                 border:2px solid #ffe600;box-shadow:2px 2px 0 #000;padding:12px 18px;
+                 font-family:{pixel};font-size:11px;text-transform:uppercase;
+                 letter-spacing:0.08em;text-decoration:none;">{cta_label}</a>
+            </p>
+            <p style="margin:32px 0 0;font-family:{pixel};font-size:10px;color:#7777aa;">
+              FantaNostalgia</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
     """
 
 
@@ -183,7 +199,7 @@ def render_test_email(base_url: str) -> tuple[str, str]:
         "Email di prova",
         "<p>Se leggi questo messaggio, l'invio email di FantaNostalgia è configurato "
         "correttamente.</p>"
-        f"<p style=\"font-size:12px;color:#888;\">Mittente configurato: {EMAIL_FROM}</p>",
+        f"<p style=\"font-size:12px;color:#7777aa;\">Mittente configurato: {EMAIL_FROM}</p>",
         "Vai al pannello admin",
         f"{base_url}/admin/",
     )
