@@ -14,3 +14,15 @@ async function apiFantacalcioExplore(league, path) {
   const qs = new URLSearchParams({ league, path });
   return apiFetch(`/admin/fantacalcio/explore?${qs}`);
 }
+
+async function apiFantacalcioCompetitions(league) {
+  return apiFetch(`/admin/fantacalcio/${encodeURIComponent(league)}/competitions`);
+}
+
+async function apiFantacalcioCalendar(league, competitionId) {
+  return apiFetch(`/admin/fantacalcio/${encodeURIComponent(league)}/calendar/${competitionId}`);
+}
+
+async function apiImportLineupsFromFantacalcio(leagueId, matchday, body) {
+  return jsonPost(`/admin/league/${leagueId}/lineups/${matchday}/fantacalcio`, body);
+}

@@ -441,6 +441,17 @@
         </div>
 
         <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Importa da Fantacalcio</h4>
+          <div class="ds-help-box ds-help-box--info">
+            <span class="ds-help-box__icon" aria-hidden="true">i</span>
+            <div class="ds-help-box__body">
+              <p class="ds-help-box__text">Scarica formazioni e voti di una giornata già calcolata su leghe.fantacalcio.it, con il token collegato al tuo utente. Sostituisce i dati della giornata come l'upload Excel.</p>
+            </div>
+          </div>
+          <div id="gtFcSlot" class="col-gap mt-sm"></div>
+        </div>
+
+        <div class="ds-panel ds-panel--default">
           <h4 class="ds-panel__title">Giornate caricate</h4>
           <div id="giornateList" class="mt-sm"></div>
         </div>
@@ -1715,7 +1726,121 @@ async function openGiornateTab() {
   const league = allLeagues.find(l => l.id === currentLeagueId);
   document.getElementById('giornateLegaNome').textContent = league ? `Giornate — ${league.name}` : 'Giornate';
   showPage('pg-giornate');
+  loadGtFantacalcio();
   await loadGiornateList();
+}
+
+// Import formazioni da Leghe Fantacalcio. Le scelte (lega, competizione) sono
+// ricordate per lega FantaNostalgia in localStorage.
+function gtFcPrefs() {
+  try { return JSON.parse(localStorage.getItem(`fn_fc_${currentLeagueId}`)) || {}; } catch { return {}; }
+}
+function gtFcSavePrefs(prefs) {
+  try { localStorage.setItem(`fn_fc_${currentLeagueId}`, JSON.stringify(prefs)); } catch { /* storage non disponibile */ }
+}
+
+function gtSelect(options, selected) {
+  const sel = document.createElement('select');
+  options.forEach(([value, label]) => {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    if (String(value) === String(selected)) o.selected = true;
+    sel.appendChild(o);
+  });
+  return sel;
+}
+
+async function loadGtFantacalcio() {
+  const slot = document.getElementById('gtFcSlot');
+  let st;
+  try {
+    st = await apiFantacalcioLink();
+  } catch (err) {
+    slot.replaceChildren(DS.HelpBox({ variant: 'warn', children: err.message }));
+    return;
+  }
+  if (!st || !st.connected || !st.leagues.length) {
+    slot.replaceChildren(DS.HelpBox({
+      variant: 'warn',
+      children: st && st.error ? st.error
+        : 'Per importare serve un account Fantacalcio collegato: accedi all\'admin con il tuo utente allenatore e collegalo da “Le mie leghe”.',
+    }));
+    return;
+  }
+
+  const prefs = gtFcPrefs();
+  const leagueSel = gtSelect(st.leagues.map(l => [l.alias || l.id, l.name || l.alias]), prefs.league);
+  const compSlot = document.createElement('div');
+  compSlot.className = 'col-gap';
+  slot.replaceChildren(leagueSel, compSlot);
+
+  async function loadCompetitions() {
+    compSlot.replaceChildren();
+    let comps;
+    try {
+      comps = await apiFantacalcioCompetitions(leagueSel.value);
+    } catch (err) {
+      showMsg('giornateListMsg', err.message, true);
+      return;
+    }
+    const compSel = gtSelect(comps.map(c => [c.id, c.name]), prefs.competition);
+    const daySlot = document.createElement('div');
+    daySlot.className = 'col-gap';
+    compSlot.replaceChildren(compSel, daySlot);
+
+    async function loadDays() {
+      daySlot.replaceChildren();
+      let days;
+      try {
+        days = (await apiFantacalcioCalendar(leagueSel.value, compSel.value)).filter(d => d.calculated);
+      } catch (err) {
+        showMsg('giornateListMsg', err.message, true);
+        return;
+      }
+      if (!days.length) {
+        daySlot.replaceChildren(DS.HelpBox({ children: 'Nessuna giornata calcolata in questa competizione.' }));
+        return;
+      }
+      const daySel = gtSelect(
+        days.map(d => [d.match_day, `Giornata ${d.match_day} (${d.championship_match_day}ª Serie A)`]),
+        days[days.length - 1].match_day,
+      );
+      const target = DS.Input({ label: 'Salva come giornata', id: 'gtFcTarget', type: 'number', value: daySel.value });
+      daySel.addEventListener('change', () => { target.querySelector('input').value = daySel.value; });
+      const btn = DS.Button({
+        children: 'Importa formazioni',
+        onClick: async () => {
+          const matchday = parseInt(target.querySelector('input').value);
+          if (!matchday) { showMsg('giornateListMsg', 'Indica la giornata in cui salvare.', true); return; }
+          btn.disabled = true;
+          try {
+            const res = await apiImportLineupsFromFantacalcio(currentLeagueId, matchday, {
+              fc_league: leagueSel.value,
+              competition_id: parseInt(compSel.value),
+              fc_match_day: parseInt(daySel.value),
+            });
+            gtFcSavePrefs({ league: leagueSel.value, competition: compSel.value });
+            let msg = `Formazioni G${matchday} importate da Fantacalcio — manager: ${res.managers_imported}.`;
+            if (res.warnings?.length) msg += ` Avvisi (${res.warnings.length}): ${res.warnings.slice(0, 5).join(' · ')}`;
+            showMsg('giornateListMsg', msg, res.warnings?.length > 0);
+            await loadGiornateList();
+          } catch (err) {
+            showMsg('giornateListMsg', err.message, true);
+          } finally {
+            btn.disabled = false;
+          }
+        },
+      });
+      daySlot.replaceChildren(daySel, target, btn);
+    }
+
+    compSel.addEventListener('change', loadDays);
+    await loadDays();
+  }
+
+  leagueSel.addEventListener('change', loadCompetitions);
+  await loadCompetitions();
 }
 
 document.getElementById('gtDropZoneSlot').appendChild(DS.DropZone({

@@ -1,7 +1,7 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-09-30
+**Ultima sessione:** 2026-10-01
 **Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
 **PR in corso:** nessuna aperta per questo branch. [#113](https://github.com/simonediroma/fantanostalgia/pull/113) mergiata in `main` (`de54946`).
 
@@ -16,11 +16,23 @@ Decisione utente: il token è **per utente FantaNostalgia**, non variabile d'amb
 
 **Test:** `backend/tests/test_fantacalcio.py` (8). Suite: 308 passed, restano solo i 3 fallimenti pre-esistenti di `test_scoring.py` (i 3 errori fbref spariscono installando `pytest-mock`). Verificato con Playwright (chromium in `/opt/pw-browsers/chromium`) contro uvicorn locale: collegamento token dal coach, pagina admin raggiunta con cookie coach elevato. Il sandbox blocca `apileague.fantacalcio.it` (proxy 403), quindi **nessuna chiamata reale verificata**: il primo test vero è in produzione (Cloud Run potrebbe essere bloccato dal WAF: se sì fermarsi e decidere con l'utente, niente aggiramenti).
 
+**Seguito (2026-10-01) — Import formazioni da Fantacalcio (fase 2):**
+L'utente ha fornito note di reverse engineering con l'endpoint formazioni: `GET /gaming/v1/teamLineup/{competitionId}/{matchDay}/{championshipMatchDay}/{tIdH}/{tIdA}` (league JWT), parametri tutti dal calendario. Giocatori solo per `pid` (join con `GET /onboarding/v1/league/players`, campo `name`), `scr` = voto, `cscr` = fantavoto, `scr` 55/56 + `cscr` 100 = s.v., `b` = 16 contatori eventi. Squadre: nome da `competition/teams` campo `n` (assunto, non verificato). Chi entra dalla panchina non è indicato: per noi irrilevante, lo scoring usa solo i titolari (come con l'Excel).
+
+Fatto:
+- `lineups.py`: estratta `save_lineups(conn, league_id, matchday, rows, warnings, pairings)` dall'upload Excel (stessa logica, incluso blocco Gran Premio risolto), riusata dall'import;
+- `fantacalcio.py`: `competitions/calendar/teams/players/team_lineup` + `lineup_rows` (JSON → righe del parser Excel). **Voto senza bonus** = `cscr` − bonus positivi `POSITIVE_BONUS = {2: +3 gol, 4: +3 rig. parato, 6: +3 rig. segnato, 12: +0,5 assist da fermo, 13: +1 assist}` (valori osservati nella lega dell'utente, non letti da `settings/calculate`): così i malus restano, anche quelli su indici non decodificati (es. autogol). Se la lega ha valori bonus diversi, `score_no_bonus` sarà sbagliato → possibile follow-up: leggere i valori da `bnMls`;
+- router: `GET /admin/fantacalcio/{league}/competitions`, `GET /admin/fantacalcio/{league}/calendar/{competition_id}`, `POST /admin/league/{id}/lineups/{matchday}/fantacalcio` body `{fc_league, competition_id, fc_match_day}` (404 giornata assente, 400 non calcolata);
+- UI tab Giornate: pannello "Importa da Fantacalcio" (lega → competizione → giornata calcolata → "Salva come giornata", default = matchDay della lega Fantacalcio), scelte ricordate in localStorage per lega;
+- **bug preesistente corretto**: `get_current_admin_or_bearer` (endpoint giornate/sorteggio/punteggi) accettava solo l'admin da env, quindi un utente elevato ad admin veniva sloggato aprendo il tab Giornate. Ora delega a `get_current_admin` (Bearer invariato).
+
+**Test:** `test_fantacalcio.py` 15 test (conversione voti: s.v. 55/56, doppietta, rigore segnato, gol subiti; mapping squadre/giocatori/pairing; import end-to-end con API finta; giornata non calcolata/assente; calendario; utente admin sugli endpoint giornate). Suite: 315 passed + i soliti 3 fallimenti di `test_scoring.py`. Verificato con Playwright contro uvicorn con API Fantacalcio finta: collegamento token → admin come utente → Giornate → import → giornata "Caricata" con 2 manager e avviso giocatore sconosciuto.
+
 ## Prossima sessione — inizia da qui (per questo task)
 
-1. Dopo il deploy: l'utente collega il proprio token e apre admin → Fantacalcio → "Stato". Se l'API risponde da Cloud Run, con l'esploratore trovare l'endpoint delle formazioni con voti (partire da DevTools sulla pagina formazioni, filtro `gaming`, e dal calendario per gli id partita).
-2. Con un JSON di esempio: fase 2 = bottone "Importa da Fantacalcio" nel tab Giornate che scrive `lineup` + `h2h_match` come l'import Excel (mapping squadre per `team_name`), l'upload Excel resta.
-3. Se l'API non basta o è bloccata: fallback = screenshot delle formazioni letti da Claude (ipotesi C).
+1. Dopo il deploy, primo test reale: l'utente collega il token, entra nell'admin **con l'account utente** (non con l'admin da env), Giornate → Importa. Se Cloud Run è bloccato dal WAF: fermarsi e decidere con l'utente.
+2. Verificare sui dati reali: nome squadra nel campo `n` di `competition/teams` = `manager.team_name`; nomi giocatori dell'anagrafica = nomi del listone importato; `score_no_bonus` coerente con il vecchio Excel (`Voto_no_bonus`).
+3. Fallback se l'API non va: screenshot letti da Claude (ipotesi C), upload Excel resta.
 
 ---
 

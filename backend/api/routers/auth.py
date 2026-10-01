@@ -79,6 +79,7 @@ def get_current_admin(
 
 def get_current_admin_or_bearer(
     session: str | None = Cookie(default=None, alias=COOKIE_NAME),
+    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
     authorization: str | None = Header(default=None),
 ) -> str:
     if authorization and authorization.startswith("Bearer "):
@@ -86,14 +87,7 @@ def get_current_admin_or_bearer(
         if token == SECRET_KEY:
             return "github-actions"
         raise HTTPException(status_code=401, detail="Bearer token non valido")
-    if session:
-        try:
-            return _verify_session_cookie(session)
-        except SignatureExpired:
-            raise HTTPException(status_code=401, detail="Sessione scaduta")
-        except BadSignature:
-            raise HTTPException(status_code=401, detail="Sessione non valida")
-    raise HTTPException(status_code=401, detail="Non autenticato")
+    return get_current_admin(session, user_session)
 
 
 def get_current_user(

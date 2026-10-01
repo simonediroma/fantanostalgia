@@ -126,3 +126,83 @@ def redact(value: Any) -> Any:
     if isinstance(value, str) and value.startswith("eyJ"):
         return "***"
     return value
+
+
+# ── Endpoint di lega (league JWT) ───────────────────────────────────────────
+
+def competitions(token: str) -> list[dict]:
+    return get("/onboarding/v1/league/competitions", token)
+
+
+def calendar(token: str, competition_id: int) -> list[dict]:
+    """[{matchDay, championshipMatchDay, calculated, matches: [{tIdH, tIdA, ...}]}]"""
+    return get(f"/onboarding/v1/league/competition/calendar/{competition_id}", token)
+
+
+def teams(token: str, competition_id: int) -> list[dict]:
+    out, page = [], 1
+    while True:
+        r = get("/onboarding/v1/league/competition/teams", token,
+                params={"page": page, "pageSize": 50, "competitionId": competition_id})
+        out += r.get("data", [])
+        if not r.get("nextPage"):
+            return out
+        page += 1
+
+
+def players(token: str) -> list[dict]:
+    """Anagrafica: id (= pid delle formazioni), name, fcrle (1=P 2=D 3=C 4=A)."""
+    return get("/onboarding/v1/league/players", token).get("players", [])
+
+
+def team_lineup(token: str, competition_id: int, match_day: int, championship_match_day: int,
+                home_id: int, away_id: int) -> dict:
+    return get(f"/gaming/v1/teamLineup/{competition_id}/{match_day}/{championship_match_day}"
+               f"/{home_id}/{away_id}", token)
+
+
+# ── Conversione formazioni → righe per lineups.save_lineups ─────────────────
+
+# Bonus positivi nell'array `b` (16 contatori eventi): indice → valore. Ricavati
+# dai dati reali (cscr - scr torna su tutte le righe osservate); gli indici non
+# elencati sono malus o mai osservati e restano quindi nel voto "senza bonus".
+POSITIVE_BONUS = {2: 3.0, 4: 3.0, 6: 3.0, 12: 0.5, 13: 1.0}
+NO_VOTE_THRESHOLD = 50  # scr 55/56 (con cscr 100) = senza voto
+
+
+def _scores(p: dict) -> tuple[float | None, float | None]:
+    """(voto senza bonus ma con malus, fantavoto) di un giocatore; (None, None) se s.v."""
+    scr, cscr = p.get("scr"), p.get("cscr")
+    if scr is None or cscr is None or scr >= NO_VOTE_THRESHOLD:
+        return None, None
+    counts = [int(x) for x in str(p.get("b") or "").split(";") if x.strip().lstrip("-").isdigit()]
+    bonus = sum(POSITIVE_BONUS.get(i, 0) * n for i, n in enumerate(counts))
+    return round(cscr - bonus, 2), float(cscr)
+
+
+def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict
+                ) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
+    """Converte le risposte teamLineup di una giornata nel formato del parser Excel."""
+    rows, warnings, pairings = [], [], []
+    for match in lineups:
+        names = []
+        for side in ("home", "away"):
+            team = match.get(side) or {}
+            tname = team_names.get(team.get("tid"))
+            if tname is None:
+                warnings.append(f"Squadra Fantacalcio {team.get('tid')} non trovata — saltata")
+                names.append(None)
+                continue
+            names.append(tname)
+            for slot, is_starter in (("starts", 1), ("bench", 0)):
+                for p in team.get(slot) or []:
+                    pname = player_names.get(p.get("pid"))
+                    if pname is None:
+                        warnings.append(f"Giocatore Fantacalcio {p.get('pid')} non in anagrafica — saltato")
+                        continue
+                    no_bonus, with_bonus = _scores(p)
+                    rows.append({"manager": tname, "player": pname, "is_starter": is_starter,
+                                 "score_no_bonus": no_bonus, "score_bonus": with_bonus})
+        if all(names):
+            pairings.append((names[0], names[1]))
+    return rows, warnings, pairings

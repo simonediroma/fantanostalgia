@@ -213,103 +213,110 @@ async def upload_lineups(
     except Exception:
         raise HTTPException(status_code=400, detail="File Excel non valido o corrotto")
 
-    locked_at = datetime.now(timezone.utc).isoformat()
-
     with get_db() as conn:
-        _require_league(conn, league_id)
+        return save_lineups(conn, league_id, matchday, rows, warnings, pairings)
 
-        resolved_gp = conn.execute(
-            "SELECT COUNT(*) AS c FROM gran_premio"
-            " WHERE league_id = ? AND matchday = ? AND status = 'resolved'",
-            (league_id, matchday),
-        ).fetchone()["c"]
-        if resolved_gp:
-            raise HTTPException(
-                status_code=400,
-                detail="Impossibile ricaricare le formazioni: un Gran Premio è già stato assegnato per questa giornata",
+
+def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
+                 warnings: list[str], pairings: list[tuple[str, str]]) -> dict:
+    """Sostituisce formazioni e scontri diretti di una giornata. Condiviso tra
+    upload Excel e import da Leghe Fantacalcio. Righe: manager, player,
+    is_starter, score_no_bonus, score_bonus."""
+    locked_at = datetime.now(timezone.utc).isoformat()
+    _require_league(conn, league_id)
+
+    resolved_gp = conn.execute(
+        "SELECT COUNT(*) AS c FROM gran_premio"
+        " WHERE league_id = ? AND matchday = ? AND status = 'resolved'",
+        (league_id, matchday),
+    ).fetchone()["c"]
+    if resolved_gp:
+        raise HTTPException(
+            status_code=400,
+            detail="Impossibile ricaricare le formazioni: un Gran Premio è già stato assegnato per questa giornata",
+        )
+
+    # Build lookup: name.lower() -> player_current_id per i giocatori della lega
+    players = conn.execute(
+        "SELECT id, name, manager_id FROM player_current WHERE league_id = ?",
+        (league_id,),
+    ).fetchall()
+    player_map: dict[str, dict] = {
+        p["name"].strip().lower(): {"id": p["id"], "manager_id": p["manager_id"]}
+        for p in players
+    }
+
+    # Build lookup: manager name or team_name (case-insensitive) -> manager_id
+    managers = conn.execute(
+        "SELECT id, name, team_name FROM manager WHERE league_id = ?", (league_id,)
+    ).fetchall()
+    manager_map: dict[str, int] = {}
+    for m in managers:
+        manager_map[m["name"].strip().lower()] = m["id"]
+        manager_map[m["team_name"].strip().lower()] = m["id"]
+
+    # Idempotent: cancella lineup e pairings esistenti per questa giornata
+    conn.execute(
+        "DELETE FROM lineup WHERE league_id = ? AND matchday = ?",
+        (league_id, matchday),
+    )
+    conn.execute(
+        "DELETE FROM h2h_match WHERE league_id = ? AND matchday = ?",
+        (league_id, matchday),
+    )
+
+    managers_imported: set[int] = set()
+    to_insert = []
+
+    for row in rows:
+        manager_name_key = row["manager"].strip().lower()
+        player_name_key = row["player"].strip().lower()
+
+        manager_id = manager_map.get(manager_name_key)
+        if manager_id is None:
+            warnings.append(
+                f"Manager '{row['manager']}' non trovato nella lega — riga saltata"
             )
+            continue
 
-        # Build lookup: name.lower() -> player_current_id per i giocatori della lega
-        players = conn.execute(
-            "SELECT id, name, manager_id FROM player_current WHERE league_id = ?",
-            (league_id,),
-        ).fetchall()
-        player_map: dict[str, dict] = {
-            p["name"].strip().lower(): {"id": p["id"], "manager_id": p["manager_id"]}
-            for p in players
-        }
+        player_info = player_map.get(player_name_key)
+        if player_info is None:
+            warnings.append(
+                f"Giocatore '{row['player']}' non trovato nella rosa di {row['manager']} — saltato"
+            )
+            continue
 
-        # Build lookup: manager name or team_name (case-insensitive) -> manager_id
-        managers = conn.execute(
-            "SELECT id, name, team_name FROM manager WHERE league_id = ?", (league_id,)
-        ).fetchall()
-        manager_map: dict[str, int] = {}
-        for m in managers:
-            manager_map[m["name"].strip().lower()] = m["id"]
-            manager_map[m["team_name"].strip().lower()] = m["id"]
+        to_insert.append((
+            league_id, manager_id, matchday, player_info["id"],
+            row["is_starter"],
+            row.get("score_no_bonus"),
+            row.get("score_bonus"),
+            locked_at,
+        ))
+        managers_imported.add(manager_id)
 
-        # Idempotent: cancella lineup e pairings esistenti per questa giornata
-        conn.execute(
-            "DELETE FROM lineup WHERE league_id = ? AND matchday = ?",
-            (league_id, matchday),
-        )
-        conn.execute(
-            "DELETE FROM h2h_match WHERE league_id = ? AND matchday = ?",
-            (league_id, matchday),
-        )
+    conn.executemany(
+        "INSERT INTO lineup"
+        " (league_id, manager_id, matchday, player_current_id, is_starter,"
+        "  score_no_bonus, score_bonus, locked_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        to_insert,
+    )
 
-        managers_imported: set[int] = set()
-        to_insert = []
-
-        for row in rows:
-            manager_name_key = row["manager"].strip().lower()
-            player_name_key = row["player"].strip().lower()
-
-            manager_id = manager_map.get(manager_name_key)
-            if manager_id is None:
-                warnings.append(
-                    f"Manager '{row['manager']}' non trovato nella lega — riga saltata"
-                )
-                continue
-
-            player_info = player_map.get(player_name_key)
-            if player_info is None:
-                warnings.append(
-                    f"Giocatore '{row['player']}' non trovato nella rosa di {row['manager']} — saltato"
-                )
-                continue
-
-            to_insert.append((
-                league_id, manager_id, matchday, player_info["id"],
-                row["is_starter"],
-                row.get("score_no_bonus"),
-                row.get("score_bonus"),
-                locked_at,
-            ))
-            managers_imported.add(manager_id)
-
-        conn.executemany(
-            "INSERT INTO lineup"
-            " (league_id, manager_id, matchday, player_current_id, is_starter,"
-            "  score_no_bonus, score_bonus, locked_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            to_insert,
-        )
-
-        # Salva scontri diretti (pairings)
-        for left_name, right_name in pairings:
-            home_id = manager_map.get(left_name.strip().lower())
-            away_id = manager_map.get(right_name.strip().lower())
-            if home_id is not None and away_id is not None:
-                conn.execute(
-                    "INSERT OR IGNORE INTO h2h_match (league_id, matchday, manager_home_id, manager_away_id)"
-                    " VALUES (?, ?, ?, ?)",
-                    (league_id, matchday, home_id, away_id),
-                )
-            else:
-                warnings.append(
-                    f"Scontro diretto '{left_name}' vs '{right_name}': manager non trovato — pairing saltato"
-                )
+    # Salva scontri diretti (pairings)
+    for left_name, right_name in pairings:
+        home_id = manager_map.get(left_name.strip().lower())
+        away_id = manager_map.get(right_name.strip().lower())
+        if home_id is not None and away_id is not None:
+            conn.execute(
+                "INSERT OR IGNORE INTO h2h_match (league_id, matchday, manager_home_id, manager_away_id)"
+                " VALUES (?, ?, ?, ?)",
+                (league_id, matchday, home_id, away_id),
+            )
+        else:
+            warnings.append(
+                f"Scontro diretto '{left_name}' vs '{right_name}': manager non trovato — pairing saltato"
+            )
 
     return {
         "matchday": matchday,
