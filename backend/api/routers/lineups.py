@@ -246,14 +246,18 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
         for p in players
     }
 
-    # Build lookup: manager name or team_name (case-insensitive) -> manager_id
+    # Build lookup: team_name (pivot) or manager name (case-insensitive) -> manager_id.
+    # Il nome squadra vince sempre: il nome di un manager non può "rubare" la squadra di un altro.
     managers = conn.execute(
         "SELECT id, name, team_name FROM manager WHERE league_id = ?", (league_id,)
     ).fetchall()
     manager_map: dict[str, int] = {}
     for m in managers:
         manager_map[m["name"].strip().lower()] = m["id"]
-        manager_map[m["team_name"].strip().lower()] = m["id"]
+    for m in managers:
+        if (m["team_name"] or "").strip():
+            manager_map[m["team_name"].strip().lower()] = m["id"]
+    team_label = {m["id"]: (m["team_name"] or m["name"]).strip() for m in managers}
 
     # Idempotent: cancella lineup e pairings esistenti per questa giornata
     conn.execute(
@@ -285,6 +289,13 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
                 f"Giocatore '{row['player']}' non trovato nella rosa di {row['manager']} — saltato"
             )
             continue
+
+        owner_id = player_info["manager_id"]
+        if owner_id is not None and owner_id != manager_id:
+            warnings.append(
+                f"Giocatore '{row['player']}' in formazione di {team_label[manager_id]}"
+                f" ma in rosa a {team_label.get(owner_id, owner_id)}"
+            )
 
         to_insert.append((
             league_id, manager_id, matchday, player_info["id"],

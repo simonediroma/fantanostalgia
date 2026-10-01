@@ -257,7 +257,9 @@ def calendario_dati(league_id: int, matchday: int):
 
         h2h_rows = conn.execute(
             """
-            SELECT mh.name AS home_manager, ma.name AS away_manager,
+            SELECT h.manager_home_id, h.manager_away_id,
+                   COALESCE(NULLIF(TRIM(mh.team_name), ''), mh.name) AS home_manager,
+                   COALESCE(NULLIF(TRIM(ma.team_name), ''), ma.name) AS away_manager,
                    ms_h.score_nostalgia AS home_score,
                    ms_a.score_nostalgia AS away_score
             FROM h2h_match h
@@ -276,7 +278,8 @@ def calendario_dati(league_id: int, matchday: int):
 
         lineup_rows = conn.execute(
             """
-            SELECT m.name AS manager_name, pc.name AS player_name, pc.role,
+            SELECT l.manager_id, COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name,
+                   pc.name AS player_name, pc.role,
                    pc.team AS current_team, l.is_starter,
                    l.score_no_bonus, l.score_bonus,
                    ph.name AS alter_ego_name, ph.team AS alter_ego_team,
@@ -291,7 +294,7 @@ def calendario_dati(league_id: int, matchday: int):
             LEFT JOIN historic_rating hr
                 ON hr.player_historic_id = ae.player_historic_id AND hr.matchday = ?
             WHERE l.league_id = ? AND l.matchday = ?
-            ORDER BY m.name, l.is_starter DESC,
+            ORDER BY manager_name, l.is_starter DESC,
                      CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
                      pc.name
             """,
@@ -300,7 +303,7 @@ def calendario_dati(league_id: int, matchday: int):
 
     mgr_map: dict[str, dict] = {}
     for r in lineup_rows:
-        key = r["manager_name"]
+        key = r["manager_id"]
         if key not in mgr_map:
             mgr_map[key] = {"starters": [], "bench": []}
         ns_score = None
@@ -350,8 +353,8 @@ def calendario_dati(league_id: int, matchday: int):
             "away_score": as_,
             "home_goals": _score_to_goals(hs),
             "away_goals": _score_to_goals(as_),
-            "home_players": mgr_map.get(hm, {"starters": [], "bench": []}),
-            "away_players": mgr_map.get(am, {"starters": [], "bench": []}),
+            "home_players": mgr_map.get(h["manager_home_id"], {"starters": [], "bench": []}),
+            "away_players": mgr_map.get(h["manager_away_id"], {"starters": [], "bench": []}),
         })
 
     return JSONResponse({
@@ -399,7 +402,7 @@ def giornata(request: Request, league_id: int, matchday: int):
         matchday_historic = draw_row["matchday_historic"]
 
         score_rows = conn.execute(
-            """SELECT m.name AS manager_name, ms.score_normal, ms.score_nostalgia
+            """SELECT COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name, ms.score_normal, ms.score_nostalgia
                FROM matchday_score ms
                JOIN manager m ON m.id = ms.manager_id
                WHERE ms.league_id = ? AND ms.matchday = ?
@@ -410,7 +413,8 @@ def giornata(request: Request, league_id: int, matchday: int):
 
         lineup_rows = conn.execute(
             """
-            SELECT m.name AS manager_name, pc.name AS player_name, pc.role,
+            SELECT l.manager_id, COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name,
+                   pc.name AS player_name, pc.role,
                    pc.team AS current_team, l.is_starter, l.score_no_bonus,
                    ph.name AS alter_ego_name, ph.team AS alter_ego_team,
                    hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
@@ -424,7 +428,7 @@ def giornata(request: Request, league_id: int, matchday: int):
             LEFT JOIN historic_rating hr
                 ON hr.player_historic_id = ae.player_historic_id AND hr.matchday = ?
             WHERE l.league_id = ? AND l.matchday = ?
-            ORDER BY m.name, l.is_starter DESC,
+            ORDER BY manager_name, l.is_starter DESC,
                      CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
                      pc.name
             """,
@@ -461,9 +465,9 @@ def giornata(request: Request, league_id: int, matchday: int):
 
     mgr_map: dict[str, dict] = {}
     for r in lineup_rows:
-        key = r["manager_name"]
+        key = r["manager_id"]
         if key not in mgr_map:
-            mgr_map[key] = {"starters": [], "bench": []}
+            mgr_map[key] = {"name": r["manager_name"], "starters": [], "bench": []}
         ns_score = None
         if r["rating"] is not None:
             ns_score = float(r["rating"])
@@ -486,7 +490,7 @@ def giornata(request: Request, league_id: int, matchday: int):
         else:
             mgr_map[key]["bench"].append(entry)
 
-    managers = [{"name": k, **v} for k, v in mgr_map.items()]
+    managers = list(mgr_map.values())
     all_matchdays = [r["matchday_current"] for r in all_draw_rows]
 
     return templates.TemplateResponse("giornata.html", {
