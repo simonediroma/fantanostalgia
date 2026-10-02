@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from backend.api.db import get_db
 from backend.api.routers.auth import get_current_admin
+from backend.engine.rosters import RosterSyncError, apply_listone
 
 router = APIRouter(tags=["players"])
 
@@ -226,8 +227,11 @@ def _require_league(conn, league_id: int):
 async def upload_listone(
     league_id: int,
     file: UploadFile,
+    force: bool = False,
     _: str = Depends(get_current_admin),
 ):
+    """Importa o aggiorna il listone. Non cancella mai giocatori già usati
+    (formazioni, alter ego): li aggiorna, li sposta o li toglie dalla rosa."""
     data = await file.read()
     try:
         rows, warnings = _parse_excel(data)
@@ -240,47 +244,19 @@ async def upload_listone(
     for r in rows:
         by_role[r["role"]] += 1
 
-    teams_created: list[str] = []
-
     with get_db() as conn:
         _require_league(conn, league_id)
 
-        # Build fanta-team → manager_id map for auto-assignment (Rose format)
-        managers = conn.execute(
-            "SELECT id, team_name FROM manager WHERE league_id = ?", (league_id,)
-        ).fetchall()
-        fanta_team_map: dict[str, int] = {
-            m["team_name"].strip().lower(): m["id"] for m in managers
-        }
-
-        conn.execute("DELETE FROM player_current WHERE league_id = ?", (league_id,))
-        for r in rows:
-            manager_id = None
-            fanta_team = r.get("fanta_team")
-            if fanta_team:
-                key = fanta_team.strip().lower()
-                manager_id = fanta_team_map.get(key)
-                if manager_id is None:
-                    # Auto-create team from Excel; president can rename the manager later
-                    cur = conn.execute(
-                        "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
-                        (league_id, fanta_team.strip(), fanta_team.strip()),
-                    )
-                    manager_id = cur.lastrowid
-                    fanta_team_map[key] = manager_id
-                    teams_created.append(fanta_team.strip())
-            conn.execute(
-                "INSERT INTO player_current"
-                " (league_id, name, role, team, quotation, starts_current_season, manager_id)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (league_id, r["name"], r["role"], r["team"], r["quota"], r["starts"], manager_id),
-            )
+        try:
+            result = apply_listone(conn, league_id, rows, force=force)
+        except RosterSyncError as e:
+            raise HTTPException(status_code=409, detail=str(e))
 
     return {
         "imported": len(rows),
         "by_role": by_role,
         "warnings": warnings,
-        "teams_created": sorted(teams_created),
+        **result,
     }
 
 

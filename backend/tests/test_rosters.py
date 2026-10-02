@@ -2,7 +2,7 @@ import pytest
 
 from backend.api.db import get_db
 from backend.api.routers.lineups import save_lineups
-from backend.engine.rosters import RosterSyncError, sync_rosters
+from backend.engine.rosters import MAX_RELEASES, RosterSyncError, apply_listone, sync_rosters
 from backend.engine.scoring import compute_player_breakdown
 
 
@@ -217,3 +217,75 @@ def test_coach_sees_association_out_of_roster(client):
     pool = client.get(f"/coach/league/{lid}/rosa").json()["nostalgia_pool"]
     client.post("/auth/user/logout")
     assert [(x["name"], x["assigned_out_of_roster"]) for x in pool] == [("Buffon", True)]
+
+
+def _row(name, role, team, fanta=None, quota=1):
+    r = {"name": name, "role": role, "team": team, "quota": quota, "starts": 0}
+    if fanta:
+        r["fanta_team"] = fanta
+    return r
+
+
+def test_listone_reimport_updates_instead_of_deleting(client):
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        save_lineups(conn, lid, 1, [{"manager": "Stoke", "player": "Maignan", "is_starter": 1}], [], [])
+        conn.execute("INSERT INTO player_current (league_id, name, role, team) VALUES (?, 'Mai Usato', 'A', 'X')",
+                     (lid,))
+        # Maignan passa a Stars, Bisseck sparisce (in rosa, ma mai usato → cancellato), Mandas resta, nuovo Lucca
+        res = apply_listone(conn, lid, [
+            _row("Maignan", "P", "Milan", "Stars", quota=20),
+            _row("Mandas", "P", "Lazio", "Stars"),
+            _row("Lucca", "A", "Napoli", "Stoke"),
+        ])
+        own = _owners(conn, lid)
+        maignan = conn.execute("SELECT team, quotation FROM player_current WHERE id = ?", (p["Maignan"],)).fetchone()
+        pool = conn.execute("SELECT assigned_player_current_id FROM manager_nostalgia_pool WHERE manager_id = ?",
+                            (a,)).fetchone()
+        locked = conn.execute("SELECT assignments_locked FROM manager WHERE id = ?", (a,)).fetchone()[0]
+    assert own == {"Maignan": b, "Mandas": b, "Lucca": a}  # stesso id, Bisseck e "Mai Usato" cancellati
+    assert (maignan["team"], maignan["quotation"]) == ("Milan", 20)
+    assert pool[0] == p["Maignan"] and locked == 0  # associazione conservata, Stoke sbloccata
+    assert res["moved"] == ["Maignan: Stoke → Stars"] and res["added"] == ["Lucca → Stoke"]
+    assert res["realign"] == ["Stoke"]
+
+
+def test_listone_reimport_releases_used_players(client):
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        save_lineups(conn, lid, 1, [{"manager": "Stoke", "player": "Bisseck", "is_starter": 1}], [], [])
+        res = apply_listone(conn, lid, [_row("Maignan", "P", "Milan", "Stoke"), _row("Mandas", "P", "X", "Stars")])
+        own = _owners(conn, lid)
+    assert own["Bisseck"] is None and res["released"] == ["Bisseck (da Stoke)"]
+
+
+def test_listone_without_team_column_keeps_owners(client):
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        apply_listone(conn, lid, [_row("Maignan", "P", "Milan"), _row("Bisseck", "D", "Inter"),
+                                  _row("Mandas", "P", "Lazio")])
+        assert _owners(conn, lid) == {"Maignan": a, "Bisseck": a, "Mandas": b}
+
+
+def test_listone_too_many_releases_needs_force(client):
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        for i in range(MAX_RELEASES):
+            pid = conn.execute("INSERT INTO player_current (league_id, name, role, team, manager_id)"
+                               " VALUES (?, ?, 'A', 'X', ?)", (lid, f"Extra{i}", a)).lastrowid
+            conn.execute("INSERT INTO lineup (league_id, matchday, manager_id, player_current_id, is_starter)"
+                         " VALUES (?, 1, ?, ?, 1)", (lid, a, pid))
+    import openpyxl, io
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Ruolo", "Nome", "Squadra", "Quotazione"])
+    ws.append(["P", "Mandas", "Lazio", 1])
+    buf = io.BytesIO()
+    wb.save(buf)
+    files = {"file": ("l.xlsx", buf.getvalue(), "application/octet-stream")}
+    r = client.post(f"/admin/league/{lid}/listone", files=files)
+    assert r.status_code == 409 and "soglia" in r.json()["detail"]
+    with get_db() as conn:
+        assert _owners(conn, lid)["Extra0"] == a
+    r = client.post(f"/admin/league/{lid}/listone?force=true", files=files)
+    assert r.status_code == 200 and len(r.json()["released"]) == MAX_RELEASES + 1  # + Maignan (in pool)
