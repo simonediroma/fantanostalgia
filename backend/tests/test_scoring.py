@@ -341,8 +341,8 @@ def test_scores_alter_ego_archive(client):
         )
         manager_id = cur.lastrowid
         cur = conn.execute(
-            "INSERT INTO player_current (league_id, name, role, team) VALUES (?, 'Dybala P.', 'A', 'Roma')",
-            (league_id,),
+            "INSERT INTO player_current (league_id, name, role, team, manager_id) VALUES (?, 'Dybala P.', 'A', 'Roma', ?)",
+            (league_id, manager_id),
         )
         player_id = cur.lastrowid
         conn.execute(

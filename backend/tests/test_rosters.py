@@ -93,8 +93,6 @@ def test_acquisition_move_release_and_alter_ego_history(client):
         pool = conn.execute("SELECT manager_id, assigned_player_current_id FROM manager_nostalgia_pool"
                             " WHERE league_id = ?", (lid,)).fetchone()
         locked = conn.execute("SELECT assignments_locked FROM manager WHERE id = ?", (a,)).fetchone()[0]
-        frozen = conn.execute("SELECT alter_ego_frozen, alter_ego_id FROM lineup WHERE league_id = ?",
-                              (lid,)).fetchone()
         breakdown = compute_player_breakdown(conn, lid, 1)
 
     assert owners == {"Maignan": b, "Bisseck": a, "Mandas": a, "Stankovic F.": a}
@@ -102,10 +100,9 @@ def test_acquisition_move_release_and_alter_ego_history(client):
     assert sorted(out["moved"]) == ["Maignan: Stoke → Stars", "Mandas: Stars → Stoke"]
     assert out["realign"] == ["Stoke"]
     assert dict(moves) == {"acquisto": 1, "spostamento": 2}
-    # Alter ego libero nel pool di Stoke, da riassociare; Stars non lo eredita
-    assert tuple(pool) == (a, None) and locked == 0
-    # Storico della giornata 1 invariato: Maignan conta ancora come Buffon (8.0)
-    assert tuple(frozen) == (1, h)
+    # L'associazione resta a Stoke (da riassociare: squadra sbloccata); Stars non la eredita
+    assert tuple(pool) == (a, p["Maignan"]) and locked == 0
+    # Giornata 1, schierata da Stoke: Maignan conta ancora come Buffon (8.0)
     assert [x["ns"] for x in breakdown] == [8.0]
 
 
@@ -168,3 +165,55 @@ def test_reimport_past_matchday_keeps_rosters_and_history(client):
     assert owners["Maignan"] == b  # la rosa non cambia
     assert tuple(lu) == (a, 1, h)  # formazione e alter ego storici conservati
     assert out["warnings"] == []   # giornata passata: nessun avviso "non in rosa"
+
+
+def _score(conn, lid, matchday, rows):
+    save_lineups(conn, lid, matchday, rows, [], [])
+    conn.execute("INSERT OR IGNORE INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
+                 " VALUES (?, ?, 10, 1)", (lid, matchday))
+    return {b["name"]: b["ns"] for b in compute_player_breakdown(conn, lid, matchday)}
+
+
+def test_alter_ego_counts_only_for_owning_team(client):
+    """Maignan (alter ego Buffon per Stoke) passa a Stars: se lo schiera Stars conta col
+    voto in pagella, l'associazione di Stoke resta ma non vale per un'altra squadra."""
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        conn.execute("INSERT INTO historic_rating (player_historic_id, matchday, rating, source)"
+                     " VALUES (?, 10, 8.0, 'archive')", (h,))
+        ns1 = _score(conn, lid, 1, [{"manager": "Stoke", "player": "Maignan", "is_starter": 1,
+                                     "score_no_bonus": 5.5, "score_bonus": 5.5}])
+        sync_rosters(conn, lid, [_team(10, "Stoke", [2]), _team(20, "Stars", [3, 1])], 2, FC_PLAYERS)
+        ns2 = _score(conn, lid, 2, [{"manager": "Stars", "player": "Maignan", "is_starter": 1,
+                                     "score_no_bonus": 5.5, "score_bonus": 5.5}])
+        ae = conn.execute("SELECT manager_id FROM alter_ego WHERE league_id = ?", (lid,)).fetchall()
+    assert ns1 == {"Maignan": 8.0} and ns2 == {"Maignan": 5.5}
+    assert [r[0] for r in ae] == [a]
+
+
+def test_alter_ego_fixed_at_import(client):
+    """L'alter ego vale com'era all'import della giornata: una riassociazione successiva
+    (es. durante il mercato) non cambia la giornata, nemmeno reimportandola."""
+    lid, a, b, p, h = _setup(client)
+    rows = [{"manager": "Stoke", "player": "Maignan", "is_starter": 1, "score_no_bonus": 5.5, "score_bonus": 5.5}]
+    with get_db() as conn:
+        conn.execute("INSERT INTO historic_rating (player_historic_id, matchday, rating, source)"
+                     " VALUES (?, 10, 8.0, 'archive')", (h,))
+        assert _score(conn, lid, 1, rows) == {"Maignan": 8.0}
+        # Il coach riassocia Buffon a Bisseck (simulato sull'istantanea alter_ego)
+        conn.execute("DELETE FROM alter_ego WHERE league_id = ?", (lid,))
+        assert _score(conn, lid, 1, rows) == {"Maignan": 8.0}  # reimport: invariata
+        assert _score(conn, lid, 2, rows) == {"Maignan": 5.5}  # nuova giornata: nuova associazione
+
+
+def test_coach_sees_association_out_of_roster(client):
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        uid = conn.execute("INSERT INTO user (email, password_hash, name) VALUES ('stoke@x.it', ?, 'S')",
+                           (__import__("backend.api.routers.auth", fromlist=["_pwd_ctx"])._pwd_ctx.hash("pw"),)).lastrowid
+        conn.execute("UPDATE manager SET user_id = ? WHERE id = ?", (uid, a))
+        sync_rosters(conn, lid, [_team(10, "Stoke", [2]), _team(20, "Stars", [3, 1])], 2, FC_PLAYERS)
+    client.post("/auth/user/login", json={"email": "stoke@x.it", "password": "pw"})
+    pool = client.get(f"/coach/league/{lid}/rosa").json()["nostalgia_pool"]
+    client.post("/auth/user/logout")
+    assert [(x["name"], x["assigned_out_of_roster"]) for x in pool] == [("Buffon", True)]

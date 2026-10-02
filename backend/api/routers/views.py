@@ -289,7 +289,7 @@ def calendario_dati(league_id: int, matchday: int):
             FROM lineup l
             JOIN player_current pc ON pc.id = l.player_current_id
             JOIN manager m ON m.id = l.manager_id
-            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id
+            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id AND ae.manager_id = l.manager_id
             LEFT JOIN player_historic ph ON ph.id = CASE WHEN l.alter_ego_frozen = 1 THEN l.alter_ego_id ELSE ae.player_historic_id END
             LEFT JOIN historic_rating hr
                 ON hr.player_historic_id = ph.id AND hr.matchday = ?
@@ -423,7 +423,7 @@ def giornata(request: Request, league_id: int, matchday: int):
             FROM lineup l
             JOIN player_current pc ON pc.id = l.player_current_id
             JOIN manager m ON m.id = l.manager_id
-            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id
+            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id AND ae.manager_id = l.manager_id
             LEFT JOIN player_historic ph ON ph.id = CASE WHEN l.alter_ego_frozen = 1 THEN l.alter_ego_id ELSE ae.player_historic_id END
             LEFT JOIN historic_rating hr
                 ON hr.player_historic_id = ph.id AND hr.matchday = ?
@@ -531,7 +531,7 @@ def statistiche(request: Request, league_id: int):
             FROM player_current pc
             JOIN lineup l ON l.player_current_id = pc.id AND l.league_id = pc.league_id AND l.is_starter = 1
             JOIN manager m ON m.id = l.manager_id
-            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = ?
+            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = ? AND ae.manager_id = l.manager_id
             JOIN player_historic ph ON ph.id = CASE WHEN l.alter_ego_frozen = 1 THEN l.alter_ego_id ELSE ae.player_historic_id END
             JOIN matchday_draw md ON md.league_id = ? AND md.matchday_current = l.matchday
             JOIN historic_rating hr ON hr.player_historic_id = ph.id AND hr.matchday = md.matchday_historic
@@ -633,7 +633,7 @@ def mapping(request: Request, league_id: int):
                 FROM alter_ego ae
                 JOIN player_current  pc ON pc.id = ae.player_current_id
                 JOIN player_historic ph ON ph.id = ae.player_historic_id
-                LEFT JOIN manager    m  ON m.id  = pc.manager_id
+                LEFT JOIN manager    m  ON m.id  = ae.manager_id
                 WHERE ae.league_id = ?
                 ORDER BY m.name,
                          CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,

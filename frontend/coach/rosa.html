@@ -236,13 +236,17 @@ function render() {
         const assignedName = np.assigned_to_player_current_name || '—';
         rightSide = `<div class="player-card ${isAssigned ? 'assigned' : ''}">
           <div class="player-name">${esc(assignedName)}</div>
-          <div class="player-meta">${isAssigned ? 'Assegnato' : 'Non assegnato'}</div>
+          <div class="player-meta">${np.assigned_out_of_roster ? 'Uscito dalla rosa: riassocia' : isAssigned ? 'Assegnato' : 'Non assegnato'}</div>
         </div>`;
       } else {
         // Build options excluding other assigned ids (but allow current assignment)
         const excludeSet = new Set(assignedIds);
         if (np.assigned_to_player_current_id) excludeSet.delete(np.assigned_to_player_current_id);
-        const options = buildCurrentOptions(role, excludeSet);
+        let options = buildCurrentOptions(role, excludeSet);
+        if (np.assigned_out_of_roster) {
+          // Il giocatore associato non è più in rosa: l'alter ego non vale finché non si riassocia
+          options = `<option value="${np.assigned_to_player_current_id}" disabled>${esc(np.assigned_to_player_current_name)} (uscito dalla rosa)</option>` + options;
+        }
         const selected = np.assigned_to_player_current_id || '';
         rightSide = `
           <select class="assign-select" data-historic-id="${np.player_historic_id}">

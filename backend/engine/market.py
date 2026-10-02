@@ -130,8 +130,8 @@ def cut_player(
 
     if pool_entry["assigned_player_current_id"] is not None:
         conn.execute(
-            "DELETE FROM alter_ego WHERE league_id = ? AND player_current_id = ?",
-            (league_id, pool_entry["assigned_player_current_id"]),
+            "DELETE FROM alter_ego WHERE league_id = ? AND player_current_id = ? AND manager_id = ?",
+            (league_id, pool_entry["assigned_player_current_id"], manager_id),
         )
 
     conn.execute("DELETE FROM manager_nostalgia_pool WHERE id = ?", (pool_entry["id"],))

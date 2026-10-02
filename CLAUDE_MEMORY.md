@@ -1,9 +1,18 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-01
+**Ultima sessione:** 2026-10-02
 **Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
 **PR in corso:** nessuna. [#114](https://github.com/simonediroma/fantanostalgia/pull/114) (collegamento + import Fantacalcio) mergiata in `main` (`88b3670`); branch ripartito da `main` per il fix sotto.
+
+**Sessione 2026-10-02 — Alter ego legati alla formazione, non alla rosa (regola di gioco decisa con l'utente):** contesto: leghe con mercato settimanale (mar-gio), quindi la formazione della giornata precedente può essere disallineata dalla rosa corrente. Regola: **un alter ego vale solo se il giocatore associato è schierato dalla squadra che possiede quell'alter ego**; se lo schiera un'altra squadra → voto in pagella. **Momento (opzione A):** l'alter ego si fissa nella formazione **all'import della giornata** (`freeze_lineup_alter_egos` in `scoring.py`, chiamata da `save_lineups`); il reimport conserva il valore fissato; per rifarlo da capo: cancellare la giornata e reimportarla. Regola operativa: importare la giornata prima che apra il mercato.
+- `alter_ego.manager_id` (ALTER in `db.py` + backfill da `player_current.manager_id` + trigger `alter_ego_default_manager` che lo valorizza se un INSERT lo omette). `_flush_alter_ego_for_manager` cancella/inserisce per `manager_id`; `generate_mapping` lo valorizza; taglio del mercato cancella solo la riga della squadra.
+- Lettori (scoring `_matchday_alter_egos`, calendario, pagina giornata, statistiche) cercano l'alter ego per (squadra che schiera, giocatore); pagina mapping pubblica e admin mostrano la squadra proprietaria dell'alter ego.
+- All'avvio `init_db` fissa le formazioni legacy non ancora fissate con l'associazione corrente della squadra schierante.
+- **Sync rose: non libera più le associazioni.** Se un giocatore con alter ego esce dalla rosa della squadra proprietaria, la squadra viene solo sbloccata (`assignments_locked = 0`) e compare in `realign`; l'associazione resta (se il giocatore torna, torna a valere). Rimossi `_release_alter_ego` e `freeze_scored_alter_egos`.
+- Coach `GET /coach/league/{id}/rosa`: `assigned_out_of_roster` per voce pool; `rosa.html` mostra "Nome (uscito dalla rosa)" nella select / "Uscito dalla rosa: riassocia".
+- Limiti noti: `associations_closed` della lega blocca comunque la riassociazione (preesistente); il coach può ribloccare anche con un'associazione a un giocatore uscito (semplicemente non vale).
+**Test:** `test_rosters.py` 13 (nuovi: alter ego vale solo per la squadra proprietaria; fissato all'import, reimport invariato, nuova giornata usa la nuova associazione; coach vede "uscito dalla rosa"); fixture di `test_scores_alter_ego_archive` resa realistica (giocatore in rosa al manager che lo schiera). Suite 334 passed + soliti 3. Verificato con Playwright contro uvicorn con API finta: sync sposta Maignan, pagina coach mostra "Maignan (uscito dalla rosa)".
 
 **Sessione 2026-10-01 — Sincronizzazione rose da Fantacalcio (spec `ROSE_SYNC_SPEC.md` dell'utente, verificata in Chrome):** le rose sono in `GET /onboarding/v1/league/teams?page&pageSize=50` (`cal` = id giocatori `;`, `cs` = prezzi stesso ordine, `r` = conteggi per ruolo, `item` = totale squadre). `/league/players` è solo anagrafica (nessun proprietario affidabile).
 - `fantacalcio.py`: `league_teams` (paginata, ritorna anche `item`), `parse_roster`.

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from backend.api.db import get_db
 from backend.api.routers.auth import get_current_admin
+from backend.engine.scoring import freeze_lineup_alter_egos
 
 router = APIRouter(tags=["lineups"])
 
@@ -343,6 +344,8 @@ def save_lineups(conn, league_id: int, matchday: int, rows: list[dict],
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         to_insert,
     )
+
+    freeze_lineup_alter_egos(conn, league_id, matchday)
 
     # Salva scontri diretti (pairings)
     for left_name, right_name in pairings:

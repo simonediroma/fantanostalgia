@@ -1,15 +1,14 @@
 """Sincronizza le rose (`player_current.manager_id`) con quelle di Leghe Fantacalcio.
 
 Prima si verifica tutto, poi si scrive: una risposta parziale o anomala non modifica nulla.
-Gli alter ego restano nel pool della squadra: se il giocatore a cui erano associati esce
-dalla rosa (spostato o svincolato), l'associazione si libera e il manager la rifà.
-Lo storico delle giornate già calcolate resta invariato (freeze_scored_alter_egos).
+Le associazioni alter ego non vengono toccate: un alter ego vale solo quando la squadra che
+lo possiede schiera il giocatore (vedi scoring). Se il giocatore esce dalla rosa, la squadra
+viene sbloccata per poterlo riassociare; l'associazione resta finché non lo fa.
 """
 import json
 import sqlite3
 
 from backend.api.fantacalcio import FC_ROLES, parse_roster
-from backend.engine.scoring import freeze_scored_alter_egos
 
 MAX_RELEASES = 10
 
@@ -18,22 +17,15 @@ class RosterSyncError(ValueError):
     pass
 
 
-def _release_alter_ego(conn: sqlite3.Connection, league_id: int, player_id: int) -> list[int]:
-    """Libera l'alter ego associato a un giocatore uscito dalla rosa; ritorna i manager coinvolti."""
+def _unlock_previous_owners(conn: sqlite3.Connection, league_id: int, player_id: int,
+                            new_manager_id: int | None) -> list[int]:
+    """Sblocca le associazioni delle squadre che hanno un alter ego su un giocatore che non
+    è più loro, così possono riassociarlo. L'associazione non viene cancellata."""
     owners = [r["manager_id"] for r in conn.execute(
         "SELECT DISTINCT manager_id FROM manager_nostalgia_pool"
         " WHERE league_id = ? AND assigned_player_current_id = ?",
         (league_id, player_id),
-    )]
-    conn.execute(
-        "UPDATE manager_nostalgia_pool SET assigned_player_current_id = NULL"
-        " WHERE league_id = ? AND assigned_player_current_id = ?",
-        (league_id, player_id),
-    )
-    conn.execute(
-        "DELETE FROM alter_ego WHERE league_id = ? AND player_current_id = ?",
-        (league_id, player_id),
-    )
+    ) if r["manager_id"] != new_manager_id]
     for mid in owners:
         conn.execute("UPDATE manager SET assignments_locked = 0 WHERE id = ?", (mid,))
     return owners
@@ -115,8 +107,6 @@ def sync_rosters(conn: sqlite3.Connection, league_id: int, teams: list[dict], to
         )
 
     # ── 3. Scrittura ──────────────────────────────────────────────────────────
-    if any(k == "spostamento" for k, *_ in moves) or released:
-        freeze_scored_alter_egos(conn, league_id)
     run_id = conn.execute(
         "INSERT INTO roster_sync_run (league_id, teams_raw) VALUES (?, ?)",
         (league_id, json.dumps([{k: t.get(k) for k in ("id", "n", "cri", "crs", "cr", "bm")} for t in teams])),
@@ -150,8 +140,7 @@ def sync_rosters(conn: sqlite3.Connection, league_id: int, teams: list[dict], to
             from_mid = None
         else:
             pc_id, from_mid = pc["id"], pc["manager_id"]
-            if kind == "spostamento":
-                realign.update(_release_alter_ego(conn, league_id, pc_id))
+            realign.update(_unlock_previous_owners(conn, league_id, pc_id, mid))
             conn.execute("UPDATE player_current SET manager_id = ? WHERE id = ?", (mid, pc_id))
         log(kind, pc_id, from_mid, mid)
         if kind == "acquisto":
@@ -160,7 +149,7 @@ def sync_rosters(conn: sqlite3.Connection, league_id: int, teams: list[dict], to
             summary["moved"].append(f"{info.get('name')}: {label[from_mid]} → {label[mid]}")
 
     for p in released:
-        realign.update(_release_alter_ego(conn, league_id, p["id"]))
+        realign.update(_unlock_previous_owners(conn, league_id, p["id"], None))
         conn.execute("UPDATE player_current SET manager_id = NULL WHERE id = ?", (p["id"],))
         log("svincolo", p["id"], p["manager_id"], None)
         summary["released"].append(f"{p['name']} (da {label[p['manager_id']]})")

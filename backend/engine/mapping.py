@@ -125,6 +125,11 @@ def generate_mapping(conn: sqlite3.Connection, league_id: int) -> MappingResult:
         assignments,
     )
     conn.execute(
+        "UPDATE alter_ego SET manager_id = (SELECT manager_id FROM player_current pc"
+        " WHERE pc.id = alter_ego.player_current_id) WHERE league_id = ?",
+        (league_id,),
+    )
+    conn.execute(
         "UPDATE league SET mapping_seed = ? WHERE id = ?", (seed, league_id)
     )
 
@@ -326,19 +331,9 @@ def auto_assign_remaining(conn: sqlite3.Connection, league_id: int) -> None:
 
 def _flush_alter_ego_for_manager(conn: sqlite3.Connection, league_id: int, manager_id: int) -> None:
     """Write manager_nostalgia_pool assignments into alter_ego table."""
-    pc_ids = [
-        r["id"]
-        for r in conn.execute(
-            "SELECT id FROM player_current WHERE league_id = ? AND manager_id = ?",
-            (league_id, manager_id),
-        ).fetchall()
-    ]
-    if pc_ids:
-        placeholders = ",".join("?" * len(pc_ids))
-        conn.execute(
-            f"DELETE FROM alter_ego WHERE league_id = ? AND player_current_id IN ({placeholders})",
-            [league_id] + pc_ids,
-        )
+    conn.execute(
+        "DELETE FROM alter_ego WHERE league_id = ? AND manager_id = ?", (league_id, manager_id)
+    )
 
     rows = conn.execute(
         """
@@ -350,6 +345,7 @@ def _flush_alter_ego_for_manager(conn: sqlite3.Connection, league_id: int, manag
     ).fetchall()
 
     conn.executemany(
-        "INSERT INTO alter_ego (league_id, player_current_id, player_historic_id, is_duplicate) VALUES (?, ?, ?, 0)",
-        [(league_id, r["assigned_player_current_id"], r["player_historic_id"]) for r in rows],
+        "INSERT INTO alter_ego (league_id, player_current_id, player_historic_id, is_duplicate, manager_id)"
+        " VALUES (?, ?, ?, 0, ?)",
+        [(league_id, r["assigned_player_current_id"], r["player_historic_id"], manager_id) for r in rows],
     )
