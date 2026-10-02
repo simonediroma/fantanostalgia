@@ -75,7 +75,7 @@ def _build_public_mapping(conn, league_id: int) -> dict:
         FROM alter_ego ae
         JOIN player_current  pc ON pc.id = ae.player_current_id
         JOIN player_historic ph ON ph.id = ae.player_historic_id
-        LEFT JOIN manager    m  ON m.id  = pc.manager_id
+        LEFT JOIN manager    m  ON m.id  = ae.manager_id
         WHERE ae.league_id = ?
         ORDER BY m.name,
                  CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
@@ -260,12 +260,12 @@ def get_mapping(
                 ph.name  AS player_historic_name,
                 ph.team  AS team_historic,
                 ae.is_duplicate,
-                pc.manager_id,
+                ae.manager_id,
                 m.name   AS manager_name
             FROM alter_ego ae
             JOIN player_current  pc ON pc.id = ae.player_current_id
             JOIN player_historic ph ON ph.id = ae.player_historic_id
-            LEFT JOIN manager    m  ON m.id  = pc.manager_id
+            LEFT JOIN manager    m  ON m.id  = ae.manager_id
             WHERE ae.league_id = ?
             ORDER BY CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
                      pc.name

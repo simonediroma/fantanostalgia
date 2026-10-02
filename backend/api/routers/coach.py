@@ -40,7 +40,8 @@ def get_rosa(league_id: int, user: dict = Depends(get_current_user)):
             """
             SELECT mnp.player_historic_id, ph.name, ph.role, ph.team, ph.season,
                    mnp.assigned_player_current_id,
-                   pc.name AS assigned_to_player_current_name
+                   pc.name AS assigned_to_player_current_name,
+                   pc.manager_id AS assigned_owner_id
             FROM manager_nostalgia_pool mnp
             JOIN player_historic ph ON ph.id = mnp.player_historic_id
             LEFT JOIN player_current pc ON pc.id = mnp.assigned_player_current_id
@@ -92,6 +93,9 @@ def get_rosa(league_id: int, user: dict = Depends(get_current_user)):
                 "season": r["season"],
                 "assigned_to_player_current_id": r["assigned_player_current_id"],
                 "assigned_to_player_current_name": r["assigned_to_player_current_name"],
+                # Associato a un giocatore uscito dalla rosa: non vale finché non si riassocia
+                "assigned_out_of_roster": r["assigned_player_current_id"] is not None
+                                          and r["assigned_owner_id"] != manager_id,
             }
             for r in nostalgia_rows
         ],

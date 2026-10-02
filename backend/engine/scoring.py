@@ -89,17 +89,19 @@ def _nostalgia_score(
 
 def _matchday_alter_egos(conn: sqlite3.Connection, league_id: int, lineups) -> dict[int, int]:
     """player_current_id → player_historic_id per le righe di una giornata: l'alter ego
-    congelato nella formazione se presente, altrimenti l'associazione corrente."""
+    fissato nella formazione se presente, altrimenti l'associazione corrente della
+    squadra che schiera il giocatore (un alter ego vale solo per la squadra che lo possiede)."""
     current = {
-        r["player_current_id"]: r["player_historic_id"]
+        (r["manager_id"], r["player_current_id"]): r["player_historic_id"]
         for r in conn.execute(
-            "SELECT player_current_id, player_historic_id FROM alter_ego WHERE league_id = ?",
+            "SELECT manager_id, player_current_id, player_historic_id FROM alter_ego WHERE league_id = ?",
             (league_id,),
         )
     }
     out: dict[int, int] = {}
     for r in lineups:
-        hid = r["alter_ego_id"] if r["alter_ego_frozen"] else current.get(r["player_current_id"])
+        hid = (r["alter_ego_id"] if r["alter_ego_frozen"]
+               else current.get((r["manager_id"], r["player_current_id"])))
         if hid is not None:
             out[r["player_current_id"]] = hid
     return out
@@ -124,19 +126,28 @@ def _historic_ratings(conn: sqlite3.Connection, historic_ids: list[int], matchda
     return {r["player_historic_id"]: dict(r) for r in rows}
 
 
-def freeze_scored_alter_egos(conn: sqlite3.Connection, league_id: int) -> None:
-    """Fissa nelle formazioni delle giornate già calcolate l'alter ego corrente, così un
-    cambio di associazione successivo (es. giocatore uscito dalla rosa) non riscrive lo storico."""
+def freeze_lineup_alter_egos(conn: sqlite3.Connection, league_id: int | None = None,
+                             matchday: int | None = None) -> None:
+    """Fissa nelle formazioni non ancora fissate l'alter ego che la squadra schierante ha
+    associato al giocatore in questo momento. Chiamata all'import: le riassociazioni fatte
+    dopo (es. durante il mercato) non cambiano più quella giornata."""
+    where, params = "alter_ego_frozen = 0", []
+    if league_id is not None:
+        where += " AND league_id = ?"
+        params.append(league_id)
+    if matchday is not None:
+        where += " AND matchday = ?"
+        params.append(matchday)
     conn.execute(
-        """
+        f"""
         UPDATE lineup SET alter_ego_frozen = 1, alter_ego_id = (
             SELECT ae.player_historic_id FROM alter_ego ae
             WHERE ae.league_id = lineup.league_id AND ae.player_current_id = lineup.player_current_id
+              AND ae.manager_id = lineup.manager_id
             LIMIT 1)
-        WHERE league_id = ? AND alter_ego_frozen = 0
-          AND matchday IN (SELECT matchday FROM matchday_score WHERE league_id = ?)
+        WHERE {where}
         """,
-        (league_id, league_id),
+        params,
     )
 
 

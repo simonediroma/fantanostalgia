@@ -125,9 +125,32 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass
         try:
+            # L'alter ego appartiene alla squadra che l'ha associato: vale solo
+            # quando è quella squadra a schierare il giocatore.
+            conn.execute("ALTER TABLE alter_ego ADD COLUMN manager_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        conn.execute(
+            "UPDATE alter_ego SET manager_id = (SELECT manager_id FROM player_current pc"
+            " WHERE pc.id = alter_ego.player_current_id) WHERE manager_id IS NULL"
+        )
+        # Default: la squadra che ha il giocatore in rosa al momento dell'associazione
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS alter_ego_default_manager
+            AFTER INSERT ON alter_ego WHEN NEW.manager_id IS NULL
+            BEGIN
+                UPDATE alter_ego SET manager_id = (
+                    SELECT manager_id FROM player_current WHERE id = NEW.player_current_id)
+                WHERE id = NEW.id;
+            END
+        """)
+        try:
             conn.execute("ALTER TABLE player_current ADD COLUMN fc_id INTEGER")  # id giocatore Fantacalcio
         except sqlite3.OperationalError:
             pass
+        # Formazioni importate prima che l'alter ego venisse fissato all'import
+        from backend.engine.scoring import freeze_lineup_alter_egos
+        freeze_lineup_alter_egos(conn)
         try:
             conn.execute("ALTER TABLE league_invite ADD COLUMN email TEXT")
         except sqlite3.OperationalError:
