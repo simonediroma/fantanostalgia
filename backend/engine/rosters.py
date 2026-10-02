@@ -157,3 +157,110 @@ def sync_rosters(conn: sqlite3.Connection, league_id: int, teams: list[dict], to
     summary["realign"] = sorted(label[m] for m in realign if m in label)
     conn.execute("UPDATE roster_sync_run SET summary = ? WHERE id = ?", (json.dumps(summary), run_id))
     return summary
+
+
+def _is_referenced(conn: sqlite3.Connection, player_id: int) -> bool:
+    return any(
+        conn.execute(sql, (player_id,)).fetchone()
+        for sql in (
+            "SELECT 1 FROM lineup WHERE player_current_id = ? LIMIT 1",
+            "SELECT 1 FROM manager_nostalgia_pool WHERE assigned_player_current_id = ? LIMIT 1",
+            "SELECT 1 FROM alter_ego WHERE player_current_id = ? LIMIT 1",
+            "SELECT 1 FROM roster_move WHERE player_current_id = ? LIMIT 1",
+        )
+    )
+
+
+def apply_listone(conn: sqlite3.Connection, league_id: int, rows: list[dict], force: bool = False) -> dict:
+    """Reimport del listone senza cancellare: aggiorna i giocatori esistenti (per nome),
+    aggiunge i nuovi e, se il file indica la fantasquadra, sposta chi ha cambiato squadra.
+    Chi non è più nel file viene cancellato se mai usato, altrimenti tolto dalla rosa.
+    Le associazioni alter ego restano (vedi sync_rosters). Solleva RosterSyncError, senza
+    scrivere nulla, se gli svincoli superano MAX_RELEASES e non c'è `force`."""
+    managers = conn.execute(
+        "SELECT id, name, team_name FROM manager WHERE league_id = ?", (league_id,)
+    ).fetchall()
+    team_map = {_key(m["team_name"]): m["id"] for m in managers if m["team_name"]}
+    label = {m["id"]: (m["team_name"] or m["name"]).strip() for m in managers}
+
+    current = {_key(p["name"]): dict(p) for p in conn.execute(
+        "SELECT id, name, manager_id FROM player_current WHERE league_id = ?", (league_id,))}
+    in_file = {_key(r["name"]) for r in rows}
+    gone = [p for k, p in current.items() if k not in in_file]
+    to_release = [p for p in gone if _is_referenced(conn, p["id"])]
+    released_owned = [p for p in to_release if p["manager_id"] is not None]
+    if len(released_owned) > MAX_RELEASES and not force:
+        raise RosterSyncError(
+            f"Import interrotto, nessuna modifica: {len(released_owned)} giocatori da svincolare "
+            f"(soglia {MAX_RELEASES}). Se è corretto, conferma per procedere comunque."
+        )
+
+    teams_created: list[str] = []
+    summary = {"added": [], "moved": [], "released": [], "realign": []}
+    realign: set[int] = set()
+    run_id = conn.execute("INSERT INTO roster_sync_run (league_id) VALUES (?)", (league_id,)).lastrowid
+
+    def log(kind, pc_id, from_mid, to_mid):
+        conn.execute(
+            "INSERT INTO roster_move (sync_run_id, league_id, player_current_id, from_manager_id,"
+            " to_manager_id, kind) VALUES (?, ?, ?, ?, ?, ?)",
+            (run_id, league_id, pc_id, from_mid, to_mid, kind),
+        )
+
+    for r in rows:
+        has_team = "fanta_team" in r and r["fanta_team"]
+        mid = None
+        if has_team:
+            key = _key(r["fanta_team"])
+            mid = team_map.get(key)
+            if mid is None:
+                # Auto-create team from Excel; president can rename the manager later
+                mid = conn.execute(
+                    "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+                    (league_id, r["fanta_team"].strip(), r["fanta_team"].strip()),
+                ).lastrowid
+                team_map[key] = mid
+                label[mid] = r["fanta_team"].strip()
+                teams_created.append(r["fanta_team"].strip())
+        pc = current.get(_key(r["name"]))
+        if pc is None:
+            pc_id = conn.execute(
+                "INSERT INTO player_current"
+                " (league_id, name, role, team, quotation, starts_current_season, manager_id)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (league_id, r["name"], r["role"], r["team"], r["quota"], r["starts"], mid),
+            ).lastrowid
+            current[_key(r["name"])] = {"id": pc_id, "name": r["name"], "manager_id": mid}
+            if mid is not None:
+                log("acquisto", pc_id, None, mid)
+                summary["added"].append(f"{r['name']} → {label[mid]}")
+            continue
+        conn.execute(
+            "UPDATE player_current SET role = ?, team = ?, quotation = ?, starts_current_season = ?"
+            " WHERE id = ?",
+            (r["role"], r["team"], r["quota"], r["starts"], pc["id"]),
+        )
+        if has_team and pc["manager_id"] != mid:
+            realign.update(_unlock_previous_owners(conn, league_id, pc["id"], mid))
+            conn.execute("UPDATE player_current SET manager_id = ? WHERE id = ?", (mid, pc["id"]))
+            kind = "acquisto" if pc["manager_id"] is None else "spostamento"
+            log(kind, pc["id"], pc["manager_id"], mid)
+            if kind == "acquisto":
+                summary["added"].append(f"{r['name']} → {label[mid]}")
+            else:
+                summary["moved"].append(f"{r['name']}: {label[pc['manager_id']]} → {label[mid]}")
+
+    for p in gone:
+        if p in to_release:
+            if p["manager_id"] is None:
+                continue
+            realign.update(_unlock_previous_owners(conn, league_id, p["id"], None))
+            conn.execute("UPDATE player_current SET manager_id = NULL WHERE id = ?", (p["id"],))
+            log("svincolo", p["id"], p["manager_id"], None)
+            summary["released"].append(f"{p['name']} (da {label[p['manager_id']]})")
+        else:
+            conn.execute("DELETE FROM player_current WHERE id = ?", (p["id"],))
+
+    summary["realign"] = sorted(label[m] for m in realign if m in label)
+    conn.execute("UPDATE roster_sync_run SET summary = ? WHERE id = ?", (json.dumps(summary), run_id))
+    return {**summary, "teams_created": sorted(teams_created)}

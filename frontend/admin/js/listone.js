@@ -1,9 +1,10 @@
 // Listone (players) upload + assignment API calls
 
-async function apiUploadListone(leagueId, file) {
+async function apiUploadListone(leagueId, file, force = false) {
   const fd = new FormData();
   fd.append('file', file);
-  return apiFetch(`/admin/league/${leagueId}/listone`, { method: 'POST', body: fd });
+  const q = force ? '?force=true' : '';
+  return apiFetch(`/admin/league/${leagueId}/listone${q}`, { method: 'POST', body: fd });
 }
 
 async function apiListPlayers(leagueId) {
