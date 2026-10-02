@@ -1764,6 +1764,17 @@ function gtSelect(options, selected) {
   return sel;
 }
 
+function gtRosterSummary(s) {
+  if (!s) return '';
+  if (s.error) return `Sync rose non riuscita: ${s.error}.`;
+  const n = s.added.length + s.moved.length + s.released.length;
+  if (!n) return 'Rose già allineate.';
+  let msg = `Rose: +${s.added.length} acquisti, ${s.moved.length} spostati, ${s.released.length} svincolati`
+    + ` (${[...s.added, ...s.moved, ...s.released].join(' · ')}).`;
+  if (s.realign.length) msg += ` Alter ego da riassociare per: ${s.realign.join(', ')}.`;
+  return msg;
+}
+
 async function loadGtFantacalcio() {
   const slot = document.getElementById('gtFcSlot');
   let st;
@@ -1786,7 +1797,36 @@ async function loadGtFantacalcio() {
   const leagueSel = gtSelect(st.leagues.map(l => [l.alias || l.id, l.name || l.alias]), prefs.league);
   const compSlot = document.createElement('div');
   compSlot.className = 'col-gap';
-  slot.replaceChildren(leagueSel, compSlot);
+  const syncBtn = DS.Button({
+    children: 'Aggiorna rose da Fantacalcio',
+    variant: 'secondary',
+    onClick: async () => {
+      syncBtn.disabled = true;
+      try {
+        let res;
+        try {
+          res = await apiSyncRostersFromFantacalcio(currentLeagueId, { fc_league: leagueSel.value });
+        } catch (err) {
+          if (!err.message.includes('soglia')) throw err;
+          const ok = await DS.confirmDialog({
+            title: 'Molti svincoli',
+            message: err.message,
+            consequence: 'I giocatori svincolati escono dalle rose e i loro alter ego vanno riassociati.',
+            confirmLabel: 'Procedi comunque',
+            danger: true,
+          });
+          if (!ok) return;
+          res = await apiSyncRostersFromFantacalcio(currentLeagueId, { fc_league: leagueSel.value, force: true });
+        }
+        showMsg('giornateListMsg', gtRosterSummary(res), false);
+      } catch (err) {
+        showMsg('giornateListMsg', err.message, true);
+      } finally {
+        syncBtn.disabled = false;
+      }
+    },
+  });
+  slot.replaceChildren(leagueSel, syncBtn, compSlot);
 
   async function loadCompetitions() {
     compSlot.replaceChildren();
@@ -1834,9 +1874,9 @@ async function loadGtFantacalcio() {
               fc_match_day: parseInt(daySel.value),
             });
             gtFcSavePrefs({ league: leagueSel.value, competition: compSel.value });
-            let msg = `Formazioni G${matchday} importate da Fantacalcio — manager: ${res.managers_imported}.`;
-            if (res.warnings?.length) msg += ` Avvisi (${res.warnings.length}): ${res.warnings.slice(0, 5).join(' · ')}`;
-            showMsg('giornateListMsg', msg, res.warnings?.length > 0);
+            let msg = `${gtRosterSummary(res.roster_sync)} Formazioni G${matchday} importate da Fantacalcio — manager: ${res.managers_imported}.`;
+            if (res.warnings?.length) msg += ` Avvisi (${res.warnings.length}): ${res.warnings.join(' · ')}`;
+            showMsg('giornateListMsg', msg, res.warnings?.length > 0 || !!res.roster_sync?.error);
             await loadGiornateList();
           } catch (err) {
             showMsg('giornateListMsg', err.message, true);

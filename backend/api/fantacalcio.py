@@ -150,6 +150,26 @@ def teams(token: str, competition_id: int) -> list[dict]:
         page += 1
 
 
+def league_teams(token: str) -> tuple[list[dict], int | None]:
+    """Squadre della lega con la rosa (`cal`: id giocatori separati da ';', `cs`: prezzi
+    d'acquisto nello stesso ordine, `r`: conteggi per ruolo). Ritorna (squadre, totale `item`)."""
+    out, page, total = [], 1, None
+    while True:
+        r = get("/onboarding/v1/league/teams", token, params={"page": page, "pageSize": 50})
+        out += r.get("data", [])
+        total = r.get("item", total)
+        if not r.get("nextPage"):
+            return out, total
+        page += 1
+
+
+def parse_roster(team: dict) -> list[dict]:
+    ids = [int(x) for x in (team.get("cal") or "").split(";") if x]
+    prices = [x for x in (team.get("cs") or "").split(";") if x != ""]
+    return [{"player_id": pid, "purchase_price": int(prices[i]) if i < len(prices) else None}
+            for i, pid in enumerate(ids)]
+
+
 def players(token: str) -> list[dict]:
     """Anagrafica: id (= pid delle formazioni), name, fcrle (1=P 2=D 3=C 4=A)."""
     return get("/onboarding/v1/league/players", token).get("players", [])
@@ -175,9 +195,15 @@ def _scores(p: dict) -> tuple[float | None, float | None]:
     return float(scr), float(cscr)
 
 
-def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict
+FC_ROLES = {1: "P", 2: "D", 3: "C", 4: "A"}
+
+
+def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict,
+                player_roles: dict | None = None
                 ) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
-    """Converte le risposte teamLineup di una giornata nel formato del parser Excel."""
+    """Converte le risposte teamLineup di una giornata nel formato del parser Excel.
+    `player_roles` (pid → P/D/C/A) aggiunge `role` alle righe: serve a save_lineups
+    per creare in anagrafica (senza squadra) i giocatori che non conosce."""
     rows, warnings, pairings = [], [], []
     for match in lineups:
         names = []
@@ -196,8 +222,13 @@ def lineup_rows(lineups: list[dict], team_names: dict, player_names: dict
                         warnings.append(f"Giocatore Fantacalcio {p.get('pid')} non in anagrafica — saltato")
                         continue
                     no_bonus, with_bonus = _scores(p)
-                    rows.append({"manager": tname, "player": pname, "is_starter": is_starter,
-                                 "score_no_bonus": no_bonus, "score_bonus": with_bonus})
+                    row = {"manager": tname, "player": pname, "is_starter": is_starter,
+                           "score_no_bonus": no_bonus, "score_bonus": with_bonus,
+                           "fc_id": p.get("pid")}
+                    role = (player_roles or {}).get(p.get("pid"))
+                    if role:
+                        row["role"] = role
+                    rows.append(row)
         if all(names):
             pairings.append((names[0], names[1]))
     return rows, warnings, pairings

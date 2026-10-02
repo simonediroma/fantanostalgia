@@ -290,9 +290,9 @@ def calendario_dati(league_id: int, matchday: int):
             JOIN player_current pc ON pc.id = l.player_current_id
             JOIN manager m ON m.id = l.manager_id
             LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id
-            LEFT JOIN player_historic ph ON ph.id = ae.player_historic_id
+            LEFT JOIN player_historic ph ON ph.id = CASE WHEN l.alter_ego_frozen = 1 THEN l.alter_ego_id ELSE ae.player_historic_id END
             LEFT JOIN historic_rating hr
-                ON hr.player_historic_id = ae.player_historic_id AND hr.matchday = ?
+                ON hr.player_historic_id = ph.id AND hr.matchday = ?
             WHERE l.league_id = ? AND l.matchday = ?
             ORDER BY manager_name, l.is_starter DESC,
                      CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
@@ -424,9 +424,9 @@ def giornata(request: Request, league_id: int, matchday: int):
             JOIN player_current pc ON pc.id = l.player_current_id
             JOIN manager m ON m.id = l.manager_id
             LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = l.league_id
-            LEFT JOIN player_historic ph ON ph.id = ae.player_historic_id
+            LEFT JOIN player_historic ph ON ph.id = CASE WHEN l.alter_ego_frozen = 1 THEN l.alter_ego_id ELSE ae.player_historic_id END
             LEFT JOIN historic_rating hr
-                ON hr.player_historic_id = ae.player_historic_id AND hr.matchday = ?
+                ON hr.player_historic_id = ph.id AND hr.matchday = ?
             WHERE l.league_id = ? AND l.matchday = ?
             ORDER BY manager_name, l.is_starter DESC,
                      CASE pc.role WHEN 'P' THEN 1 WHEN 'D' THEN 2 WHEN 'C' THEN 3 WHEN 'A' THEN 4 END,
@@ -529,16 +529,16 @@ def statistiche(request: Request, league_id: int):
                 hr.rating, hr.goals, hr.yellow_cards, hr.red_cards,
                 hr.own_goals, hr.penalties_missed, hr.goals_conceded, hr.minutes, hr.source
             FROM player_current pc
-            JOIN manager m ON m.id = pc.manager_id
-            JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = ?
-            JOIN player_historic ph ON ph.id = ae.player_historic_id
-            JOIN lineup l ON l.player_current_id = pc.id AND l.league_id = ? AND l.is_starter = 1
+            JOIN lineup l ON l.player_current_id = pc.id AND l.league_id = pc.league_id AND l.is_starter = 1
+            JOIN manager m ON m.id = l.manager_id
+            LEFT JOIN alter_ego ae ON ae.player_current_id = pc.id AND ae.league_id = ?
+            JOIN player_historic ph ON ph.id = CASE WHEN l.alter_ego_frozen = 1 THEN l.alter_ego_id ELSE ae.player_historic_id END
             JOIN matchday_draw md ON md.league_id = ? AND md.matchday_current = l.matchday
             JOIN historic_rating hr ON hr.player_historic_id = ph.id AND hr.matchday = md.matchday_historic
             WHERE pc.league_id = ?
             ORDER BY pc.id
             """,
-            (league_id, league_id, league_id, league_id),
+            (league_id, league_id, league_id),
         ).fetchall()
 
         archivio_rows = conn.execute(

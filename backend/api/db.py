@@ -95,6 +95,10 @@ def init_db() -> None:
         for _col, _def in [
             ("score_no_bonus", "REAL"),
             ("score_bonus", "REAL"),
+            # Alter ego valido per quella giornata: congelato al primo calcolo punteggi,
+            # così lo storico non cambia se l'associazione corrente cambia (sync rose).
+            ("alter_ego_id", "INTEGER"),
+            ("alter_ego_frozen", "INTEGER NOT NULL DEFAULT 0"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE lineup ADD COLUMN {_col} {_def}")
@@ -104,6 +108,7 @@ def init_db() -> None:
             ("user_id", "INTEGER"),
             ("assignments_locked", "INTEGER DEFAULT 0"),
             ("credits", "INTEGER NOT NULL DEFAULT 0"),
+            ("fc_team_id", "INTEGER"),          # id squadra su Leghe Fantacalcio
         ]:
             try:
                 conn.execute(f"ALTER TABLE manager ADD COLUMN {_col} {_def}")
@@ -119,6 +124,10 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE league ADD COLUMN {_col} {_def}")
             except sqlite3.OperationalError:
                 pass
+        try:
+            conn.execute("ALTER TABLE player_current ADD COLUMN fc_id INTEGER")  # id giocatore Fantacalcio
+        except sqlite3.OperationalError:
+            pass
         try:
             conn.execute("ALTER TABLE league_invite ADD COLUMN email TEXT")
         except sqlite3.OperationalError:
@@ -240,6 +249,24 @@ def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_market_cut_league_manager ON market_cut(league_id, manager_id);
+            CREATE TABLE IF NOT EXISTS roster_sync_run (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL REFERENCES league(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                summary TEXT,
+                teams_raw TEXT
+            );
+            CREATE TABLE IF NOT EXISTS roster_move (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sync_run_id INTEGER NOT NULL REFERENCES roster_sync_run(id),
+                league_id INTEGER NOT NULL REFERENCES league(id),
+                player_current_id INTEGER NOT NULL REFERENCES player_current(id),
+                from_manager_id INTEGER REFERENCES manager(id),
+                to_manager_id INTEGER REFERENCES manager(id),
+                kind TEXT NOT NULL CHECK(kind IN ('acquisto', 'spostamento', 'svincolo')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_roster_move_league ON roster_move(league_id);
             CREATE TABLE IF NOT EXISTS password_reset_token (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL REFERENCES user(id),

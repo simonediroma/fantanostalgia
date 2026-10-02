@@ -87,6 +87,59 @@ def _nostalgia_score(
     )
 
 
+def _matchday_alter_egos(conn: sqlite3.Connection, league_id: int, lineups) -> dict[int, int]:
+    """player_current_id → player_historic_id per le righe di una giornata: l'alter ego
+    congelato nella formazione se presente, altrimenti l'associazione corrente."""
+    current = {
+        r["player_current_id"]: r["player_historic_id"]
+        for r in conn.execute(
+            "SELECT player_current_id, player_historic_id FROM alter_ego WHERE league_id = ?",
+            (league_id,),
+        )
+    }
+    out: dict[int, int] = {}
+    for r in lineups:
+        hid = r["alter_ego_id"] if r["alter_ego_frozen"] else current.get(r["player_current_id"])
+        if hid is not None:
+            out[r["player_current_id"]] = hid
+    return out
+
+
+def _historic_ratings(conn: sqlite3.Connection, historic_ids: list[int], matchday_historic: int) -> dict[int, dict]:
+    if not historic_ids:
+        return {}
+    ph = ",".join("?" * len(historic_ids))
+    rows = conn.execute(
+        f"""
+        SELECT hr.player_historic_id, hr.rating, hr.source,
+               hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
+               hr.own_goals, hr.penalties_missed, hr.goals_conceded,
+               ph.role
+        FROM historic_rating hr
+        JOIN player_historic ph ON ph.id = hr.player_historic_id
+        WHERE hr.player_historic_id IN ({ph}) AND hr.matchday = ?
+        """,
+        (*historic_ids, matchday_historic),
+    ).fetchall()
+    return {r["player_historic_id"]: dict(r) for r in rows}
+
+
+def freeze_scored_alter_egos(conn: sqlite3.Connection, league_id: int) -> None:
+    """Fissa nelle formazioni delle giornate già calcolate l'alter ego corrente, così un
+    cambio di associazione successivo (es. giocatore uscito dalla rosa) non riscrive lo storico."""
+    conn.execute(
+        """
+        UPDATE lineup SET alter_ego_frozen = 1, alter_ego_id = (
+            SELECT ae.player_historic_id FROM alter_ego ae
+            WHERE ae.league_id = lineup.league_id AND ae.player_current_id = lineup.player_current_id
+            LIMIT 1)
+        WHERE league_id = ? AND alter_ego_frozen = 0
+          AND matchday IN (SELECT matchday FROM matchday_score WHERE league_id = ?)
+        """,
+        (league_id, league_id),
+    )
+
+
 @dataclass
 class ManagerScore:
     manager_id: int
@@ -124,7 +177,7 @@ def calculate_scores(
     lineups = conn.execute(
         """
         SELECT l.manager_id, l.player_current_id, pc.name, pc.role,
-               l.score_no_bonus, l.score_bonus
+               l.score_no_bonus, l.score_bonus, l.alter_ego_id, l.alter_ego_frozen
         FROM lineup l
         JOIN player_current pc ON pc.id = l.player_current_id
         WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
@@ -136,29 +189,8 @@ def calculate_scores(
     for row in lineups:
         manager_players[row["manager_id"]].append(dict(row))
 
-    alter_egos = conn.execute(
-        "SELECT player_current_id, player_historic_id FROM alter_ego WHERE league_id = ?",
-        (league_id,),
-    ).fetchall()
-    alter_ego_map = {r["player_current_id"]: r["player_historic_id"] for r in alter_egos}
-
-    historic_ids = list(alter_ego_map.values())
-    rating_map: dict[int, dict] = {}
-    if historic_ids:
-        ph = ",".join("?" * len(historic_ids))
-        rows = conn.execute(
-            f"""
-            SELECT hr.player_historic_id, hr.rating, hr.source,
-                   hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
-                   hr.own_goals, hr.penalties_missed, hr.goals_conceded,
-                   ph.role
-            FROM historic_rating hr
-            JOIN player_historic ph ON ph.id = hr.player_historic_id
-            WHERE hr.player_historic_id IN ({ph}) AND hr.matchday = ?
-            """,
-            (*historic_ids, matchday_historic),
-        ).fetchall()
-        rating_map = {r["player_historic_id"]: dict(r) for r in rows}
+    alter_ego_map = _matchday_alter_egos(conn, league_id, lineups)
+    rating_map = _historic_ratings(conn, list(alter_ego_map.values()), matchday_historic)
 
     real_map: dict[str, dict] = {}
     if real_ratings:
@@ -263,7 +295,7 @@ def compute_player_breakdown(
     lineups = conn.execute(
         """
         SELECT l.manager_id, l.player_current_id, pc.name, pc.role,
-               l.score_no_bonus, l.score_bonus
+               l.score_no_bonus, l.score_bonus, l.alter_ego_id, l.alter_ego_frozen
         FROM lineup l
         JOIN player_current pc ON pc.id = l.player_current_id
         WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
@@ -271,29 +303,8 @@ def compute_player_breakdown(
         (league_id, matchday_current),
     ).fetchall()
 
-    alter_egos = conn.execute(
-        "SELECT player_current_id, player_historic_id FROM alter_ego WHERE league_id = ?",
-        (league_id,),
-    ).fetchall()
-    alter_ego_map = {r["player_current_id"]: r["player_historic_id"] for r in alter_egos}
-
-    historic_ids = list(alter_ego_map.values())
-    rating_map: dict[int, dict] = {}
-    if historic_ids:
-        ph = ",".join("?" * len(historic_ids))
-        rows = conn.execute(
-            f"""
-            SELECT hr.player_historic_id, hr.rating, hr.source,
-                   hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
-                   hr.own_goals, hr.penalties_missed, hr.goals_conceded,
-                   ph.role
-            FROM historic_rating hr
-            JOIN player_historic ph ON ph.id = hr.player_historic_id
-            WHERE hr.player_historic_id IN ({ph}) AND hr.matchday = ?
-            """,
-            (*historic_ids, matchday_historic),
-        ).fetchall()
-        rating_map = {r["player_historic_id"]: dict(r) for r in rows}
+    alter_ego_map = _matchday_alter_egos(conn, league_id, lineups)
+    rating_map = _historic_ratings(conn, list(alter_ego_map.values()), matchday_historic)
 
     real_map = {
         r["name"].strip().lower(): {"rating": r["score_bonus"], "rating_no_bonus": r["score_no_bonus"]}
