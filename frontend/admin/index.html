@@ -2229,13 +2229,15 @@ function gtBonusIcons(p) {
 function gtPlayerRows(players) {
   let html = '';
   players.starters.forEach((p) => {
-    html += '<tr><td class="cal-role">' + p.role + '</td><td>' + gtPlayerName(p, true) + '</td>' +
+    html += (p.sub === 'out' ? '<tr class="sub-out" title="Sostituito">' : '<tr>') +
+      '<td class="cal-role">' + p.role + '</td><td>' + gtPlayerName(p, true) + '</td>' +
       '<td class="cal-ns">' + gtFmtScore(p.ns_score) + '</td><td class="cal-fb">' + gtFmtScore(p.score_bonus) + '</td></tr>';
   });
   if (players.bench.length > 0) {
     html += '<tr class="cal-bench-sep"><td colspan="4">— panchina —</td></tr>';
     players.bench.forEach((p) => {
-      html += '<tr class="bench-row"><td class="cal-role">' + p.role + '</td><td>' + gtPlayerName(p, false) + '</td>' +
+      html += (p.sub === 'in' ? '<tr class="bench-row sub-in" title="Entrato dalla panchina">' : '<tr class="bench-row">') +
+        '<td class="cal-role">' + p.role + '</td><td>' + (p.sub === 'in' ? '↑ ' : '') + gtPlayerName(p, false) + '</td>' +
         '<td class="cal-ns">' + gtFmtScore(p.ns_score) + '</td><td class="cal-fb">' + gtFmtScore(p.score_bonus) + '</td></tr>';
     });
   }

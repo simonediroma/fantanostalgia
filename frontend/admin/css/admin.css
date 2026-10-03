@@ -253,6 +253,11 @@ details[open] > summary { margin-bottom: 0.75rem; }
 }
 .cal-team-table td { padding: 0.2rem 0.3rem; vertical-align: top; }
 .cal-team-table tr.bench-row td { color: var(--muted); font-style: italic; }
+.cal-team-table tr.bench-row.sub-in td { color: inherit; font-style: normal; }
+.cal-team-table tr.bench-row.sub-in td.cal-role { color: var(--accent); }
+.cal-team-table tr.bench-row.sub-in td.cal-ns { color: var(--green); }
+.cal-team-table tr.bench-row.sub-in td.cal-fb { color: var(--muted); }
+.cal-team-table tr.sub-out td, .cal-team-table tr.sub-out td * { color: var(--muted) !important; }
 .cal-role { color: var(--accent); font-weight: bold; width: 1.2rem; }
 .cal-ns { color: var(--green); text-align: right; width: 3rem; }
 .cal-fb { color: var(--muted); text-align: right; width: 3rem; }

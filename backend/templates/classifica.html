@@ -247,6 +247,11 @@
 }
 .cal-team-table td { padding: 0.2rem 0.3rem; vertical-align: top; }
 .cal-team-table tr.bench-row td { color: var(--muted, #888); font-style: italic; }
+.cal-team-table tr.bench-row.sub-in td { color: inherit; font-style: normal; }
+.cal-team-table tr.bench-row.sub-in td.cal-role { color: var(--accent, #ff0); }
+.cal-team-table tr.bench-row.sub-in td.cal-ns { color: var(--green, #0f0); }
+.cal-team-table tr.bench-row.sub-in td.cal-fb { color: var(--muted, #888); }
+.cal-team-table tr.sub-out td, .cal-team-table tr.sub-out td * { color: var(--muted, #888) !important; }
 .cal-role { color: var(--accent, #ff0); font-weight: bold; width: 1.2rem; }
 .cal-ns { color: var(--green, #0f0); text-align: right; width: 3rem; }
 .cal-fb { color: var(--muted, #888); text-align: right; width: 3rem; }
@@ -341,7 +346,7 @@ function playerRows(players, side) {
   let html = '';
   // starters
   players.starters.forEach(p => {
-    html += '<tr>';
+    html += p.sub === 'out' ? '<tr class="sub-out" title="Sostituito">' : '<tr>';
     html += '<td class="cal-role">' + p.role + '</td>';
     html += '<td>' + playerName(p, true) + '</td>';
     html += '<td class="cal-ns">' + fmtScore(p.ns_score) + '</td>';
@@ -352,9 +357,9 @@ function playerRows(players, side) {
   if (players.bench.length > 0) {
     html += '<tr class="cal-bench-sep"><td colspan="4">— panchina —</td></tr>';
     players.bench.forEach(p => {
-      html += '<tr class="bench-row">';
+      html += p.sub === 'in' ? '<tr class="bench-row sub-in" title="Entrato dalla panchina">' : '<tr class="bench-row">';
       html += '<td class="cal-role">' + p.role + '</td>';
-      html += '<td>' + playerName(p, false) + '</td>';
+      html += '<td>' + (p.sub === 'in' ? '↑ ' : '') + playerName(p, false) + '</td>';
       html += '<td class="cal-ns">' + fmtScore(p.ns_score) + '</td>';
       html += '<td class="cal-fb">' + fmtScore(p.score_bonus) + '</td>';
       html += '</tr>';

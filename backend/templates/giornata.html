@@ -122,7 +122,7 @@
       </thead>
       <tbody>
         {% for p in mgr.starters %}
-        <tr>
+        <tr{% if p.sub == 'out' %} title="Sostituito" style="opacity:0.45"{% endif %}>
           <td data-label="Ruolo"><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
           <td data-label="Giocatore">
             {{ p.player_name }}
@@ -159,9 +159,9 @@
         </thead>
         <tbody>
           {% for p in mgr.bench %}
-          <tr>
+          <tr{% if p.sub != 'in' %} style="opacity:0.6"{% else %} title="Entrato dalla panchina"{% endif %}>
             <td data-label="Ruolo"><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
-            <td data-label="Giocatore">{{ p.player_name }}</td>
+            <td data-label="Giocatore">{% if p.sub == 'in' %}↑ {% endif %}{{ p.player_name }}</td>
             <td class="historic-name" style="text-align:left" data-label="Alter Ego">
               {% if p.alter_ego_name %}{{ p.alter_ego_name }}{% else %}—{% endif %}
             </td>

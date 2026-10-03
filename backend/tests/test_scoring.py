@@ -234,13 +234,72 @@ def test_scores_with_real_ratings(client):
 
 
 def test_scores_no_alter_ego_fallback(client):
-    """Player with no alter ego and no real_ratings → nostalgia score = 6.0."""
+    """Titolare senza alter ego né voto e nessun panchinaro → scoperto, 0 punti (niente 6 d'ufficio)."""
     league_id, _, _ = _full_setup(client, with_alter_ego=False)
 
     r = client.post(f"/admin/league/{league_id}/scores/1", json={})
     assert r.status_code == 200, r.text
     s = r.json()["scores"][0]
-    assert s["score_nostalgia"] == pytest.approx(6.0)
+    assert s["score_nostalgia"] == pytest.approx(0.0)
+
+
+def test_scores_bench_substitution(client):
+    """Titolare s.v. senza alter ego → entra il primo panchinaro dello stesso ruolo con
+    voto, in ordine di panchina. Titolare s.v. con alter ego → resta (voto storico) nella
+    nostalgia, ma nel punteggio normale viene sostituito. Senza panchinaro valido → 0."""
+    from backend.api.db import get_db
+    from backend.engine.scoring import compute_player_breakdown
+
+    league_id = _create_league(client)
+    with get_db() as conn:
+        mid = conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, 'Sub', 'SubTeam')",
+            (league_id,),
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle)"
+            " VALUES (?, 1, 5, 1)", (league_id,),
+        )
+        ids = {}
+        # (nome, ruolo, titolare, voto senza bonus, fantavoto) in ordine di schieramento
+        for name, role, starter, nb, fv in [
+            ("TitA", "A", 1, None, None),    # s.v., niente alter ego → sostituito
+            ("TitC", "C", 1, None, None),    # s.v., con alter ego → nostalgia: alter ego
+            ("TitD", "D", 1, None, None),    # s.v., nessun D in panchina con voto → 0
+            ("PanA1", "A", 0, None, None),   # s.v. → saltato
+            ("PanC", "C", 0, 5.5, 5.5),      # entra per TitC solo nel normale
+            ("PanA2", "A", 0, 6.5, 9.5),     # entra per TitA
+            ("PanA3", "A", 0, 7.0, 7.0),     # dopo PanA2 → non entra
+            ("PanD", "D", 0, None, None),
+        ]:
+            pcid = conn.execute(
+                "INSERT INTO player_current (league_id, name, role, team, manager_id)"
+                " VALUES (?, ?, ?, 'X', ?)", (league_id, name, role, mid),
+            ).lastrowid
+            ids[name] = pcid
+            conn.execute(
+                "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id,"
+                " is_starter, score_no_bonus, score_bonus) VALUES (?, ?, 1, ?, ?, ?, ?)",
+                (league_id, mid, pcid, starter, nb, fv),
+            )
+        hist_id = _add_historic_player(conn, "Rivera G.", "C")
+        _add_historic_rating(conn, hist_id, 5, rating=7.0, source="archive")
+        conn.execute(
+            "INSERT INTO alter_ego (league_id, manager_id, player_current_id, player_historic_id)"
+            " VALUES (?, ?, ?, ?)", (league_id, mid, ids["TitC"], hist_id),
+        )
+
+    r = client.post(f"/admin/league/{league_id}/scores/1", json={})
+    assert r.status_code == 200, r.text
+    s = r.json()["scores"][0]
+    # Nostalgia: PanA2 6.5 (senza bonus) + TitC alter ego 7.0 + TitD scoperto 0
+    assert s["score_nostalgia"] == pytest.approx(13.5)
+    # Normale: PanA2 9.5 + PanC 5.5 + TitD scoperto 0
+    assert s["score_normal"] == pytest.approx(15.0)
+
+    with get_db() as conn:
+        bd = compute_player_breakdown(conn, league_id, 1)
+    assert sorted((b["name"], b["ns"]) for b in bd) == [("PanA2", 6.5), ("TitC", 7.0)]
 
 
 def test_scores_no_alter_ego_with_real_rating(client):
@@ -318,8 +377,9 @@ def test_scores_alter_ego_sv(client):
         hist_id = _add_historic_player(conn, "Del Piero A.", "A")
         # No historic_rating inserted for matchday 10 → sv
         conn.execute(
-            "INSERT INTO alter_ego (league_id, player_current_id, player_historic_id) VALUES (?, ?, ?)",
-            (league_id, player_id, hist_id),
+            "INSERT INTO alter_ego (league_id, manager_id, player_current_id, player_historic_id)"
+            " VALUES (?, ?, ?, ?)",
+            (league_id, manager_id, player_id, hist_id),
         )
 
     r = client.post(f"/admin/league/{league_id}/scores/1", json={})
@@ -444,3 +504,22 @@ def test_get_scores_ok(client):
 def test_get_scores_league_not_found(client):
     r = client.get("/league/99999/scores/1")
     assert r.status_code == 404
+
+
+def test_nostalgia_sub_status_marks_in_and_out():
+    """Calendario: panchinaro entrato = "in", titolare sostituito/scoperto = "out"."""
+    from backend.api.routers.views import _nostalgia_sub_status
+
+    def row(i, role, starter, ae=None, vote=None):
+        return {"lineup_id": i, "manager_id": 1, "role": role, "is_starter": starter,
+                "alter_ego_name": ae, "score_bonus": vote}
+
+    rows = [
+        row(1, "A", 1),                  # s.v. senza alter ego → sostituito
+        row(2, "C", 1, ae="Rivera"),     # alter ego → resta
+        row(3, "D", 1),                  # scoperto
+        row(4, "A", 0),                  # s.v. → non entra
+        row(5, "A", 0, vote=6.5),        # entra
+        row(6, "C", 0, vote=6.0),        # non serve
+    ]
+    assert _nostalgia_sub_status(rows) == {1: "out", 3: "out", 5: "in"}

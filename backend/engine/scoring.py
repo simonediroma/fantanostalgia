@@ -87,6 +87,31 @@ def _nostalgia_score(
     )
 
 
+def _has_real_vote(p: dict, real_map: dict[str, dict]) -> bool:
+    rr = real_map.get(p["name"].strip().lower())
+    return rr is not None and rr.get("rating") is not None
+
+
+def _apply_substitutions(rows: list[dict], has_vote) -> list[dict]:
+    """Titolari effettivi dopo le sostituzioni. Ogni titolare per cui `has_vote` è falso
+    viene sostituito dal primo panchinaro dello stesso ruolo, in ordine di panchina,
+    per cui `has_vote` è vero; sostituzioni illimitate, ogni panchinaro entra una volta.
+    Senza panchinaro valido il titolare resta scoperto e non è nella lista (0 punti)."""
+    bench = [r for r in rows if not r["is_starter"]]
+    out = []
+    for p in rows:
+        if not p["is_starter"]:
+            continue
+        if has_vote(p):
+            out.append(p)
+            continue
+        sub = next((b for b in bench if b["role"] == p["role"] and has_vote(b)), None)
+        if sub is not None:
+            bench.remove(sub)
+            out.append(sub)
+    return out
+
+
 def _matchday_alter_egos(conn: sqlite3.Connection, league_id: int, lineups) -> dict[int, int]:
     """player_current_id → player_historic_id per le righe di una giornata: l'alter ego
     fissato nella formazione se presente, altrimenti l'associazione corrente della
@@ -188,10 +213,12 @@ def calculate_scores(
     lineups = conn.execute(
         """
         SELECT l.manager_id, l.player_current_id, pc.name, pc.role,
-               l.score_no_bonus, l.score_bonus, l.alter_ego_id, l.alter_ego_frozen
+               l.score_no_bonus, l.score_bonus, l.alter_ego_id, l.alter_ego_frozen,
+               l.is_starter
         FROM lineup l
         JOIN player_current pc ON pc.id = l.player_current_id
-        WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
+        WHERE l.league_id = ? AND l.matchday = ?
+        ORDER BY l.id
         """,
         (league_id, matchday_current),
     ).fetchall()
@@ -239,34 +266,30 @@ def calculate_scores(
         total_normal: Optional[float] = 0.0 if real_ratings is not None else None
         total_nostalgia = 0.0
 
-        for p in players:
-            role = p["role"]
-            name_key = p["name"].strip().lower()
+        # Nostalgia: sostituito solo chi non ha voto reale né alter ego
+        for p in _apply_substitutions(
+                players, lambda p: p["player_current_id"] in alter_ego_map or _has_real_vote(p, real_map)):
+            total_nostalgia += _nostalgia_score(p, alter_ego_map, rating_map, real_map)
 
-            # Nostalgia score
-            ns = _nostalgia_score(p, alter_ego_map, rating_map, real_map)
-            total_nostalgia += ns
-
-            # Normal score
-            if total_normal is not None:
-                rr = real_map.get(name_key)
-                if rr is None:
-                    total_normal += 6.0
-                else:
-                    total_normal += _formula(
-                        rating=rr["rating"],
-                        role=role,
-                        goals=rr.get("goals", 0),
-                        assists=rr.get("assists", 0),
-                        yellow_cards=rr.get("yellow_cards", 0),
-                        red_cards=rr.get("red_cards", 0),
-                        own_goals=rr.get("own_goals", 0),
-                        penalties_missed=rr.get("penalties_missed", 0),
-                        goals_conceded=rr.get("goals_conceded", 0),
-                        penalties_saved=rr.get("penalties_saved", 0),
-                        minutes_ge_60=rr.get("minutes", 90) >= 60,
-                        apply_bonus=True,
-                    )
+        # Normal score: sostituito chi non ha voto reale
+        if total_normal is not None:
+            for p in _apply_substitutions(players, lambda p: _has_real_vote(p, real_map)):
+                role = p["role"]
+                rr = real_map[p["name"].strip().lower()]
+                total_normal += _formula(
+                    rating=rr["rating"],
+                    role=role,
+                    goals=rr.get("goals", 0),
+                    assists=rr.get("assists", 0),
+                    yellow_cards=rr.get("yellow_cards", 0),
+                    red_cards=rr.get("red_cards", 0),
+                    own_goals=rr.get("own_goals", 0),
+                    penalties_missed=rr.get("penalties_missed", 0),
+                    goals_conceded=rr.get("goals_conceded", 0),
+                    penalties_saved=rr.get("penalties_saved", 0),
+                    minutes_ge_60=rr.get("minutes", 90) >= 60,
+                    apply_bonus=True,
+                )
 
         results.append(ManagerScore(
             manager_id=mid,
@@ -290,7 +313,8 @@ def compute_player_breakdown(
 ) -> list[dict]:
     """Per-starter nostalgia scores for a matchday, recomputed deterministically
     from persisted data (alter_ego + historic_rating). Returns one dict per
-    starter: {manager_id, player_current_id, role, name, ns}.
+    effective starter (after bench substitutions; uncovered starters are omitted):
+    {manager_id, player_current_id, role, name, ns}.
 
     Players without an alter ego use the stored lineup.score_no_bonus (voto in
     pagella), matching calculate_scores without real_ratings."""
@@ -306,10 +330,12 @@ def compute_player_breakdown(
     lineups = conn.execute(
         """
         SELECT l.manager_id, l.player_current_id, pc.name, pc.role,
-               l.score_no_bonus, l.score_bonus, l.alter_ego_id, l.alter_ego_frozen
+               l.score_no_bonus, l.score_bonus, l.alter_ego_id, l.alter_ego_frozen,
+               l.is_starter
         FROM lineup l
         JOIN player_current pc ON pc.id = l.player_current_id
-        WHERE l.league_id = ? AND l.matchday = ? AND l.is_starter = 1
+        WHERE l.league_id = ? AND l.matchday = ?
+        ORDER BY l.id
         """,
         (league_id, matchday_current),
     ).fetchall()
@@ -322,9 +348,14 @@ def compute_player_breakdown(
         for r in lineups if r["score_bonus"] is not None
     }
 
+    rows = [dict(r) for r in lineups]
+    by_manager: dict[int, list[dict]] = defaultdict(list)
+    for r in rows:
+        by_manager[r["manager_id"]].append(r)
+
     breakdown: list[dict] = []
-    for row in lineups:
-        p = dict(row)
+    for p in (p for players in by_manager.values() for p in _apply_substitutions(
+            players, lambda p: p["player_current_id"] in alter_ego_map or _has_real_vote(p, real_map))):
         breakdown.append({
             "manager_id": p["manager_id"],
             "player_current_id": p["player_current_id"],
