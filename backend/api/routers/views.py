@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
 from backend.api.routers.standings import _compute_h2h, _score_to_goals
+from backend.engine.scoring import _apply_substitutions
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
 templates = Jinja2Templates(directory=_templates_dir)
@@ -21,6 +22,26 @@ _GP_CRITERIA_LABELS = {
     "best_player": "Miglior giocatore",
     "worst_player": "Peggior giocatore",
 }
+
+
+def _nostalgia_sub_status(lineup_rows) -> dict[int, str]:
+    """lineup.id → "in" (panchinaro entrato) / "out" (titolare che non conta: sostituito o
+    scoperto), secondo le sostituzioni del punteggio nostalgia (vedi scoring)."""
+    by_manager: dict[int, list[dict]] = {}
+    for r in sorted(lineup_rows, key=lambda r: r["lineup_id"]):
+        by_manager.setdefault(r["manager_id"], []).append({
+            "id": r["lineup_id"], "role": r["role"], "is_starter": r["is_starter"],
+            "valid": r["alter_ego_name"] is not None or r["score_bonus"] is not None,
+        })
+    status: dict[int, str] = {}
+    for rows in by_manager.values():
+        effective = {p["id"] for p in _apply_substitutions(rows, lambda p: p["valid"])}
+        for p in rows:
+            if p["is_starter"] and p["id"] not in effective:
+                status[p["id"]] = "out"
+            elif not p["is_starter"] and p["id"] in effective:
+                status[p["id"]] = "in"
+    return status
 
 
 @router.get("/")
@@ -278,7 +299,7 @@ def calendario_dati(league_id: int, matchday: int):
 
         lineup_rows = conn.execute(
             """
-            SELECT l.manager_id, COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name,
+            SELECT l.id AS lineup_id, l.manager_id, COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name,
                    pc.name AS player_name, pc.role,
                    pc.team AS current_team, l.is_starter,
                    l.score_no_bonus, l.score_bonus,
@@ -301,6 +322,7 @@ def calendario_dati(league_id: int, matchday: int):
             (matchday_historic, league_id, matchday),
         ).fetchall()
 
+    sub_status = _nostalgia_sub_status(lineup_rows)
     mgr_map: dict[str, dict] = {}
     for r in lineup_rows:
         key = r["manager_id"]
@@ -323,6 +345,7 @@ def calendario_dati(league_id: int, matchday: int):
             "score_no_bonus": r["score_no_bonus"],
             "score_bonus": r["score_bonus"],
             "ns_score": round(ns_score, 1) if ns_score is not None else None,
+            "sub": sub_status.get(r["lineup_id"]),
         }
         if r["is_starter"]:
             # bonus/malus breakdown only shown for starters
@@ -413,9 +436,9 @@ def giornata(request: Request, league_id: int, matchday: int):
 
         lineup_rows = conn.execute(
             """
-            SELECT l.manager_id, COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name,
+            SELECT l.id AS lineup_id, l.manager_id, COALESCE(NULLIF(TRIM(m.team_name), ''), m.name) AS manager_name,
                    pc.name AS player_name, pc.role,
-                   pc.team AS current_team, l.is_starter, l.score_no_bonus,
+                   pc.team AS current_team, l.is_starter, l.score_no_bonus, l.score_bonus,
                    ph.name AS alter_ego_name, ph.team AS alter_ego_team,
                    hr.rating, hr.goals, hr.assists, hr.yellow_cards, hr.red_cards,
                    hr.own_goals, hr.penalties_missed, hr.goals_conceded,
@@ -463,6 +486,7 @@ def giornata(request: Request, league_id: int, matchday: int):
         "winner_name": r["winner_name"],
     } for r in gp_rows]
 
+    sub_status = _nostalgia_sub_status(lineup_rows)
     mgr_map: dict[str, dict] = {}
     for r in lineup_rows:
         key = r["manager_id"]
@@ -484,6 +508,7 @@ def giornata(request: Request, league_id: int, matchday: int):
             "alter_ego_team": r["alter_ego_team"],
             "rating": r["rating"],
             "ns_score": round(ns_score, 1) if ns_score is not None else None,
+            "sub": sub_status.get(r["lineup_id"]),
         }
         if r["is_starter"]:
             mgr_map[key]["starters"].append(entry)

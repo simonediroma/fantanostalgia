@@ -504,3 +504,22 @@ def test_get_scores_ok(client):
 def test_get_scores_league_not_found(client):
     r = client.get("/league/99999/scores/1")
     assert r.status_code == 404
+
+
+def test_nostalgia_sub_status_marks_in_and_out():
+    """Calendario: panchinaro entrato = "in", titolare sostituito/scoperto = "out"."""
+    from backend.api.routers.views import _nostalgia_sub_status
+
+    def row(i, role, starter, ae=None, vote=None):
+        return {"lineup_id": i, "manager_id": 1, "role": role, "is_starter": starter,
+                "alter_ego_name": ae, "score_bonus": vote}
+
+    rows = [
+        row(1, "A", 1),                  # s.v. senza alter ego → sostituito
+        row(2, "C", 1, ae="Rivera"),     # alter ego → resta
+        row(3, "D", 1),                  # scoperto
+        row(4, "A", 0),                  # s.v. → non entra
+        row(5, "A", 0, vote=6.5),        # entra
+        row(6, "C", 0, vote=6.0),        # non serve
+    ]
+    assert _nostalgia_sub_status(rows) == {1: "out", 3: "out", 5: "in"}
