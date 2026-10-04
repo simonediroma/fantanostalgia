@@ -41,8 +41,15 @@ class TokenBody(BaseModel):
     jwt: str
 
 
+def get_admin_user(user: dict = Depends(get_current_user)) -> dict:
+    """Il collegamento a Fantacalcio serve solo agli allenatori elevati ad admin."""
+    if not user["is_admin"]:
+        raise HTTPException(status_code=403, detail="Riservato agli amministratori")
+    return user
+
+
 @router.get("/auth/user/fantacalcio")
-def get_fantacalcio_link(user: dict = Depends(get_current_user)):
+def get_fantacalcio_link(user: dict = Depends(get_admin_user)):
     """Stato del collegamento: scadenza del token e leghe visibili. Mai il token."""
     with get_db() as conn:
         jwt = fc.load_user_jwt(conn, user["id"])
@@ -62,7 +69,7 @@ def get_fantacalcio_link(user: dict = Depends(get_current_user)):
 
 
 @router.put("/auth/user/fantacalcio")
-def set_fantacalcio_link(body: TokenBody, user: dict = Depends(get_current_user)):
+def set_fantacalcio_link(body: TokenBody, user: dict = Depends(get_admin_user)):
     jwt = body.jwt.strip().strip('"')
     expiry = fc.token_expiry(jwt)
     if expiry is None:
@@ -75,7 +82,7 @@ def set_fantacalcio_link(body: TokenBody, user: dict = Depends(get_current_user)
 
 
 @router.delete("/auth/user/fantacalcio")
-def delete_fantacalcio_link(user: dict = Depends(get_current_user)):
+def delete_fantacalcio_link(user: dict = Depends(get_admin_user)):
     with get_db() as conn:
         conn.execute("UPDATE user SET fantacalcio_jwt = NULL WHERE id = ?", (user["id"],))
     return {"connected": False}

@@ -188,7 +188,7 @@ async function init() {
 
   document.getElementById('userName').textContent = me.name;
   renderElevationPanel(me);
-  renderFantacalcioPanel();
+  if (me.is_admin) renderFantacalcioPanel();
 
   const list = document.getElementById('leagueList');
 

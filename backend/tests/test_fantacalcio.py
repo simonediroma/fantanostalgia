@@ -35,6 +35,14 @@ def coach(client):
 
 
 @pytest.fixture
+def admin_coach(coach):
+    """Allenatore elevato ad admin: l'unico che può collegare il token Fantacalcio."""
+    with get_db() as conn:
+        conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (coach,))
+    return coach
+
+
+@pytest.fixture
 def fake_api(monkeypatch):
     calls = []
 
@@ -52,16 +60,22 @@ def test_link_requires_user_session(client):
     assert client.get("/auth/user/fantacalcio").status_code == 401
 
 
-def test_link_save_encrypted_and_status(client, coach, fake_api):
+def test_link_forbidden_for_non_admin_coach(client, coach):
+    assert client.get("/auth/user/fantacalcio").status_code == 403
+    assert client.put("/auth/user/fantacalcio", json={"jwt": _jwt()}).status_code == 403
+    assert client.delete("/auth/user/fantacalcio").status_code == 403
+
+
+def test_link_save_encrypted_and_status(client, admin_coach, fake_api):
     jwt = _jwt(300)
     r = client.put("/auth/user/fantacalcio", json={"jwt": jwt})
     assert r.status_code == 200, r.text
     assert 298 <= r.json()["token"]["days_left"] <= 300
 
     with get_db() as conn:
-        stored = conn.execute("SELECT fantacalcio_jwt FROM user WHERE id = ?", (coach,)).fetchone()[0]
+        stored = conn.execute("SELECT fantacalcio_jwt FROM user WHERE id = ?", (admin_coach,)).fetchone()[0]
         assert stored and jwt not in stored
-        assert fc.load_user_jwt(conn, coach) == jwt
+        assert fc.load_user_jwt(conn, admin_coach) == jwt
 
     st = client.get("/auth/user/fantacalcio").json()
     assert st["connected"] is True
@@ -70,18 +84,18 @@ def test_link_save_encrypted_and_status(client, coach, fake_api):
     assert fake_api[0] == ("/onboarding/v2/profile", jwt)
 
 
-def test_link_rejects_invalid_and_expired(client, coach):
+def test_link_rejects_invalid_and_expired(client, admin_coach):
     assert client.put("/auth/user/fantacalcio", json={"jwt": "non-un-jwt"}).status_code == 422
     assert client.put("/auth/user/fantacalcio", json={"jwt": _jwt(-1)}).status_code == 422
 
 
-def test_link_delete(client, coach):
+def test_link_delete(client, admin_coach):
     client.put("/auth/user/fantacalcio", json={"jwt": _jwt()})
     assert client.delete("/auth/user/fantacalcio").status_code == 200
     assert client.get("/auth/user/fantacalcio").json()["connected"] is False
 
 
-def test_link_status_reports_api_error(client, coach, monkeypatch):
+def test_link_status_reports_api_error(client, admin_coach, monkeypatch):
     def failing(*a, **k):
         raise fc.FantacalcioError(401, "ATH003", "token non valido", "u")
     monkeypatch.setattr(fc, "get", failing)
@@ -90,10 +104,8 @@ def test_link_status_reports_api_error(client, coach, monkeypatch):
     assert st["connected"] is True and "ATH003" in st["error"]
 
 
-def test_explore_uses_league_token_and_redacts(client, coach, fake_api):
+def test_explore_uses_league_token_and_redacts(client, admin_coach, fake_api):
     client.put("/auth/user/fantacalcio", json={"jwt": _jwt()})
-    with get_db() as conn:
-        conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (coach,))
     r = client.get("/admin/fantacalcio/explore", params={"league": "mia-lega", "path": "/gaming/v1/x/1"})
     assert r.status_code == 200, r.text
     body = r.json()
