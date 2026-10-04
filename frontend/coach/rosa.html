@@ -421,7 +421,9 @@ function renderMarket() {
     panel.appendChild(help);
 
     const creditsLine = document.createElement('div');
-    creditsLine.style.cssText = 'margin-bottom:0.5rem';
+    // Resta visibile sotto la topbar mentre si scorre la lista.
+    const topbarH = document.querySelector('.topbar')?.offsetHeight || 0;
+    creditsLine.style.cssText = `margin-bottom:0.5rem;position:sticky;top:${topbarH}px;z-index:5;background:var(--surface);padding:0.35rem 0`;
     creditsLine.appendChild(DS.Badge({ children: `💰 Crediti disponibili: ${_market.available_credits}`, variant: 'default' }));
     panel.appendChild(creditsLine);
 
@@ -432,10 +434,13 @@ function renderMarket() {
         const hasMyBid = row.my_bid != null;
         const freeSlots = (_market.free_slots && _market.free_slots[row.role]) || 0;
         const roleFull = freeSlots <= 0 && !hasMyBid;
+        // L'offerta già fatta su questo giocatore è già scalata dai disponibili.
+        const maxBid = _market.available_credits + (hasMyBid ? row.my_bid : 0);
 
         const input = document.createElement('input');
         input.type = 'number';
         input.min = String(row.market_value);
+        input.max = String(maxBid);
         input.placeholder = String(row.market_value);
         input.style.cssText = 'width:70px';
         input.value = hasMyBid ? row.my_bid : '';
@@ -448,6 +453,10 @@ function renderMarket() {
             if (!amount || amount <= 0) { showMsg('Inserisci un importo valido.', true); return; }
             if (amount < row.market_value) {
               showMsg(`L'offerta minima per questo giocatore è ${row.market_value} crediti (valore di mercato).`, true);
+              return;
+            }
+            if (amount > maxBid) {
+              showMsg(`Puoi offrire al massimo ${maxBid} crediti per questo giocatore.`, true);
               return;
             }
             try {
@@ -481,6 +490,10 @@ function renderMarket() {
         actions.appendChild(input);
         actions.appendChild(offerBtn);
         actions.appendChild(withdrawBtn);
+        const maxHint = document.createElement('small');
+        maxHint.style.cssText = 'color:var(--muted)';
+        maxHint.textContent = `max ${maxBid}`;
+        actions.appendChild(maxHint);
 
         const roleCell = roleFull ? DS.Badge({ children: `${row.role} pieno`, variant: 'red' }) : row.role;
 
