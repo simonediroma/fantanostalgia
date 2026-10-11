@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
 from backend.api.routers.standings import _compute_h2h, _score_to_goals
+from backend.engine.historic_matches import reconstruct_matches
 from backend.engine.scoring import _apply_substitutions
 
 _templates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "templates")
@@ -477,6 +478,20 @@ def giornata(request: Request, league_id: int, matchday: int):
             (league_id, matchday),
         ).fetchall()
 
+        historic_rows = conn.execute(
+            """
+            SELECT ph.name, ph.role, ph.team, hr.rating, hr.goals, hr.own_goals,
+                   hr.penalties_scored, hr.yellow_cards, hr.red_cards,
+                   hr.goals_conceded, hr.team_won, hr.minutes
+            FROM historic_rating hr
+            JOIN player_historic ph ON ph.id = hr.player_historic_id
+            WHERE ph.season = ? AND hr.matchday = ?
+            """,
+            (league_row["season_historic"], matchday_historic),
+        ).fetchall()
+
+    historic = reconstruct_matches(historic_rows)
+
     gran_premi = [{
         "criterion_label": _GP_CRITERIA_LABELS.get(r["criterion"], r["criterion"]),
         "status": r["status"],
@@ -528,6 +543,7 @@ def giornata(request: Request, league_id: int, matchday: int):
         "managers": managers,
         "gran_premi": gran_premi,
         "all_matchdays": all_matchdays,
+        "historic": historic,
     })
 
 

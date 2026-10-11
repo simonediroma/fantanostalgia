@@ -176,6 +176,56 @@
 {% endfor %}
 {% endif %}
 
+{% macro tabellino(t) %}
+  {% if t.scorers %}<div class="hm-line">⚽ {% for g in t.scorers %}{{ g.name }}{% if g.goals > 1 %} ×{{ g.goals }}{% endif %}{% if g.own %} (aut.){% elif g.penalties %} (rig.){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+  {% if t.cards %}<div class="hm-line">{% for c in t.cards %}{% if c.card == 'red' %}🟥{% else %}🟨{% endif %} {{ c.name }}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+  <div class="ds-table-wrap" style="margin-top:0.4rem">
+    <table class="ds-table ds-table-stack">
+      <thead><tr><th>Ruolo</th><th>Giocatore</th><th>Min</th><th>Voto</th></tr></thead>
+      <tbody>
+        {% for p in t.players %}
+        <tr>
+          <td data-label="Ruolo"><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
+          <td data-label="Giocatore">{{ p.name }}</td>
+          <td data-label="Min">{{ p.minutes or '—' }}</td>
+          <td class="score" data-label="Voto">{% if p.rating is not none %}{{ '%.1f'|format(p.rating) }}{% else %}sv{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}
+
+{% if historic.matches or historic.unpaired %}
+<h2 style="margin-top:2rem">📜 Giornata storica G{{ matchday_historic }} ({{ league.season_historic }})</h2>
+{% for m in historic.matches %}
+<details class="hm-match">
+  <summary>{{ m.home.team }} <strong>{{ m.home_goals }} - {{ m.away_goals }}</strong> {{ m.away.team }}</summary>
+  <div class="hm-teams">
+    <div><h3>{{ m.home.team }}</h3>{{ tabellino(m.home) }}</div>
+    <div><h3>{{ m.away.team }}</h3>{{ tabellino(m.away) }}</div>
+  </div>
+</details>
+{% endfor %}
+{% if historic.unpaired %}
+<p class="subtitle" style="margin-top:1rem">Squadre di cui non è stato possibile ricostruire l'avversario:</p>
+{% for t in historic.unpaired %}
+<details class="hm-match">
+  <summary>{{ t.team }} — {% if t.won %}vittoria · {% endif %}gol subiti: {{ t.conceded }}</summary>
+  <div>{{ tabellino(t) }}</div>
+</details>
+{% endfor %}
+{% endif %}
+<style>
+.hm-match { border:1px solid var(--border, #3333aa); padding:0.5rem 0.75rem; margin-bottom:0.5rem; }
+.hm-match summary { cursor:pointer; }
+.hm-teams { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:0.5rem; }
+.hm-teams h3 { font-size:0.9rem; margin:0.25rem 0; }
+.hm-line { font-size:0.85rem; margin-top:0.25rem; }
+@media (max-width:640px) { .hm-teams { grid-template-columns:1fr; } }
+</style>
+{% endif %}
+
 <script>
 function switchTab(id, btn) {
   document.querySelectorAll('.ds-tabs__panel').forEach(p => { p.hidden = true; });

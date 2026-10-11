@@ -1,9 +1,11 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-04
+**Ultima sessione:** 2026-10-11
 **Branch attivo:** `claude/eloquent-clarke-oi0rax` (da `main` dopo il merge di #113)
 **PR in corso:** nessuna. [#114](https://github.com/simonediroma/fantanostalgia/pull/114) (collegamento + import Fantacalcio) mergiata in `main` (`88b3670`); branch ripartito da `main` per il fix sotto.
+
+**Sessione 2026-10-11 — Partite della giornata storica sulla pagina giornata (richiesto in chat):** il DB storico non ha le partite (manca l'avversario). Scelta dell'utente: **ricostruirle** dai voti. `backend/engine/historic_matches.py::reconstruct_matches` raggruppa `historic_rating` per squadra (stagione `league.season_historic`, giornata sorteggiata) e accoppia A-B se gol subiti da A = gol di B + autogol di A (e viceversa) e l'esito (`team_won`) è coerente; accoppiamento solo se univoco in entrambi i sensi, il resto (es. più 0-0) resta "non accoppiato" e si mostra per squadra. Casa/trasferta non note (ordine alfabetico). Pagina pubblica `giornata.html`: sezione "📜 Giornata storica" con una `<details>` per partita (risultato, marcatori con rig./aut., cartellini, voti e minuti). Test `test_historic_matches.py` (4); suite 345 passed + soliti 3. Verificato con screenshot Playwright. Possibile evoluzione esatta: salvare avversario negli scraper/CSV.
 
 **Sessione 2026-10-04 — Mercato: massimo offribile per giocatore (richiesto in chat):** in `frontend/coach/rosa.html` (fase offerte) ogni riga mostra "max N" con N = `available_credits` + eventuale offerta già fatta su quel giocatore (già scalata dai disponibili); stesso N come `max` dell'input e controllo client prima dell'invio. Il badge "Crediti disponibili" è sticky sotto la topbar. Solo frontend, backend invariato. Verificato con Playwright (100 crediti, offerta 30: max 100 sulla riga con offerta, 70 sulle altre; 80 rifiutato lato client).
 
