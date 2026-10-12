@@ -167,14 +167,14 @@ function render() {
     creditsBadge.replaceChildren();
   }
 
-  // Won-players banner (Gran Premio and/or Mercato — only while the rosa is
+  // Won-players banner (Gran Premio, Mercato, Assegnazione giornata — only while the rosa is
   // still editable)
   const banner = document.getElementById('gpBanner');
   if (!readOnly && _gpWon.length) {
     const names = _gpWon.map(g => `${esc(g.name)} (${g.role}) — ${g.source}`).join(', ');
     banner.innerHTML = `<div class="ds-panel ds-panel--accent">
-      <strong>🏆 Hai vinto dei giocatori!</strong><br>
-      Giocatori vinti: ${names}. Associali nella tua rosa qui sotto, poi ri-blocca.</div>`;
+      <strong>🏆 Nuovi giocatori nel tuo pool!</strong><br>
+      Giocatori ricevuti: ${names}. Associali nella tua rosa qui sotto, poi ri-blocca.</div>`;
   } else {
     banner.innerHTML = '';
   }
@@ -568,7 +568,14 @@ async function loadData() {
       }
     }
 
-    _gpWon = [...gpWins, ...mktWins];
+    const giveaways = await (await fetch(`/league/${leagueId}/giveaway`)).json();
+    const gaWins = Array.isArray(giveaways)
+      ? giveaways
+          .filter(g => g.manager_id === _data.manager.id)
+          .map(g => ({ name: g.name, role: g.role, source: `Assegnazione giornata ${g.matchday}` }))
+      : [];
+
+    _gpWon = [...gpWins, ...mktWins, ...gaWins];
   } catch { _gpWon = []; }
   await loadMarket();
   render();

@@ -26,7 +26,8 @@ def free_historic_players(
     rows = conn.execute(
         f"""
         SELECT ph.id, ph.name, ph.role, ph.team, ph.season,
-               ROUND(AVG(hr.rating), 2) AS avg_rating
+               ROUND(AVG(hr.rating), 2) AS avg_rating,
+               COUNT(hr.rating) AS appearances
         FROM player_historic ph
         LEFT JOIN historic_rating hr ON hr.player_historic_id = ph.id
         WHERE ph.season = ?
