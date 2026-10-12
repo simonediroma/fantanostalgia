@@ -50,6 +50,7 @@
         <a href="#" id="usersNavLink" class="nav-link">👤 Utenti</a>
         <a href="#" id="emailNavLink" class="nav-link">✉ Email</a>
         <a href="#" id="fcNavLink" class="nav-link">⚽ Fantacalcio</a>
+        <a href="#" id="giveawayNavLink" class="nav-link">🎁 Assegnazione giornata</a>
       </nav>
       <div class="section-label" style="margin-top:0.5rem">Pubblico</div>
       <nav>
@@ -122,6 +123,25 @@
         <div class="ds-panel ds-panel--default">
           <h4 class="ds-panel__title">Coda email</h4>
           <div id="emailQueue"></div>
+        </div>
+      </div>
+
+      <!-- Regole assegnazione giornata (pannello globale) -->
+      <div id="pg-giveaway" class="page">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem">
+          <h2>Assegnazione giornata</h2>
+          <button class="ds-button ds-button--secondary" id="giveawayToDashBtn" style="font-size:0.8rem">← Leghe</button>
+        </div>
+        <div id="giveawayMsg"></div>
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Fasce dei giocatori assegnati</h4>
+          <div class="ds-help-box ds-help-box--info">
+            <span class="ds-help-box__icon" aria-hidden="true">i</span>
+            <div class="ds-help-box__body">
+              <p class="ds-help-box__text">Valide per tutte le leghe. Dopo i Gran Premi di una giornata, ogni squadra con un posto libero riceve uno storico casuale del ruolo di turno (A → C → D → P → A…) con media voto nella fascia (estremi compresi) e almeno le presenze indicate (giornate con voto). Campo vuoto = nessun limite. Se gli idonei non bastano si completa con storici liberi fuori fascia.</p>
+            </div>
+          </div>
+          <div id="giveawayRules" class="mt-sm"></div>
         </div>
       </div>
 
@@ -517,6 +537,14 @@
           </div>
           <div id="gtGpList" class="mt-md"></div>
         </div>
+
+        <div class="ds-panel ds-panel--default">
+          <h4 class="ds-panel__title">Assegnazione giornata</h4>
+          <p style="color:var(--muted);font-size:0.875rem;margin:0.5rem 0 0.75rem">
+            Dopo i Gran Premi, ogni squadra con un posto libero nel ruolo di turno riceve uno storico casuale. Fasce configurabili in 🎁 Assegnazione giornata.
+          </p>
+          <div id="gtGiveaway"></div>
+        </div>
       </div>
 
       <!-- Mercato dei giocatori storici ─────────────────────────────────────── -->
@@ -547,6 +575,7 @@
 <script src="js/users.js"></script>
 <script src="js/email.js"></script>
 <script src="js/fantacalcio.js"></script>
+<script src="js/giveaway.js"></script>
 <script>
 'use strict';
 
@@ -610,7 +639,7 @@ function showApp(username) {
 }
 
 function showPage(id) {
-  ['pg-dashboard', 'pg-users', 'pg-email', 'pg-fantacalcio', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
+  ['pg-dashboard', 'pg-users', 'pg-email', 'pg-fantacalcio', 'pg-giveaway', 'pg-league-form', 'pg-manage', 'pg-giornate', 'pg-giornata-detail', 'pg-mercato'].forEach(pid => {
     const el = document.getElementById(pid);
     if (el) el.classList.toggle('active', pid === id);
   });
@@ -2193,6 +2222,7 @@ async function loadGiornataDetail() {
 
   await loadGtGpPrizeOptions();
   await loadGtGpList();
+  await loadGtGiveaway();
 }
 
 function gtFmtScore(v) { return v !== null && v !== undefined ? v.toFixed(1) : '—'; }
@@ -2304,6 +2334,7 @@ async function loadGtGpList() {
               const res = await apiResolveGranPremio(currentLeagueId, gp.id);
               showMsg('giornataDetailMsg', `Gran Premio risolto — vincitore: ${res.winner}.`);
               await loadGtGpList();
+              await loadGtGiveaway();
               await loadGtGpPrizeOptions();
             } catch (err) {
               showMsg('giornataDetailMsg', err.message, true);
@@ -2327,6 +2358,121 @@ async function loadGtGpList() {
     showMsg('giornataDetailMsg', err.message, true);
   }
 }
+
+// ── Assegnazione giornata (dettaglio giornata) ───────────────────────────────
+async function loadGtGiveaway() {
+  if (!currentLeagueId || !detailMatchday) return;
+  const el = document.getElementById('gtGiveaway');
+  let st;
+  try {
+    st = await apiGiveawayPreview(currentLeagueId, detailMatchday);
+  } catch (err) {
+    showMsg('giornataDetailMsg', err.message, true);
+    return;
+  }
+
+  if (st.done) {
+    el.replaceChildren(DS.Table({
+      columns: [{ label: 'Squadra' }, { label: 'Giocatore' }, { label: 'Fascia' }],
+      rows: st.awards.map(a => [
+        a.manager_name,
+        `${a.name} (${a.role}) — ${a.team} ${a.season}`,
+        a.in_band ? 'In fascia' : 'Fuori fascia',
+      ]),
+    }));
+    return;
+  }
+
+  const els = [];
+  if (st.role) {
+    const info = document.createElement('p');
+    info.style.cssText = 'font-size:0.85rem;line-height:1.8';
+    info.textContent = `Ruolo di turno: ${st.role} · Squadre che ricevono: ${st.managers.join(', ')}` +
+      ` · Storici liberi in fascia: ${st.in_band} (fuori fascia: ${st.out_of_band})`;
+    els.push(info);
+  }
+  if (st.blocker) {
+    els.push(DS.HelpBox({ variant: 'warn', children: st.blocker }));
+  } else {
+    els.push(DS.Button({
+      children: 'Assegna giocatori', variant: 'default',
+      onClick: async () => {
+        const ok = await DS.confirmDialog({
+          title: 'Assegnazione giornata',
+          message: `Ogni squadra elencata riceverà un ${st.role} storico casuale e potrà riassociare i suoi storici.`,
+          consequence: "L'assegnazione non si può annullare e gli allenatori ricevono un'email.",
+          confirmLabel: 'Assegna',
+        });
+        if (!ok) return;
+        try {
+          const res = await apiRunGiveaway(currentLeagueId, detailMatchday);
+          showMsg('giornataDetailMsg', `Assegnati ${res.awards.length} giocatori.`);
+          await loadGtGiveaway();
+          await loadGtGpPrizeOptions();
+        } catch (err) {
+          showMsg('giornataDetailMsg', err.message, true);
+        }
+      },
+    }));
+  }
+  el.replaceChildren(...els);
+}
+
+// ── Regole assegnazione giornata (pannello globale) ──────────────────────────
+const GIVEAWAY_ROLE_LABELS = { A: 'Attaccanti', C: 'Centrocampisti', D: 'Difensori', P: 'Portieri' };
+
+function giveawayNumInput(value, step) {
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = step;
+  input.min = '0';
+  input.value = value === null || value === undefined ? '' : value;
+  input.style.cssText = 'width:90px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:0.3rem 0.4rem;font-size:0.82rem';
+  return input;
+}
+
+async function loadGiveawayRules() {
+  let rules;
+  try {
+    rules = await apiGiveawayRules();
+  } catch (err) {
+    showMsg('giveawayMsg', err.message, true);
+    return;
+  }
+  const inputs = rules.map(r => ({
+    role: r.role,
+    min: giveawayNumInput(r.min_avg, '0.1'),
+    max: giveawayNumInput(r.max_avg, '0.1'),
+    app: giveawayNumInput(r.min_appearances, '1'),
+  }));
+  const table = DS.Table({
+    columns: [{ label: 'Ruolo' }, { label: 'Media min' }, { label: 'Media max' }, { label: 'Presenze min' }],
+    rows: inputs.map(i => [`${GIVEAWAY_ROLE_LABELS[i.role]} (${i.role})`, i.min, i.max, i.app]),
+  });
+  const num = (input) => (input.value.trim() === '' ? null : Number(input.value));
+  const saveBtn = DS.Button({
+    children: 'Salva', variant: 'default',
+    onClick: async () => {
+      try {
+        await apiSaveGiveawayRules(inputs.map(i => ({
+          role: i.role, min_avg: num(i.min), max_avg: num(i.max), min_appearances: num(i.app) ?? 0,
+        })));
+        showMsg('giveawayMsg', 'Fasce salvate.');
+      } catch (err) {
+        showMsg('giveawayMsg', err.message, true);
+      }
+    },
+  });
+  saveBtn.style.marginTop = '1rem';
+  document.getElementById('giveawayRules').replaceChildren(table, saveBtn);
+}
+
+document.getElementById('giveawayNavLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  showPage('pg-giveaway');
+  loadGiveawayRules();
+});
+document.getElementById('giveawayToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
 
 document.getElementById('gtGpRole').addEventListener('change', loadGtGpPrizeOptions);
 document.getElementById('gtGpRefreshPrizeBtn').addEventListener('click', loadGtGpPrizeOptions);

@@ -138,6 +138,20 @@ def _render_gran_premio_won(params: dict, base_url: str) -> tuple[str, str]:
     return f"Hai vinto un Gran Premio in {league_name}!", html
 
 
+def _render_giveaway_assigned(params: dict, base_url: str) -> tuple[str, str]:
+    name, league_name, league_id = params["name"], params["league_name"], params["league_id"]
+    player_name, matchday = params["player_name"], params["matchday"]
+    html = _layout(
+        "Nuovo giocatore storico!",
+        f"<p>Ciao {name}, con l'assegnazione della giornata {matchday} in <strong>{league_name}</strong> "
+        f"hai ricevuto <strong>{player_name}</strong> nella tua rosa nostalgia. "
+        "Accedi per associarlo a un giocatore della tua rosa: puoi riassociare tutti i tuoi storici.</p>",
+        "Associa il nuovo giocatore",
+        f"{base_url}/coach/lega/{league_id}",
+    )
+    return f"{league_name}: hai ricevuto {player_name}", html
+
+
 def _render_market_won(params: dict, base_url: str) -> tuple[str, str]:
     name, league_name, league_id = params["name"], params["league_name"], params["league_id"]
     won_players_names = params["won_players_names"]
@@ -214,6 +228,7 @@ TEMPLATES: dict[str, Callable[[dict, str], tuple[str, str]]] = {
     "pool_assignment": _render_pool_assignment,
     "gran_premio_won": _render_gran_premio_won,
     "market_won": _render_market_won,
+    "giveaway_assigned": _render_giveaway_assigned,
     "password_reset": _render_password_reset,
     "password_recovery": _render_password_recovery,
 }

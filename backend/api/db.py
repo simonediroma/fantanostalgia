@@ -299,6 +299,25 @@ def init_db() -> None:
                 used_at TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_password_reset_token_token ON password_reset_token(token);
+            CREATE TABLE IF NOT EXISTS giveaway_rule (
+                role TEXT PRIMARY KEY CHECK(role IN ('P', 'D', 'C', 'A')),
+                min_avg REAL,
+                max_avg REAL,
+                min_appearances INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT OR IGNORE INTO giveaway_rule (role, min_avg, max_avg, min_appearances) VALUES
+                ('A', 6.0, 7.1, 0), ('C', 6.0, 6.6, 0), ('D', 6.0, 6.3, 0), ('P', NULL, NULL, 6);
+            CREATE TABLE IF NOT EXISTS matchday_giveaway (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL REFERENCES league(id),
+                matchday INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                manager_id INTEGER NOT NULL REFERENCES manager(id),
+                player_historic_id INTEGER NOT NULL REFERENCES player_historic(id),
+                in_band INTEGER NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_matchday_giveaway_league ON matchday_giveaway(league_id, matchday);
         """)
         conn.commit()
 

@@ -91,6 +91,15 @@ def delete_matchday(
                 status_code=400,
                 detail="Impossibile cancellare la giornata: un Gran Premio è già stato assegnato per questa giornata",
             )
+        giveaway_done = conn.execute(
+            "SELECT 1 FROM matchday_giveaway WHERE league_id = ? AND matchday = ? LIMIT 1",
+            (league_id, matchday),
+        ).fetchone()
+        if giveaway_done:
+            raise HTTPException(
+                status_code=400,
+                detail="Impossibile cancellare la giornata: l'assegnazione giornata è già stata eseguita",
+            )
         conn.execute("DELETE FROM lineup WHERE league_id = ? AND matchday = ?", (league_id, matchday))
         conn.execute("DELETE FROM h2h_match WHERE league_id = ? AND matchday = ?", (league_id, matchday))
         conn.execute("DELETE FROM matchday_score WHERE league_id = ? AND matchday = ?", (league_id, matchday))

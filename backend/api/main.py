@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.db import init_db
-from backend.api.routers import auth, coach, fantacalcio, granpremio, historic, inspect, league, lineups, mapping, market, matchday, players, standings, views
+from backend.api.routers import auth, coach, fantacalcio, giveaway, granpremio, historic, inspect, league, lineups, mapping, market, matchday, players, standings, views
 
 
 @asynccontextmanager
@@ -64,6 +64,7 @@ app.include_router(lineups.router)
 app.include_router(standings.router)
 app.include_router(historic.router)
 app.include_router(granpremio.router)
+app.include_router(giveaway.router)
 app.include_router(inspect.router)
 app.include_router(fantacalcio.router)
 
