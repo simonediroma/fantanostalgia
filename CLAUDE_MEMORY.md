@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-10-13
 **Branch attivo:** `ccr-eebc11a8-mbzbic` (da `main` `aa5a6ec`)
-**PR in corso:** nessuna aperta (push del branch fatto, PR solo su richiesta).
+**PR in corso:** nessuna. PR #128 (fix riassociazione dopo premi) mergiata in `main` (`8823a15`).
 
 **Sessione 2026-10-13 — Fix: riassociazione bloccata dopo Gran Premio/assegnazione (segnalato dagli allenatori):** GP, assegnazione giornata e mercato sbloccano la squadra (`assignments_locked = 0`), ma `assign`/`lock` in `coach.py` rifiutavano comunque con "Il periodo di associazioni è chiuso" se `league.associations_closed = 1`, e `rosa.html` restava in sola lettura. Ora conta solo il blocco della squadra: alla chiusura del periodo tutte le squadre vengono bloccate (`auto_assign_remaining`), quindi una squadra sbloccata dopo lo è per un evento voluto e può riassociare **tutti** gli storici del pool (non solo i nuovi), confermato dall'utente. Rimosso il badge "Periodo chiuso" in `rosa.html` (la lista leghe in `index.html` lo mostra ancora). Limite: se il coach non riblocca, il nuovo storico resta senza giocatore (nessuna auto-assegnazione dopo la chiusura). Test `test_unlocked_team_can_reassociate_after_period_closed`; suite 355 passed + soliti 3.
 
