@@ -289,3 +289,30 @@ def test_listone_too_many_releases_needs_force(client):
         assert _owners(conn, lid)["Extra0"] == a
     r = client.post(f"/admin/league/{lid}/listone?force=true", files=files)
     assert r.status_code == 200 and len(r.json()["released"]) == MAX_RELEASES + 1  # + Maignan (in pool)
+
+
+def test_unlocked_team_can_reassociate_after_period_closed(client):
+    """Periodo chiuso, poi un premio (GP/assegnazione) sblocca la squadra: il coach riassocia e blocca."""
+    lid, a, b, p, h = _setup(client)
+    with get_db() as conn:
+        uid = conn.execute("INSERT INTO user (email, password_hash, name) VALUES ('closed@x.it', ?, 'S')",
+                           (__import__("backend.api.routers.auth", fromlist=["_pwd_ctx"])._pwd_ctx.hash("pw"),)).lastrowid
+        conn.execute("UPDATE manager SET user_id = ?, assignments_locked = 0 WHERE id = ?", (uid, a))
+        conn.execute("UPDATE league SET associations_closed = 1 WHERE id = ?", (lid,))
+        h2 = conn.execute("INSERT INTO player_historic (name, role, team, season, source)"
+                          " VALUES ('Nesta', 'D', 'Lazio', '2003/04', 'archive')").lastrowid
+        conn.execute("INSERT INTO manager_nostalgia_pool (manager_id, league_id, player_historic_id)"
+                     " VALUES (?, ?, ?)", (a, lid, h2))
+        sommer = conn.execute("INSERT INTO player_current (league_id, name, role, team, manager_id)"
+                              " VALUES (?, 'Sommer', 'P', 'X', ?)", (lid, a)).lastrowid
+    client.post("/auth/user/login", json={"email": "closed@x.it", "password": "pw"})
+    r = client.post(f"/coach/league/{lid}/assign", json={"player_historic_id": h2, "player_current_id": p["Bisseck"]})
+    # anche lo storico già associato prima del premio si può riassociare
+    old = client.post(f"/coach/league/{lid}/assign", json={"player_historic_id": h, "player_current_id": sommer})
+    lock = client.post(f"/coach/league/{lid}/lock")
+    relock = client.post(f"/coach/league/{lid}/assign", json={"player_historic_id": h2, "player_current_id": None})
+    client.post("/auth/user/logout")
+    assert r.status_code == 200, r.text
+    assert old.status_code == 200, old.text
+    assert lock.status_code == 200, lock.text
+    assert relock.status_code == 400  # bloccata di nuovo

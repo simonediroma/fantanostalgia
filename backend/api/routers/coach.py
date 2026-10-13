@@ -130,8 +130,8 @@ def assign_player(
 
         if mgr["assignments_locked"]:
             raise HTTPException(status_code=400, detail="Associazioni già bloccate")
-        if mgr["associations_closed"]:
-            raise HTTPException(status_code=400, detail="Il periodo di associazioni è chiuso")
+        # Il periodo chiuso non blocca: alla chiusura tutte le squadre vengono bloccate,
+        # una squadra sbloccata dopo (Gran Premio, mercato, assegnazione) può riassociare.
 
         pool_entry = conn.execute(
             """
@@ -302,8 +302,8 @@ def lock_assignments(league_id: int, user: dict = Depends(get_current_user)):
 
         if mgr["assignments_locked"]:
             raise HTTPException(status_code=400, detail="Associazioni già bloccate")
-        if mgr["associations_closed"]:
-            raise HTTPException(status_code=400, detail="Il periodo di associazioni è chiuso")
+        # Il periodo chiuso non blocca: alla chiusura tutte le squadre vengono bloccate,
+        # una squadra sbloccata dopo (Gran Premio, mercato, assegnazione) può riassociare.
 
         pool_count = conn.execute(
             "SELECT COUNT(*) AS cnt FROM manager_nostalgia_pool WHERE manager_id = ?",
