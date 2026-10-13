@@ -118,12 +118,11 @@ function updateLockBar() {
   if (!_data) return;
   const {assigned, total} = computeProgress();
   const locked = _data.manager.assignments_locked;
-  const closed = _data.league.associations_closed;
   const lockBar = document.getElementById('lockBar');
   const lockBtn = document.getElementById('lockBtn');
   const progressText = document.getElementById('progressText');
 
-  lockBar.style.display = (locked || closed) ? 'none' : 'flex';
+  lockBar.style.display = locked ? 'none' : 'flex';
   progressText.textContent = `${assigned}/${total} assegnati`;
   progressBar.update(assigned, total || 1);
   lockBtn.disabled = assigned < total;
@@ -142,8 +141,9 @@ function render() {
   if (!_data) return;
 
   const locked = _data.manager.assignments_locked;
-  const closed = _data.league.associations_closed;
-  const readOnly = locked || closed;
+  // Dopo la chiusura del periodo vale solo il blocco della squadra: chi viene sbloccato
+  // (Gran Premio, mercato, assegnazione giornata) può riassociare.
+  const readOnly = locked;
 
   // Team title
   document.getElementById('teamTitle').textContent = _data.manager.team_name;
@@ -153,8 +153,6 @@ function render() {
   const badge = document.getElementById('statusBadge');
   if (locked) {
     badge.replaceChildren(DS.Badge({ children: 'Bloccato', variant: 'green' }));
-  } else if (closed) {
-    badge.replaceChildren(DS.Badge({ children: 'Periodo chiuso', variant: 'red' }));
   } else {
     badge.replaceChildren(DS.Badge({ children: 'In corso', variant: 'default' }));
   }
