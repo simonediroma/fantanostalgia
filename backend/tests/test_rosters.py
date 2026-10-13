@@ -303,11 +303,16 @@ def test_unlocked_team_can_reassociate_after_period_closed(client):
                           " VALUES ('Nesta', 'D', 'Lazio', '2003/04', 'archive')").lastrowid
         conn.execute("INSERT INTO manager_nostalgia_pool (manager_id, league_id, player_historic_id)"
                      " VALUES (?, ?, ?)", (a, lid, h2))
+        sommer = conn.execute("INSERT INTO player_current (league_id, name, role, team, manager_id)"
+                              " VALUES (?, 'Sommer', 'P', 'X', ?)", (lid, a)).lastrowid
     client.post("/auth/user/login", json={"email": "closed@x.it", "password": "pw"})
     r = client.post(f"/coach/league/{lid}/assign", json={"player_historic_id": h2, "player_current_id": p["Bisseck"]})
+    # anche lo storico già associato prima del premio si può riassociare
+    old = client.post(f"/coach/league/{lid}/assign", json={"player_historic_id": h, "player_current_id": sommer})
     lock = client.post(f"/coach/league/{lid}/lock")
     relock = client.post(f"/coach/league/{lid}/assign", json={"player_historic_id": h2, "player_current_id": None})
     client.post("/auth/user/logout")
     assert r.status_code == 200, r.text
+    assert old.status_code == 200, old.text
     assert lock.status_code == 200, lock.text
     assert relock.status_code == 400  # bloccata di nuovo
