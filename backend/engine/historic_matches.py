@@ -5,6 +5,9 @@ Il DB storico non salva le partite (manca l'avversario): per ogni squadra si
 conoscono i gol dei suoi giocatori, i gol subiti e l'esito. Due squadre sono
 accoppiate se i numeri sono coerenti (gol subiti da A = gol fatti da B, esito
 compatibile). Gli accoppiamenti ambigui restano non accoppiati.
+
+Se lo scraper ha salvato il calendario (tabella historic_match),
+matches_from_fixtures usa le partite vere (casa/trasferta e risultato esatti).
 """
 
 _ROLE_ORDER = {"P": 1, "D": 2, "C": 3, "A": 4}
@@ -102,4 +105,32 @@ def reconstruct_matches(rows) -> dict:
         "conceded": teams[n]["conceded"],
         "won": teams[n]["won"],
     } for n in names if n not in paired]
+    return {"matches": matches, "unpaired": unpaired}
+
+
+def matches_from_fixtures(rows, fixtures) -> dict:
+    """
+    rows: come reconstruct_matches. fixtures: righe historic_match della stessa
+    giornata (home_team, away_team, home_goals, away_goals).
+    Stesso formato di ritorno di reconstruct_matches; le squadre con voti ma
+    senza partita nel calendario finiscono in "unpaired".
+    """
+    teams = _team_summaries(rows)
+
+    def side(name: str) -> dict:
+        t = teams.get(name) or {"team": name, "players": []}
+        return _tabellino(t)
+
+    matches = [{
+        "home": side(f["home_team"]),
+        "away": side(f["away_team"]),
+        "home_goals": f["home_goals"],
+        "away_goals": f["away_goals"],
+    } for f in fixtures]
+    in_fixtures = {f[k] for f in fixtures for k in ("home_team", "away_team")}
+    unpaired = [{
+        **_tabellino(teams[n]),
+        "conceded": teams[n]["conceded"],
+        "won": teams[n]["won"],
+    } for n in sorted(teams) if n not in in_fixtures]
     return {"matches": matches, "unpaired": unpaired}

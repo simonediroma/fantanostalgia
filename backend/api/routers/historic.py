@@ -5,6 +5,10 @@ POST /admin/historic/import
   Accetta il CSV esportato dallo scraper e popola player_historic + historic_rating.
   Idempotente: righe già presenti vengono saltate (INSERT OR IGNORE).
 
+POST /admin/historic/import-matches
+  Accetta il CSV partite dello scraper calcioseriea (<nome>_partite.csv) e
+  popola historic_match. Reimport idempotente (INSERT OR REPLACE).
+
 POST /admin/historic/normalize-seasons
   Bonifica il DB convertendo tutti i valori di season al formato canonico YYYY/YY.
 """
@@ -28,6 +32,8 @@ _REQUIRED_FIELDS = {
 }
 
 _VALID_ROLES = {"P", "D", "C", "A"}
+
+_MATCH_FIELDS = {"season", "matchday", "home_team", "away_team", "home_goals", "away_goals"}
 
 
 _normalize_season = normalize_season
@@ -180,6 +186,54 @@ async def import_historic_csv(
     }
 
 
+def _parse_matches_csv(content: bytes) -> list[dict]:
+    reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
+    missing = _MATCH_FIELDS - set(reader.fieldnames or [])
+    if missing:
+        raise HTTPException(400, f"Colonne mancanti nel CSV: {', '.join(sorted(missing))}")
+    rows = []
+    for i, row in enumerate(reader, start=2):
+        try:
+            rows.append({
+                "season": normalize_season(row["season"].strip()),
+                "matchday": int(row["matchday"]),
+                "home_team": row["home_team"].strip(),
+                "away_team": row["away_team"].strip(),
+                "home_goals": int(row["home_goals"]),
+                "away_goals": int(row["away_goals"]),
+            })
+        except (ValueError, KeyError) as e:
+            raise HTTPException(400, f"Riga {i}: formato non valido — {e}")
+    return rows
+
+
+@router.post("/import-matches")
+async def import_historic_matches_csv(
+    file: UploadFile,
+    _admin=Depends(get_current_admin),
+):
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(400, "Il file deve essere un CSV")
+    rows = _parse_matches_csv(await file.read())
+    if not rows:
+        raise HTTPException(400, "CSV vuoto")
+    with get_db() as conn:
+        conn.executemany(
+            """
+            INSERT OR REPLACE INTO historic_match
+              (season, matchday, home_team, away_team, home_goals, away_goals)
+            VALUES (:season, :matchday, :home_team, :away_team, :home_goals, :away_goals)
+            """,
+            rows,
+        )
+    seasons = sorted({r["season"] for r in rows})
+    return {
+        "matches_imported": len(rows),
+        "seasons": seasons,
+        "message": f"Importazione partite completata — {len(rows)} partite ({', '.join(seasons)})",
+    }
+
+
 @router.post("/normalize-seasons")
 def normalize_seasons_in_db(_admin=Depends(get_current_admin)):
     """
@@ -298,6 +352,7 @@ def flush_historic_db(
                     _safe_exec(conn, f"UPDATE gran_premio SET prize_player_historic_id = NULL WHERE prize_player_historic_id IN ({id_ph})", ids)
                     cur = conn.execute(f"DELETE FROM player_historic WHERE id IN ({id_ph})", ids)
                     deleted_players = cur.rowcount
+                _safe_exec(conn, f"DELETE FROM historic_match WHERE season IN ({placeholders})", variants)
 
                 conn.execute("PRAGMA foreign_keys = ON")
                 return {
@@ -311,6 +366,7 @@ def flush_historic_db(
                 conn.execute("DELETE FROM alter_ego")
                 _safe_exec(conn, "DELETE FROM manager_nostalgia_pool")
                 _safe_exec(conn, "UPDATE gran_premio SET prize_player_historic_id = NULL")
+                _safe_exec(conn, "DELETE FROM historic_match")
                 cur_p = conn.execute("DELETE FROM player_historic")
                 conn.execute("PRAGMA foreign_keys = ON")
                 return {

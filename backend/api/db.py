@@ -318,6 +318,16 @@ def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_matchday_giveaway_league ON matchday_giveaway(league_id, matchday);
+            CREATE TABLE IF NOT EXISTS historic_match (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                season TEXT NOT NULL,
+                matchday INTEGER NOT NULL,
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                home_goals INTEGER NOT NULL,
+                away_goals INTEGER NOT NULL,
+                UNIQUE(season, matchday, home_team, away_team)
+            );
         """)
         conn.commit()
 

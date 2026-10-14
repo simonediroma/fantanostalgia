@@ -5,6 +5,9 @@ Scarica per ogni partita: lineup, gol, cartellini, minuti giocati.
 I ruoli vengono estratti automaticamente dalle pagine rosa (/rose/{year}/).
 Calcola il rating sintetico per ogni giocatore che è entrato in campo.
 
+Estrae anche il calendario con i risultati di ogni partita (tabella
+historic_match; con --export-csv in un secondo file "<nome>_partite.csv").
+
 Modalità di output:
   default            scrive direttamente su SQLite (locale o GCS)
   --export-csv FILE  esporta un CSV da importare via admin panel
@@ -25,7 +28,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
-from backend.api.db import ENV, _download_db_from_gcs, _get_db_path, _upload_db_to_gcs
+from backend.api.db import ENV, _get_db_path, _upload_db_to_gcs, init_db
 from backend.engine.rating import RatingWeights, compute_rating
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -55,6 +58,10 @@ CSV_FIELDS = [
     "player_name", "role", "team", "season", "matchday",
     "rating", "goals", "yellow_cards", "red_cards", "goals_conceded",
     "team_won", "minutes",
+]
+
+MATCH_CSV_FIELDS = [
+    "season", "matchday", "home_team", "away_team", "home_goals", "away_goals",
 ]
 
 
@@ -533,6 +540,17 @@ def _upsert_player(conn: sqlite3.Connection, name: str, role: str, team: str, se
     return cur.lastrowid
 
 
+def _save_matches(conn: sqlite3.Connection, matches: list[dict]) -> None:
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO historic_match
+          (season, matchday, home_team, away_team, home_goals, away_goals)
+        VALUES (:season, :matchday, :home_team, :away_team, :home_goals, :away_goals)
+        """,
+        matches,
+    )
+
+
 def _save_records(conn: sqlite3.Connection, records: list[dict]) -> None:
     for r in records:
         pid = _upsert_player(conn, r["player_name"], r["role"], r["team"], r["season"])
@@ -559,8 +577,8 @@ def _save_records(conn: sqlite3.Connection, records: list[dict]) -> None:
 def _collect_season(
     season: str,
     weights: RatingWeights,
-) -> list[dict]:
-    """Scrapa la stagione e ritorna tutti i record in memoria."""
+) -> tuple[list[dict], list[dict]]:
+    """Scrapa la stagione e ritorna (record giocatori, partite) in memoria."""
     session = _build_session()
 
     # 1. Pre-scraping ruoli dalle rose
@@ -573,6 +591,7 @@ def _collect_season(
     log.info("%d giornate trovate.", len(matchday_urls))
 
     records: list[dict] = []
+    fixtures: list[dict] = []
 
     for matchday_num, md_url in matchday_urls:
         log.info("Scraping giornata %d...", matchday_num)
@@ -584,6 +603,17 @@ def _collect_season(
 
         matches = _parse_matches(md_soup)
         log.info("  %d partite trovate.", len(matches))
+        fixtures.extend(
+            {
+                "season": season,
+                "matchday": matchday_num,
+                "home_team": m["home"],
+                "away_team": m["away"],
+                "home_goals": m["home_goals"],
+                "away_goals": m["away_goals"],
+            }
+            for m in matches
+        )
 
         for match in matches:
             try:
@@ -608,7 +638,7 @@ def _collect_season(
                     match["home"], match["away"], matchday_num, exc,
                 )
 
-    return records
+    return records, fixtures
 
 
 # ---------------------------------------------------------------------------
@@ -629,8 +659,7 @@ def scrape_season(
 
     season = _normalize_season(season)
 
-    if ENV != "development":
-        _download_db_from_gcs()
+    init_db()  # scarica il DB (se GCS) e crea le tabelle mancanti, es. historic_match
 
     conn = sqlite3.connect(_get_db_path())
     conn.execute("PRAGMA foreign_keys = ON")
@@ -640,10 +669,11 @@ def scrape_season(
             log.info("Stagione %s già nel DB. Usa --force per riscrappare.", season)
             return
 
-        records = _collect_season(season, weights)
-        log.info("Totale record raccolti: %d", len(records))
+        records, fixtures = _collect_season(season, weights)
+        log.info("Totale record raccolti: %d, partite: %d", len(records), len(fixtures))
 
         _save_records(conn, records)
+        _save_matches(conn, fixtures)
         conn.commit()
         log.info("Stagione %s salvata.", season)
 
@@ -662,15 +692,10 @@ def upload_to_server(
 ) -> None:
     """Scrapa la stagione e invia i dati direttamente all'endpoint di import."""
     season = _normalize_season(season)
-    records = _collect_season(season, weights or RatingWeights())
+    records, fixtures = _collect_season(season, weights or RatingWeights())
     log.info("Totale record raccolti: %d. Upload su %s...", len(records), server_url)
 
-    # Serializza in CSV in memoria
-    buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=CSV_FIELDS)
-    writer.writeheader()
-    writer.writerows(records)
-    csv_bytes = buf.getvalue().encode("utf-8")
+    csv_bytes = _to_csv(records, CSV_FIELDS).encode("utf-8")
 
     s = requests.Session()
     s.headers.update(_HEADERS)
@@ -691,6 +716,28 @@ def upload_to_server(
     result = resp.json()
     log.info("%s", result.get("message", "Import completato."))
 
+    resp = s.post(
+        f"{server_url}/admin/historic/import-matches",
+        files={"file": (f"{season}_partite.csv", _to_csv(fixtures, MATCH_CSV_FIELDS).encode("utf-8"), "text/csv")},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    log.info("%s", resp.json().get("message", "Import partite completato."))
+
+
+def _to_csv(rows: list[dict], fields: list[str]) -> str:
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue()
+
+
+def _matches_csv_path(output_path: str) -> str:
+    """'out.csv' → 'out_partite.csv'"""
+    base = output_path[:-4] if output_path.lower().endswith(".csv") else output_path
+    return f"{base}_partite.csv"
+
 
 def export_csv(
     season: str,
@@ -698,12 +745,14 @@ def export_csv(
     weights: RatingWeights | None = None,
 ) -> None:
     season = _normalize_season(season)
-    records = _collect_season(season, weights or RatingWeights())
+    records, fixtures = _collect_season(season, weights or RatingWeights())
     with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(records)
+        f.write(_to_csv(records, CSV_FIELDS))
     log.info("CSV esportato: %s (%d righe)", output_path, len(records))
+    matches_path = _matches_csv_path(output_path)
+    with open(matches_path, "w", newline="", encoding="utf-8") as f:
+        f.write(_to_csv(fixtures, MATCH_CSV_FIELDS))
+    log.info("CSV partite esportato: %s (%d partite)", matches_path, len(fixtures))
 
 
 def _test_tabellino(url: str) -> None:
