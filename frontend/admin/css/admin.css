@@ -287,3 +287,10 @@ details[open] > summary { margin-bottom: 0.75rem; }
   .ds-wizard-steps { font-size: 0.5rem; }
   h2 { font-size: 0.6rem; }
 }
+
+/* Gran Premi: conteggio del vincitore */
+.gp-why summary { cursor: pointer; }
+.gp-why p, .gp-why ol { font-family: system-ui; font-size: 0.8rem; margin: 0.4rem 0; text-align: left; }
+.gp-why ol { padding-left: 1.2rem; }
+.gp-why__winner { color: var(--green); }
+.gp-why__excluded { opacity: 0.7; }

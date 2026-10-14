@@ -69,6 +69,14 @@
 {% endif %}
 
 {% if gran_premi %}
+<style>
+.gp-why summary { cursor:pointer; }
+.gp-why p, .gp-why ol { font-family:system-ui; font-size:0.8rem; margin:0.4rem 0; }
+.gp-why ol { padding-left:1.2rem; }
+.gp-why__detail { color:var(--muted); }
+.gp-why__winner { color:var(--green); }
+.gp-why__excluded { opacity:0.7; }
+</style>
 <h2 style="margin-top:1.5rem">🏆 Gran Premi</h2>
 <div class="ds-table-wrap" style="margin-bottom:2rem">
   <table class="ds-table ds-table-stack">
@@ -78,6 +86,7 @@
         <th>In palio</th>
         <th>Stato</th>
         <th>Vincitore</th>
+        <th>Conteggio</th>
       </tr>
     </thead>
     <tbody>
@@ -90,6 +99,22 @@
         </td>
         <td data-label="Stato">{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
         <td data-label="Vincitore">{% if gp.winner_name %}{{ gp.winner_name }}{% else %}—{% endif %}</td>
+        <td data-label="Conteggio" style="text-align:left">
+          {% if gp.explanation %}
+          <details class="gp-why">
+            <summary>Perché ha vinto</summary>
+            <p>{{ gp.explanation.rule }}</p>
+            <ol>
+              {% for e in gp.explanation.ranking %}
+              <li class="{% if e.outcome == 'winner' %}gp-why__winner{% elif e.outcome %}gp-why__excluded{% endif %}">
+                <strong>{{ e.manager }}</strong> {{ e.value }}{% if e.detail %} <span class="gp-why__detail">= {{ e.detail }}</span>{% endif %}
+                {% if e.outcome_label %}<em>→ {{ e.outcome_label }}</em>{% endif %}
+              </li>
+              {% endfor %}
+            </ol>
+          </details>
+          {% else %}—{% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

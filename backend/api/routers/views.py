@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from backend.api.db import get_db
 from backend.api.routers.standings import _compute_h2h, _score_to_goals
+from backend.engine.granpremio import gran_premio_explanation
 from backend.engine.historic_matches import reconstruct_matches
 from backend.engine.scoring import _apply_substitutions
 
@@ -466,7 +467,8 @@ def giornata(request: Request, league_id: int, matchday: int):
 
         gp_rows = conn.execute(
             """
-            SELECT gp.criterion, gp.status,
+            SELECT gp.league_id, gp.matchday, gp.criterion, gp.status,
+                   gp.winner_manager_id, gp.explanation,
                    ph.name AS prize_name, ph.role AS prize_role, ph.team AS prize_team,
                    m.name AS winner_name
             FROM gran_premio gp
@@ -477,6 +479,7 @@ def giornata(request: Request, league_id: int, matchday: int):
             """,
             (league_id, matchday),
         ).fetchall()
+        gp_explanations = [gran_premio_explanation(conn, r) for r in gp_rows]
 
         historic_rows = conn.execute(
             """
@@ -499,7 +502,8 @@ def giornata(request: Request, league_id: int, matchday: int):
         "prize_role": r["prize_role"],
         "prize_team": r["prize_team"],
         "winner_name": r["winner_name"],
-    } for r in gp_rows]
+        "explanation": expl,
+    } for r, expl in zip(gp_rows, gp_explanations)]
 
     sub_status = _nostalgia_sub_status(lineup_rows)
     mgr_map: dict[str, dict] = {}

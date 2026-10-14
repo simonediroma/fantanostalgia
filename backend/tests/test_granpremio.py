@@ -643,3 +643,60 @@ def test_free_players_endpoint_requires_auth(client):
     client.post("/auth/logout")
     r = client.get(f"/admin/league/{ctx['league_id']}/granpremio/free-players")
     assert r.status_code == 401
+
+
+def _resolve_and_explain(client, ctx, criterion: str) -> dict:
+    league_id = ctx["league_id"]
+    r = client.post(f"/admin/league/{league_id}/granpremio", json={
+        "matchday": 1, "criterion": criterion, "prize_player_historic_id": ctx["prize"],
+    })
+    gp_id = r.json()["id"]
+    r = client.post(f"/admin/league/{league_id}/granpremio/{gp_id}/resolve")
+    assert r.status_code == 200, r.text
+    gp = next(g for g in client.get(f"/league/{league_id}/granpremio").json() if g["id"] == gp_id)
+    return gp["explanation"]
+
+
+def test_explanation_worst_defense_lists_players_and_sum(client):
+    ctx = _setup_scored_league(client)
+    ex = _resolve_and_explain(client, ctx, "worst_defense")
+    assert "portiere e difensori" in ex["rule"]
+    assert [(e["manager"], e["value"], e["outcome"]) for e in ex["ranking"]] == [
+        ("M1", "5.0", "winner"), ("M2", "6.5", None),
+    ]
+    assert ex["ranking"][0]["detail"] == "D1 (D) 5.0"
+
+
+def test_explanation_best_player_names_the_player(client):
+    ctx = _setup_scored_league(client)
+    ex = _resolve_and_explain(client, ctx, "best_player")
+    assert ex["ranking"][0]["manager"] == "M1"
+    assert ex["ranking"][0]["detail"] == "A1 (A) 8.0"
+
+
+def test_explanation_shows_why_first_was_excluded(client):
+    """M2 primo per best_score ma senza posto da attaccante: il conteggio lo dice."""
+    ctx = _setup_scored_league(client)
+    with get_db() as conn:
+        _fill_role_slot(conn, ctx["league_id"], ctx["m2"], "A2")
+    ex = _resolve_and_explain(client, ctx, "best_score")
+    assert [(e["manager"], e["value"], e["outcome"]) for e in ex["ranking"]] == [
+        ("M2", "13.5", "no_slot"), ("M1", "13.0", "winner"),
+    ]
+    assert "posto libero" in ex["ranking"][0]["outcome_label"]
+
+
+def test_explanation_recomputed_for_legacy_resolved(client):
+    """Gran Premi risolti prima del salvataggio del conteggio: ricalcolato al volo."""
+    ctx = _setup_scored_league(client)
+    league_id = ctx["league_id"]
+    ex = _resolve_and_explain(client, ctx, "best_score")
+    assert ex["ranking"][0]["outcome"] == "winner"
+    with get_db() as conn:
+        conn.execute("UPDATE gran_premio SET explanation = NULL WHERE league_id = ?", (league_id,))
+    gp = client.get(f"/league/{league_id}/granpremio").json()[0]
+    assert [(e["manager"], e["outcome"]) for e in gp["explanation"]["ranking"]] == [
+        ("M2", "winner"), ("M1", None),
+    ]
+    r = client.get(f"/lega/{league_id}/giornata/1")
+    assert "Perché ha vinto" in r.text

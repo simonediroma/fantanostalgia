@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from collections import defaultdict
 
@@ -56,52 +57,61 @@ def _joined_manager_ids(conn: sqlite3.Connection, league_id: int) -> set[int]:
     return {r["id"] for r in rows}
 
 
-def _ranked_managers(
+def _ranking(
     conn: sqlite3.Connection, league_id: int, matchday: int, criterion: str
-) -> list[int]:
-    """Joined managers ordered best-to-worst for the given criterion. Tie-break:
-    lowest manager_id. Only managers with a joined coach (user_id set) are
-    eligible."""
+) -> list[dict]:
+    """Joined managers ordered best-to-worst for the given criterion, with the
+    value that ranks them and the players it comes from:
+    [{manager_id, value, players: [{name, role, ns}]}]. Tie-break: lowest
+    manager_id. Only managers with a joined coach (user_id set) are eligible."""
     joined = _joined_manager_ids(conn, league_id)
     if not joined:
         return []
 
     if criterion == "best_score":
         rows = conn.execute(
-            "SELECT manager_id FROM matchday_score"
+            "SELECT manager_id, score_nostalgia FROM matchday_score"
             " WHERE league_id = ? AND matchday = ?"
             " ORDER BY score_nostalgia DESC, manager_id ASC",
             (league_id, matchday),
         ).fetchall()
-        return [r["manager_id"] for r in rows if r["manager_id"] in joined]
+        return [
+            {"manager_id": r["manager_id"], "value": r["score_nostalgia"], "players": []}
+            for r in rows if r["manager_id"] in joined
+        ]
 
     breakdown = compute_player_breakdown(conn, league_id, matchday)
     breakdown = [p for p in breakdown if p["manager_id"] in joined]
     if not breakdown:
         return []
 
-    if criterion == "best_player":
-        best_ns: dict[int, float] = {}
-        for p in breakdown:
-            mid = p["manager_id"]
-            if mid not in best_ns or p["ns"] > best_ns[mid]:
-                best_ns[mid] = p["ns"]
-        return sorted(best_ns, key=lambda m: (-best_ns[m], m))
+    def player(p: dict) -> dict:
+        return {"name": p["name"], "role": p["role"], "ns": p["ns"]}
 
-    if criterion == "worst_player":
-        worst_ns: dict[int, float] = {}
+    if criterion in ("best_player", "worst_player"):
+        better = (lambda a, b: a > b) if criterion == "best_player" else (lambda a, b: a < b)
+        pick: dict[int, dict] = {}
         for p in breakdown:
             mid = p["manager_id"]
-            if mid not in worst_ns or p["ns"] < worst_ns[mid]:
-                worst_ns[mid] = p["ns"]
-        return sorted(worst_ns, key=lambda m: (worst_ns[m], m))
+            if mid not in pick or better(p["ns"], pick[mid]["ns"]):
+                pick[mid] = p
+        sign = -1 if criterion == "best_player" else 1
+        return [
+            {"manager_id": m, "value": pick[m]["ns"], "players": [player(pick[m])]}
+            for m in sorted(pick, key=lambda m: (sign * pick[m]["ns"], m))
+        ]
 
     if criterion == "worst_defense":
-        def_score: dict[int, float] = defaultdict(float)
+        defense: dict[int, list[dict]] = defaultdict(list)
         for p in breakdown:
             if p["role"] in ("P", "D"):
-                def_score[p["manager_id"]] += p["ns"]
-        return sorted(def_score, key=lambda m: (def_score[m], m))
+                defense[p["manager_id"]].append(p)
+        total = {m: sum(p["ns"] for p in ps) for m, ps in defense.items()}
+        return [
+            {"manager_id": m, "value": round(total[m], 1),
+             "players": [player(p) for p in defense[m]]}
+            for m in sorted(total, key=lambda m: (total[m], m))
+        ]
 
     raise ValueError(f"Criterio sconosciuto: {criterion}")
 
@@ -178,19 +188,23 @@ def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
         (gp["prize_player_historic_id"],),
     ).fetchone()["role"]
 
-    ranked = _ranked_managers(conn, league_id, matchday, gp["criterion"])
-    if not ranked:
+    ranking = _ranking(conn, league_id, matchday, gp["criterion"])
+    if not ranking:
         raise ValueError("Impossibile determinare un vincitore per questo Gran Premio")
 
     already_won = _already_won_manager_ids(conn, league_id, matchday, gran_premio_id)
 
-    winner_id = next(
-        (
-            mid for mid in ranked
-            if mid not in already_won and _has_free_role_slot(conn, league_id, mid, prize_role)
-        ),
-        None,
-    )
+    winner_id = None
+    for entry in ranking:
+        if winner_id is not None:
+            entry["outcome"] = None
+        elif entry["manager_id"] in already_won:
+            entry["outcome"] = "already_won"
+        elif not _has_free_role_slot(conn, league_id, entry["manager_id"], prize_role):
+            entry["outcome"] = "no_slot"
+        else:
+            entry["outcome"] = "winner"
+            winner_id = entry["manager_id"]
     if winner_id is None:
         raise ValueError(
             "Nessun manager ha uno slot libero per il ruolo in palio "
@@ -209,7 +223,59 @@ def resolve_gran_premio(conn: sqlite3.Connection, gran_premio_id: int) -> int:
     )
     conn.execute(
         "UPDATE gran_premio SET status = 'resolved', winner_manager_id = ?,"
-        " resolved_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (winner_id, gran_premio_id),
+        " explanation = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (winner_id, json.dumps(ranking), gran_premio_id),
     )
     return winner_id
+
+
+CRITERIA_RULES = {
+    "best_score": "punteggio nostalgia della squadra, vince il più alto",
+    "worst_defense": "somma dei punteggi di portiere e difensori in campo, vince la più bassa",
+    "best_player": "miglior giocatore in campo di ogni squadra, vince il più alto",
+    "worst_player": "peggior giocatore in campo di ogni squadra, vince il più basso",
+}
+
+_OUTCOME_LABELS = {
+    "winner": "vince",
+    "already_won": "esclusa: ha già vinto un Gran Premio in questa giornata",
+    "no_slot": "esclusa: nessun posto libero nel ruolo",
+    "excluded": "esclusa",
+}
+
+
+def gran_premio_explanation(conn: sqlite3.Connection, gp) -> dict | None:
+    """Il conteggio di un Gran Premio risolto: regola del criterio e classifica delle
+    squadre con valore, giocatori che lo compongono ed esito. Usa quello fissato alla
+    risoluzione; per i Gran Premi risolti prima che venisse salvato lo ricalcola (senza
+    il motivo delle esclusioni)."""
+    if gp["status"] != "resolved":
+        return None
+    if gp["explanation"]:
+        ranking = json.loads(gp["explanation"])
+    else:
+        try:
+            ranking = _ranking(conn, gp["league_id"], gp["matchday"], gp["criterion"])
+        except ValueError:
+            return None
+        ids = [r["manager_id"] for r in ranking]
+        win_pos = ids.index(gp["winner_manager_id"]) if gp["winner_manager_id"] in ids else -1
+        for i, r in enumerate(ranking):
+            r["outcome"] = "winner" if i == win_pos else ("excluded" if i < win_pos else None)
+
+    names = {
+        r["id"]: r["name"]
+        for r in conn.execute("SELECT id, name FROM manager WHERE league_id = ?", (gp["league_id"],))
+    }
+    rows = []
+    for pos, r in enumerate(ranking, start=1):
+        detail = " + ".join(f"{p['name']} ({p['role']}) {p['ns']:.1f}" for p in r["players"])
+        rows.append({
+            "pos": pos,
+            "manager": names.get(r["manager_id"], "?"),
+            "value": f"{r['value']:.1f}",
+            "detail": detail,
+            "outcome": r.get("outcome"),
+            "outcome_label": _OUTCOME_LABELS.get(r.get("outcome"), ""),
+        })
+    return {"rule": CRITERIA_RULES.get(gp["criterion"], ""), "ranking": rows}

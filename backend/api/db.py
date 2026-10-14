@@ -319,6 +319,11 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_matchday_giveaway_league ON matchday_giveaway(league_id, matchday);
         """)
+        try:
+            # Conteggio fissato alla risoluzione (JSON): perché ha vinto chi ha vinto.
+            conn.execute("ALTER TABLE gran_premio ADD COLUMN explanation TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
     if ENV != "development":

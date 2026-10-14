@@ -1,9 +1,11 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-13
-**Branch attivo:** `ccr-eebc11a8-mbzbic` (da `main` `aa5a6ec`)
+**Ultima sessione:** 2026-10-14
+**Branch attivo:** `ccr-2ff2ed7f-ag5tvg` (da `main` `8823a15`)
 **PR in corso:** nessuna aperta (push del branch fatto, PR solo su richiesta).
+
+**Sessione 2026-10-14 — Gran Premi: conteggio del vincitore visibile (richiesto in chat):** alla risoluzione `resolve_gran_premio` salva in `gran_premio.explanation` (JSON, ALTER in `db.py`) la classifica delle squadre idonee con valore, giocatori che lo compongono (miglior/peggior giocatore: il giocatore; peggior difesa: P e D in campo con i punteggi) ed esito (`winner`, `already_won`, `no_slot`). `_ranked_managers` sostituita da `_ranking` (stessa logica e tie-break, in più valori e giocatori). `gran_premio_explanation` (engine) produce regola del criterio + righe pronte; per GP risolti prima di questa modifica ricalcola al volo (squadre sopra il vincitore marcate solo "esclusa", motivo non noto). Esposto in `GET /league/{id}/granpremio` (`explanation`) e nella pagina giornata; colonna "Conteggio" con `<details>` "Perché ha vinto" in `giornata.html` e nelle due tabelle admin (`gpWhy`). Test: 4 nuovi in `test_granpremio.py`; suite 356 passed + soliti 3+3. Nota: i nomi nel conteggio sono `manager.name` come la colonna Vincitore (la tabella punteggi della pagina giornata mostra invece `team_name`).
 
 **Sessione 2026-10-13 — Fix: riassociazione bloccata dopo Gran Premio/assegnazione (segnalato dagli allenatori):** GP, assegnazione giornata e mercato sbloccano la squadra (`assignments_locked = 0`), ma `assign`/`lock` in `coach.py` rifiutavano comunque con "Il periodo di associazioni è chiuso" se `league.associations_closed = 1`, e `rosa.html` restava in sola lettura. Ora conta solo il blocco della squadra: alla chiusura del periodo tutte le squadre vengono bloccate (`auto_assign_remaining`), quindi una squadra sbloccata dopo lo è per un evento voluto e può riassociare **tutti** gli storici del pool (non solo i nuovi), confermato dall'utente. Rimosso il badge "Periodo chiuso" in `rosa.html` (la lista leghe in `index.html` lo mostra ancora). Limite: se il coach non riblocca, il nuovo storico resta senza giocatore (nessuna auto-assegnazione dopo la chiusura). Test `test_unlocked_team_can_reassociate_after_period_closed`; suite 355 passed + soliti 3.
 

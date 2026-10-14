@@ -4,7 +4,9 @@ from pydantic import BaseModel
 from backend.api.db import get_db
 from backend.api.notifications import enqueue_email
 from backend.api.routers.auth import get_current_admin
-from backend.engine.granpremio import CRITERIA, free_historic_players, resolve_gran_premio
+from backend.engine.granpremio import (
+    CRITERIA, free_historic_players, gran_premio_explanation, resolve_gran_premio,
+)
 
 router = APIRouter(tags=["granpremio"])
 
@@ -123,8 +125,8 @@ def list_gran_premi(league_id: int):
         _require_league(conn, league_id)
         rows = conn.execute(
             """
-            SELECT gp.id, gp.matchday, gp.criterion, gp.status,
-                   gp.prize_player_historic_id,
+            SELECT gp.id, gp.league_id, gp.matchday, gp.criterion, gp.status,
+                   gp.prize_player_historic_id, gp.explanation,
                    ph.name AS prize_name, ph.role AS prize_role,
                    ph.team AS prize_team, ph.season AS prize_season,
                    gp.winner_manager_id, m.name AS winner_name
@@ -136,4 +138,10 @@ def list_gran_premi(league_id: int):
             """,
             (league_id,),
         ).fetchall()
-    return [dict(r) for r in rows]
+        out = []
+        for r in rows:
+            d = dict(r)
+            d.pop("explanation")
+            d["explanation"] = gran_premio_explanation(conn, r)
+            out.append(d)
+    return out

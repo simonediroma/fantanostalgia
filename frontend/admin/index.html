@@ -1668,6 +1668,29 @@ const GP_CRITERIA_LABELS = {
   worst_player: 'Peggior giocatore',
 };
 
+// Conteggio di un Gran Premio risolto: perché ha vinto chi ha vinto.
+function gpWhy(gp) {
+  const ex = gp.explanation;
+  if (!ex) return '—';
+  const det = document.createElement('details');
+  det.className = 'gp-why';
+  const sum = document.createElement('summary');
+  sum.textContent = 'Perché ha vinto';
+  const rule = document.createElement('p');
+  rule.textContent = ex.rule;
+  const ol = document.createElement('ol');
+  for (const e of ex.ranking) {
+    const li = document.createElement('li');
+    if (e.outcome === 'winner') li.className = 'gp-why__winner';
+    else if (e.outcome) li.className = 'gp-why__excluded';
+    li.textContent = `${e.manager} ${e.value}` + (e.detail ? ` = ${e.detail}` : '')
+      + (e.outcome_label ? ` → ${e.outcome_label}` : '');
+    ol.appendChild(li);
+  }
+  det.append(sum, rule, ol);
+  return det;
+}
+
 async function loadGpPrizeOptions() {
   if (!currentLeagueId) return;
   const role = document.getElementById('gpRole').value;
@@ -1729,6 +1752,7 @@ async function loadGpList() {
         `${gp.prize_name} (${gp.prize_role})`,
         stato,
         gp.winner_name || '—',
+        gpWhy(gp),
         action,
       ];
     });
@@ -1736,7 +1760,7 @@ async function loadGpList() {
     el.replaceChildren(DS.Table({
       columns: [
         { label: 'G' }, { label: 'Criterio' }, { label: 'In palio' },
-        { label: 'Stato' }, { label: 'Vincitore' }, { label: '' },
+        { label: 'Stato' }, { label: 'Vincitore' }, { label: 'Conteggio' }, { label: '' },
       ],
       rows,
     }));
@@ -2346,12 +2370,12 @@ async function loadGtGpList() {
       return [
         GP_CRITERIA_LABELS[gp.criterion] || gp.criterion,
         `${gp.prize_name} (${gp.prize_role})`,
-        stato, gp.winner_name || '—', action,
+        stato, gp.winner_name || '—', gpWhy(gp), action,
       ];
     });
 
     el.replaceChildren(DS.Table({
-      columns: [{ label: 'Criterio' }, { label: 'In palio' }, { label: 'Stato' }, { label: 'Vincitore' }, { label: '' }],
+      columns: [{ label: 'Criterio' }, { label: 'In palio' }, { label: 'Stato' }, { label: 'Vincitore' }, { label: 'Conteggio' }, { label: '' }],
       rows,
     }));
   } catch (err) {
