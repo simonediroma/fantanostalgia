@@ -29,6 +29,10 @@ async function apiCloseAssociations(leagueId) {
   return apiFetch(`/admin/league/${leagueId}/mapping/close-associations`, { method: 'POST' });
 }
 
+async function apiCompleteMissing(leagueId) {
+  return apiFetch(`/admin/league/${leagueId}/mapping/complete-missing`, { method: 'POST' });
+}
+
 async function apiCreateInvite(leagueId, managerId, email = null) {
   return jsonPost(`/admin/league/${leagueId}/managers/${managerId}/invite`, { email });
 }

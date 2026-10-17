@@ -296,6 +296,18 @@
             <button class="ds-button ds-button--danger" id="closeAssociationsBtn">Chiudi periodo associazioni</button>
           </div>
 
+          <!-- Completa associazioni mancanti -->
+          <div class="ds-panel ds-panel--default">
+            <h4 class="ds-panel__title">4. Completa associazioni mancanti</h4>
+            <div class="ds-help-box">
+              <span class="ds-help-box__icon" aria-hidden="true">i</span>
+              <div class="ds-help-box__body">
+                <p class="ds-help-box__text">Anche a periodo chiuso: associa gli storici rimasti senza giocatore (es. vinti in un Gran Premio) al titolare più presente ancora libero dello stesso ruolo, poi blocca le squadre completate. Se una squadra non ha giocatori liberi in quel ruolo, lo storico resta senza associazione.</p>
+              </div>
+            </div>
+            <button class="ds-button ds-button--primary" id="completeMissingBtn">Completa associazioni mancanti</button>
+          </div>
+
           <!-- Vecchio mapping automatico (avanzato) -->
           <details style="margin-top:0.5rem">
             <summary style="color:var(--muted);font-size:0.82rem;cursor:pointer">Mapping automatico diretto (avanzato)</summary>
@@ -1490,6 +1502,29 @@ document.getElementById('closeAssociationsBtn').addEventListener('click', async 
   try {
     const res = await apiCloseAssociations(currentLeagueId);
     showMsg('mappingMsg', res.detail);
+    await refreshCoachStatus();
+  } catch (err) {
+    showMsg('mappingMsg', err.message, true);
+  }
+});
+
+document.getElementById('completeMissingBtn').addEventListener('click', async () => {
+  const ok = await DS.confirmDialog({
+    title: 'Completa associazioni mancanti',
+    message: 'Gli storici senza giocatore verranno associati automaticamente in base alla titolarità.',
+    consequence: 'Le squadre completate verranno bloccate.',
+    confirmLabel: 'Completa',
+  });
+  if (!ok) return;
+  try {
+    const res = await apiCompleteMissing(currentLeagueId);
+    if (!res.teams.length) {
+      showMsg('mappingMsg', 'Nessuna associazione mancante.');
+    } else {
+      const parts = res.teams.map(t =>
+        `${t.team}: ${t.assigned} associati` + (t.missing ? `, ${t.missing} senza giocatore libero` : ''));
+      showMsg('mappingMsg', parts.join(' · '), res.teams.some(t => t.missing));
+    }
     await refreshCoachStatus();
   } catch (err) {
     showMsg('mappingMsg', err.message, true);

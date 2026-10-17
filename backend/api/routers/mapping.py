@@ -3,7 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.api.db import get_db
 from backend.api.notifications import enqueue_email, league_manager_emails
 from backend.api.routers.auth import get_current_admin
-from backend.engine.mapping import assign_nostalgia_pools, auto_assign_remaining, generate_mapping
+from backend.engine.mapping import (
+    assign_nostalgia_pools,
+    auto_assign_remaining,
+    complete_missing_assignments,
+    generate_mapping,
+)
 
 router = APIRouter(tags=["mapping"])
 
@@ -238,6 +243,17 @@ def close_associations(
             raise HTTPException(status_code=400, detail=str(e))
 
     return {"detail": "Periodo associazioni chiuso. Associazioni mancanti generate automaticamente."}
+
+
+@router.post("/admin/league/{league_id}/mapping/complete-missing")
+def complete_missing(
+    league_id: int,
+    _: str = Depends(get_current_admin),
+):
+    with get_db() as conn:
+        _require_league(conn, league_id)
+        teams = complete_missing_assignments(conn, league_id)
+    return {"teams": teams}
 
 
 @router.get("/admin/league/{league_id}/mapping")

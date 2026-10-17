@@ -329,6 +329,69 @@ def auto_assign_remaining(conn: sqlite3.Connection, league_id: int) -> None:
     )
 
 
+def complete_missing_assignments(conn: sqlite3.Connection, league_id: int) -> list[dict]:
+    """Associate every unassigned nostalgia pool entry of the league to a free
+    current player of the same role (titularity order), even after the
+    association period is closed. Entries with no free player stay unassigned.
+    Teams left fully assigned are locked. Returns one summary per touched team.
+    """
+    managers = conn.execute(
+        """
+        SELECT DISTINCT m.id, COALESCE(m.team_name, m.name) AS team
+        FROM manager m
+        JOIN manager_nostalgia_pool mnp ON mnp.manager_id = m.id
+        WHERE m.league_id = ? AND mnp.assigned_player_current_id IS NULL
+        ORDER BY m.id
+        """,
+        (league_id,),
+    ).fetchall()
+
+    summary = []
+    for mgr in managers:
+        mid = mgr["id"]
+        unassigned = conn.execute(
+            """
+            SELECT mnp.id AS pool_id, ph.role
+            FROM manager_nostalgia_pool mnp
+            JOIN player_historic ph ON ph.id = mnp.player_historic_id
+            WHERE mnp.manager_id = ? AND mnp.assigned_player_current_id IS NULL
+            ORDER BY mnp.id
+            """,
+            (mid,),
+        ).fetchall()
+
+        assigned = 0
+        for entry in unassigned:
+            free = conn.execute(
+                """
+                SELECT pc.id FROM player_current pc
+                WHERE pc.league_id = ? AND pc.manager_id = ? AND pc.role = ?
+                  AND pc.id NOT IN (
+                    SELECT assigned_player_current_id FROM manager_nostalgia_pool
+                    WHERE manager_id = ? AND assigned_player_current_id IS NOT NULL
+                  )
+                ORDER BY pc.starts_current_season DESC, pc.id
+                LIMIT 1
+                """,
+                (league_id, mid, entry["role"], mid),
+            ).fetchone()
+            if free is None:
+                continue
+            conn.execute(
+                "UPDATE manager_nostalgia_pool SET assigned_player_current_id = ? WHERE id = ?",
+                (free["id"], entry["pool_id"]),
+            )
+            assigned += 1
+
+        missing = len(unassigned) - assigned
+        if missing == 0:
+            _flush_alter_ego_for_manager(conn, league_id, mid)
+            conn.execute("UPDATE manager SET assignments_locked = 1 WHERE id = ?", (mid,))
+        summary.append({"team": mgr["team"], "assigned": assigned, "missing": missing})
+
+    return summary
+
+
 def _flush_alter_ego_for_manager(conn: sqlite3.Connection, league_id: int, manager_id: int) -> None:
     """Write manager_nostalgia_pool assignments into alter_ego table."""
     conn.execute(
