@@ -1,9 +1,11 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-13
-**Branch attivo:** `ccr-7fa0243e-hrx7pj`
+**Ultima sessione:** 2026-10-17
+**Branch attivo:** `claude/eager-johnson-sc1kz5`
 **PR in corso:** nessuna aperta (push del branch fatto, PR solo su richiesta).
+
+**Sessione 2026-10-17 — Completa associazioni mancanti (richiesto in chat):** a periodo chiuso, gli storici arrivati dopo (Gran Premio, assegnazione giornata) restavano senza giocatore e "Chiudi periodo associazioni" rispondeva 400. Nuovo `complete_missing_assignments` (`engine/mapping.py`) + `POST /admin/league/{id}/mapping/complete-missing`: per ogni voce pool non associata sceglie il giocatore della rosa dello stesso ruolo **ancora libero** (ordine PGv); se non ce n'è, la voce resta vuota (niente doppioni). Le squadre complete vengono bloccate (flush `alter_ego`). Bottone "Completa associazioni mancanti" in admin Step 2 (pannello 4) con riepilogo per squadra. Non toccato: `auto_assign_remaining` (chiusura periodo) ha ancora il fallback che può associare due storici allo stesso giocatore. Test `test_complete_missing.py` (2); suite 360 passed + soliti 3.
 
 **Sessione 2026-10-13 — Calendario e risultati storici dallo scraper (richiesto in chat, scope "salva + usa" scelto dall'utente):** lo scraper `calcioseriea.py` leggeva già le partite di ogni giornata (solo per i tabellini); ora le restituisce anche (`_collect_season` → `(records, fixtures)`). Nuova tabella `historic_match` (season, matchday, home_team, away_team, home_goals, away_goals, UNIQUE su season+giornata+squadre) in `db.py`. Modalità DB: `_save_matches` (lo scraper chiama `init_db()` per avere la tabella); `--export-csv out.csv` scrive anche `out_partite.csv`; `--upload-to` invia anche a nuovo `POST /admin/historic/import-matches` (INSERT OR REPLACE, idempotente). `flush` cancella anche le partite. Pagina giornata: se ci sono partite per stagione+giornata usa `matches_from_fixtures` (casa/trasferta e risultato esatti, squadre senza partita in "unpaired"), altrimenti la vecchia ricostruzione. Limiti: le giornate di recupero ("3r") restano escluse come prima; per stagioni già nel DB serve `--force` o l'export CSV + import partite. Scraper non verificato live (sito non raggiungibile dal sandbox). Test: 3 nuovi in `test_historic_matches.py`; suite 358 passed + soliti 3.
 
