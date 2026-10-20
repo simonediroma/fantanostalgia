@@ -2,8 +2,10 @@
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
 **Ultima sessione:** 2026-10-20
-**Branch attivo:** `claude/compassionate-gauss-kmz0il`
+**Branch attivo:** `claude/keen-einstein-n6ce9p`
 **PR in corso:** nessuna aperta (push del branch fatto, PR solo su richiesta).
+
+**Sessione 2026-10-20 — Fix gol scontri diretti (segnalato con screenshot):** `_score_to_goals` (`routers/standings.py`) dava 66 punti = 0 gol (primo gol a 72), quindi quasi tutto finiva 0-0. Ora regola Fantacalcio: < 66 = 0, 66 = 1 gol, +1 ogni 6 punti. Aggiornati testo ed esempio in `come-funziona.html`. Test `test_score_to_goals_threshold`. Seguito (scelta utente): vittoria/pareggio/sconfitta negli scontri diretti (`_compute_h2h`) ora decisi dai gol, non dai punti; test `test_h2h_result_decided_by_goals`.
 
 **Sessione 2026-10-20 — Import formazioni dal nuovo export Excel (file `erculotuo_formazioni_726561_g5.xlsx` dell'utente):** il nuovo export ha blocchi squadra di 17 colonne (`Ruolo | Calciatore | vuota | Sq. | V | FV | G | GS | AU | RS | RSb | RP | A | AS | AG | GV | GP`), risultato in col 17, squadra destra da col 18, righe intestazione/Modulo/Voti ripetute, `SV` per senza voto, **nessuna riga TOTALE**. Il parser vecchio lo scartava ("Header non trovato"). `lineups.py`: `_FORMAZIONI_LAYOUTS` (vecchio + nuovo) e `_formazioni_layout` rileva quale; `_parse_formazioni_rows` parametrizzato. Mapping: `V` → `score_no_bonus` (voto in pagella, come `scr` dell'import API), `FV` → `score_bonus`. Colonne bonus/malus ignorate. Sul file reale: 250 giocatori, 10 squadre (11+14), 5 accoppiamenti. Test `test_upload_formazioni_new_export_format`. Ambiente: fallimenti preesistenti identici prima/dopo (versioni jinja/starlette più nuove in questo container).
 
