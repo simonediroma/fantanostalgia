@@ -3,7 +3,7 @@
 
 **Ultima sessione:** 2026-10-20
 **Branch attivo:** `claude/keen-einstein-n6ce9p`
-**PR in corso:** nessuna aperta (push del branch fatto, PR solo su richiesta).
+**PR in corso:** nessuna — [#132](https://github.com/simonediroma/fantanostalgia/pull/132) (fix gol scontri diretti) mergiata in `main`.
 
 **Sessione 2026-10-20 — Fix gol scontri diretti (segnalato con screenshot):** `_score_to_goals` (`routers/standings.py`) dava 66 punti = 0 gol (primo gol a 72), quindi quasi tutto finiva 0-0. Ora regola Fantacalcio: < 66 = 0, 66 = 1 gol, +1 ogni 6 punti. Aggiornati testo ed esempio in `come-funziona.html`. Test `test_score_to_goals_threshold`. Seguito (scelta utente): vittoria/pareggio/sconfitta negli scontri diretti (`_compute_h2h`) ora decisi dai gol, non dai punti; test `test_h2h_result_decided_by_goals`.
 
