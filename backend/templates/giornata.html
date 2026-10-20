@@ -12,102 +12,7 @@
 {% endblock %}
 
 {% block content %}
-<h1>Giornata {{ matchday }}</h1>
-<p class="subtitle">
-  {{ league.name }} &nbsp;·&nbsp;
-  Stagione {{ league.season_current }}
-  &nbsp;·&nbsp; Storica: G{{ matchday_historic }} ({{ league.season_historic }})
-  {% if drawn_at_fmt %}&nbsp;·&nbsp; {{ drawn_at_fmt }}{% endif %}
-</p>
-
-{% if all_matchdays|length > 1 %}
-<div class="matchday-nav">
-  {% set prev = namespace(val=none) %}
-  {% set nxt = namespace(val=none) %}
-  {% for md in all_matchdays %}
-    {% if md < matchday %}{% set prev.val = md %}{% endif %}
-    {% if md > matchday and nxt.val is none %}{% set nxt.val = md %}{% endif %}
-  {% endfor %}
-  {% if prev.val is not none %}
-  <a href="/lega/{{ league.id }}/giornata/{{ prev.val }}" class="ds-button ds-button--default">← G{{ prev.val }}</a>
-  {% endif %}
-  <span class="matchday-nav-label">G{{ matchday }}</span>
-  {% if nxt.val is not none %}
-  <a href="/lega/{{ league.id }}/giornata/{{ nxt.val }}" class="ds-button ds-button--default">G{{ nxt.val }} →</a>
-  {% endif %}
-</div>
-{% endif %}
-
-{% if scores %}
-<h2 style="margin-top:1.5rem">Punteggi</h2>
-<div class="ds-table-wrap" style="margin-bottom:2rem">
-  <table class="ds-table ds-table-stack">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Squadra</th>
-        <th>FantaNostalgia</th>
-        <th>Normale</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in scores %}
-      <tr>
-        <td class="rank" data-label="#">{{ loop.index }}</td>
-        <td data-label="Squadra">{{ s.manager_name }}</td>
-        <td class="score" data-label="FantaNostalgia">{{ '%.1f'|format(s.score_nostalgia or 0) }}</td>
-        <td class="score" data-label="Normale">
-          {% if s.score_normal is not none %}{{ '%.1f'|format(s.score_normal) }}{% else %}—{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="ds-empty-state"><div class="ds-empty-state__message">Punteggi non ancora calcolati.</div></div>
-{% endif %}
-
-{% if gran_premi %}
-<h2 style="margin-top:1.5rem">🏆 Gran Premi</h2>
-<div class="ds-table-wrap" style="margin-bottom:2rem">
-  <table class="ds-table ds-table-stack">
-    <thead>
-      <tr>
-        <th>Criterio</th>
-        <th>In palio</th>
-        <th>Stato</th>
-        <th>Vincitore</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for gp in gran_premi %}
-      <tr>
-        <td data-label="Criterio">{{ gp.criterion_label }}</td>
-        <td class="historic-name" style="text-align:left" data-label="In palio">
-          {{ gp.prize_name }} <span class="ds-badge ds-badge--cyan">{{ gp.prize_role }}</span>
-          <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ gp.prize_team }}</span>
-        </td>
-        <td data-label="Stato">{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
-        <td data-label="Vincitore">{% if gp.winner_name %}{{ gp.winner_name }}{% else %}—{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if managers %}
-<h2>Formazioni e Alter Ego</h2>
-<div class="ds-tabs__nav" style="margin-top:1rem">
-  {% for mgr in managers %}
-  <button class="ds-tabs__tab" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"
-          onclick="switchTab('mgr{{ loop.index }}', this)">{{ mgr.name }}</button>
-  {% endfor %}
-</div>
-
-{% for mgr in managers %}
-<div id="tab-mgr{{ loop.index }}" class="ds-tabs__panel" {% if not loop.first %}hidden{% endif %}>
+{% macro formazione(mgr) %}
   {% if mgr.starters %}
   <div class="ds-table-wrap">
     <table class="ds-table ds-table-stack">
@@ -172,6 +77,159 @@
     </div>
   </details>
   {% endif %}
+{% endmacro %}
+
+<h1>Giornata {{ matchday }}</h1>
+<p class="subtitle">
+  {{ league.name }} &nbsp;·&nbsp;
+  Stagione {{ league.season_current }}
+  &nbsp;·&nbsp; Storica: G{{ matchday_historic }} ({{ league.season_historic }})
+  {% if drawn_at_fmt %}&nbsp;·&nbsp; {{ drawn_at_fmt }}{% endif %}
+</p>
+
+{% if all_matchdays|length > 1 %}
+<div class="matchday-nav">
+  {% set prev = namespace(val=none) %}
+  {% set nxt = namespace(val=none) %}
+  {% for md in all_matchdays %}
+    {% if md < matchday %}{% set prev.val = md %}{% endif %}
+    {% if md > matchday and nxt.val is none %}{% set nxt.val = md %}{% endif %}
+  {% endfor %}
+  {% if prev.val is not none %}
+  <a href="/lega/{{ league.id }}/giornata/{{ prev.val }}" class="ds-button ds-button--default">← G{{ prev.val }}</a>
+  {% endif %}
+  <span class="matchday-nav-label">G{{ matchday }}</span>
+  {% if nxt.val is not none %}
+  <a href="/lega/{{ league.id }}/giornata/{{ nxt.val }}" class="ds-button ds-button--default">G{{ nxt.val }} →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if sfide %}
+<h2 style="margin-top:1.5rem">Sfide</h2>
+{% for m in sfide %}
+<details class="hm-match">
+  <summary>
+    {{ m.home_manager }} <strong>{{ m.home_goals }} - {{ m.away_goals }}</strong> {{ m.away_manager }}
+    <span style="color:var(--muted);font-size:0.8rem">&nbsp;({{ '%.1f'|format(m.home_score) }} – {{ '%.1f'|format(m.away_score) }})</span>
+  </summary>
+  <div class="hm-teams hm-teams--stack">
+    <div><h3>{{ m.home_manager }}</h3>{{ formazione(m.home) }}</div>
+    <div><h3>{{ m.away_manager }}</h3>{{ formazione(m.away) }}</div>
+  </div>
+</details>
+{% endfor %}
+{% endif %}
+
+{% if h2h_standings %}
+<h2 style="margin-top:1.5rem">Classifica dopo la G{{ matchday }}</h2>
+<div class="ds-table-wrap" style="margin-bottom:2rem">
+  <table class="ds-table ds-table-stack">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Squadra</th>
+        <th title="Partite giocate">G</th>
+        <th title="Vittorie">V</th>
+        <th title="Pareggi">P</th>
+        <th title="Sconfitte">S</th>
+        <th title="Gol fatti">GF</th>
+        <th title="Gol subiti">GS</th>
+        <th title="Differenza reti">DR</th>
+        <th title="Punti classifica (V×3 + P)">Pts</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in h2h_standings %}
+      <tr>
+        <td class="rank" data-label="#">{{ row.rank }}</td>
+        <td data-label="Squadra">{{ row.manager }}</td>
+        <td data-label="Giocate">{{ row.played }}</td>
+        <td data-label="Vittorie">{{ row.wins }}</td>
+        <td data-label="Pareggi">{{ row.draws }}</td>
+        <td data-label="Sconfitte">{{ row.losses }}</td>
+        <td class="score" data-label="Gol fatti">{{ row.gf }}</td>
+        <td class="score" data-label="Gol subiti">{{ row.gs }}</td>
+        <td class="score" data-label="Diff. reti">{{ '%+d'|format(row.gdr) }}</td>
+        <td class="total" data-label="Punti">{{ row.points }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if scores %}
+<h2 style="margin-top:1.5rem">Punteggi</h2>
+<div class="ds-table-wrap" style="margin-bottom:2rem">
+  <table class="ds-table ds-table-stack">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Squadra</th>
+        <th>FantaNostalgia</th>
+        <th>Normale</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in scores %}
+      <tr>
+        <td class="rank" data-label="#">{{ loop.index }}</td>
+        <td data-label="Squadra">{{ s.manager_name }}</td>
+        <td class="score" data-label="FantaNostalgia">{{ '%.1f'|format(s.score_nostalgia or 0) }}</td>
+        <td class="score" data-label="Normale">
+          {% if s.score_normal is not none %}{{ '%.1f'|format(s.score_normal) }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="ds-empty-state"><div class="ds-empty-state__message">Punteggi non ancora calcolati.</div></div>
+{% endif %}
+
+{% if gran_premi %}
+<h2 style="margin-top:1.5rem">🏆 Gran Premi</h2>
+<div class="ds-table-wrap" style="margin-bottom:2rem">
+  <table class="ds-table ds-table-stack">
+    <thead>
+      <tr>
+        <th>Criterio</th>
+        <th>In palio</th>
+        <th>Stato</th>
+        <th>Vincitore</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for gp in gran_premi %}
+      <tr>
+        <td data-label="Criterio">{{ gp.criterion_label }}</td>
+        <td class="historic-name" style="text-align:left" data-label="In palio">
+          {{ gp.prize_name }} <span class="ds-badge ds-badge--cyan">{{ gp.prize_role }}</span>
+          <span style="font-family:system-ui;font-size:0.78rem;color:var(--muted)"> {{ gp.prize_team }}</span>
+        </td>
+        <td data-label="Stato">{% if gp.status == 'resolved' %}Risolto{% else %}Attivo{% endif %}</td>
+        <td data-label="Vincitore">{% if gp.winner_name %}{{ gp.winner_name }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if managers and not sfide %}
+<h2>Formazioni e Alter Ego</h2>
+<div class="ds-tabs__nav" style="margin-top:1rem">
+  {% for mgr in managers %}
+  <button class="ds-tabs__tab" aria-selected="{% if loop.first %}true{% else %}false{% endif %}"
+          onclick="switchTab('mgr{{ loop.index }}', this)">{{ mgr.name }}</button>
+  {% endfor %}
+</div>
+
+{% for mgr in managers %}
+<div id="tab-mgr{{ loop.index }}" class="ds-tabs__panel" {% if not loop.first %}hidden{% endif %}>
+  {{ formazione(mgr) }}
 </div>
 {% endfor %}
 {% endif %}
@@ -216,15 +274,18 @@
 </details>
 {% endfor %}
 {% endif %}
+{% endif %}
+
 <style>
 .hm-match { border:1px solid var(--border, #3333aa); padding:0.5rem 0.75rem; margin-bottom:0.5rem; }
 .hm-match summary { cursor:pointer; }
 .hm-teams { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:0.5rem; }
+.hm-teams > div { min-width:0; }
+.hm-teams--stack { grid-template-columns:1fr; }
 .hm-teams h3 { font-size:0.9rem; margin:0.25rem 0; }
 .hm-line { font-size:0.85rem; margin-top:0.25rem; }
 @media (max-width:640px) { .hm-teams { grid-template-columns:1fr; } }
 </style>
-{% endif %}
 
 <script>
 function switchTab(id, btn) {
