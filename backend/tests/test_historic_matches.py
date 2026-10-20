@@ -141,3 +141,47 @@ def test_import_matches_csv_missing_columns(client):
     r = client.post("/admin/historic/import-matches",
                     files={"file": ("p.csv", b"season,matchday\n2000-2001,1\n", "text/csv")})
     assert r.status_code == 400
+
+
+def test_giornata_page_shows_sfide_and_standings_up_to_matchday(client):
+    with get_db() as conn:
+        lid = conn.execute(
+            "INSERT INTO league (name, season_current, season_historic) VALUES ('SfideLega', '2024/25', '1997/98')"
+        ).lastrowid
+        a, b = (conn.execute(
+            "INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)", (lid, n, n)
+        ).lastrowid for n in ("SfidaA", "SfidaB"))
+        pid = conn.execute(
+            "INSERT INTO player_current (league_id, name, role, team, manager_id) VALUES (?, 'Titolare1', 'A', 'X', ?)",
+            (lid, a),
+        ).lastrowid
+        # G1: A 72 vs B 60 (2-0); G2: A 66 vs B 66.5 (1-1); G3 non deve contare nella classifica di G2
+        for md, sa, sb in [(1, 72.0, 60.0), (2, 66.0, 66.5), (3, 60.0, 80.0)]:
+            conn.execute(
+                "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic) VALUES (?, ?, ?)",
+                (lid, md, md),
+            )
+            conn.execute(
+                "INSERT INTO h2h_match (league_id, matchday, manager_home_id, manager_away_id) VALUES (?, ?, ?, ?)",
+                (lid, md, a, b),
+            )
+            for mid, sc in [(a, sa), (b, sb)]:
+                conn.execute(
+                    "INSERT INTO matchday_score (league_id, matchday, manager_id, score_normal, score_nostalgia)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (lid, md, mid, sc, sc),
+                )
+        conn.execute(
+            "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id, is_starter, score_no_bonus)"
+            " VALUES (?, ?, 2, ?, 1, 6.5)",
+            (lid, a, pid),
+        )
+    r = client.get(f"/lega/{lid}/giornata/2")
+    assert r.status_code == 200
+    assert "SfidaA <strong>1 - 1</strong> SfidaB" in r.text
+    assert "Titolare1" in r.text
+    assert "Classifica dopo la G2" in r.text
+    # A: vittoria G1 + pareggio G2 = 4 punti; B: 1 punto; G3 esclusa
+    assert '<td class="total" data-label="Punti">4</td>' in r.text
+    assert '<td class="total" data-label="Punti">1</td>' in r.text
+    assert '<td class="total" data-label="Punti">7</td>' not in r.text
