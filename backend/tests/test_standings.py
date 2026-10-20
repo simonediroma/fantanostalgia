@@ -265,3 +265,14 @@ def test_score_to_goals_threshold():
     assert _score_to_goals(66.5) == 1
     assert _score_to_goals(70.5) == 1
     assert _score_to_goals(72.0) == 2
+
+
+def test_h2h_result_decided_by_goals():
+    from backend.api.routers.standings import _compute_h2h
+    rows = {r["manager"]: r for r in _compute_h2h([
+        {"home_manager": "A", "away_manager": "B", "home_score": 66.0, "away_score": 66.5},
+        {"home_manager": "C", "away_manager": "D", "home_score": 70.5, "away_score": 65.5},
+    ])}
+    assert rows["A"]["draws"] == 1 and rows["B"]["draws"] == 1
+    assert rows["C"]["wins"] == 1 and rows["D"]["losses"] == 1
+    assert (rows["C"]["gf"], rows["C"]["gs"]) == (1, 0)
