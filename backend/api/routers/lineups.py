@@ -51,25 +51,39 @@ def _safe_float(val) -> float | None:
         return None
 
 
-def _is_formazioni_format(all_rows: list) -> bool:
-    """Detect the real Formazioni format: match header rows with score in col 5."""
+# Formazioni layouts: column of the match score, offset of the right team,
+# columns (relative to the team block) of player name, voto no bonus, voto con bonus.
+# Old export: Ruolo | Calciatore | vuota | Voto_no_bonus | Voto_con_bonus.
+# New export (2026-10): Ruolo | Calciatore | vuota | Sq. | V | FV | G | GS | ... (17 cols),
+# V = voto in pagella, FV = fantavoto (same meaning as scr/cscr of the Fantacalcio import).
+_FORMAZIONI_LAYOUTS = (
+    {"score": 5, "right": 6, "name": 1, "no_bonus": 3, "bonus": 4},
+    {"score": 17, "right": 18, "name": 1, "no_bonus": 4, "bonus": 5},
+)
+
+
+def _formazioni_layout(all_rows: list) -> dict | None:
+    """Detect a Formazioni format: match header rows with the score between the two teams."""
     for row in all_rows:
-        if len(row) > 6:
-            cells = [str(c).strip() if c is not None else "" for c in row]
-            if cells[0] and cells[6] and _SCORE_RE.match(cells[5]):
-                return True
-    return False
+        cells = [str(c).strip() if c is not None else "" for c in row]
+        for layout in _FORMAZIONI_LAYOUTS:
+            if (len(cells) > layout["right"] and cells[0] and cells[layout["right"]]
+                    and _SCORE_RE.match(cells[layout["score"]])):
+                return layout
+    return None
 
 
-def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
+def _parse_formazioni_rows(all_rows: list, layout: dict = _FORMAZIONI_LAYOUTS[0]) -> tuple[list[dict], list[str], list[tuple[str, str]]]:
     """
     Parse the real Formazioni Excel format.
-    Two matches side by side: left team cols 0-4, right team cols 6-10.
-    Match header row: team_left in col 0, score in col 5, team_right in col 6.
+    Two matches side by side: left team from col 0, right team from col layout["right"].
+    Match header row: team_left in col 0, score in col layout["score"], team_right in col layout["right"].
     'Panchina' row separates starters from bench.
-    'TOTALE:...' row marks end of each team's data.
+    'TOTALE:...' row marks end of each team's data (old export only; the new one
+    ends each block at the next match header).
     Also returns pairings as list of (left_team, right_team).
     """
+    sc, rt = layout["score"], layout["right"]
     rows_out = []
     pairings: list[tuple[str, str]] = []
 
@@ -84,9 +98,9 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[
         cells = [str(c).strip() if c is not None else "" for c in raw_row]
 
         # Match header: score pattern in col 5, team names in cols 0 and 6
-        if len(cells) > 6 and cells[0] and cells[6] and _SCORE_RE.match(cells[5]):
+        if len(cells) > rt and cells[0] and cells[rt] and _SCORE_RE.match(cells[sc]):
             left_team = cells[0]
-            right_team = cells[6]
+            right_team = cells[rt]
             pairings.append((left_team, right_team))
             left_starter = right_starter = True
             left_done = right_done = False
@@ -96,7 +110,7 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[
             continue
 
         left_val = cells[0]
-        right_val = cells[6] if len(cells) > 6 else ""
+        right_val = cells[rt] if len(cells) > rt else ""
 
         # Panchina toggles is_starter for each side independently
         if left_val.lower() == "panchina":
@@ -110,28 +124,21 @@ def _parse_formazioni_rows(all_rows: list) -> tuple[list[dict], list[str], list[
         if right_val.lower().startswith("totale"):
             right_done = True
 
-        # Left player (cols: 0=role, 1=name, 2=empty, 3=voto_no_bonus, 4=voto_con_bonus)
-        if not left_done and left_val.lower() in _ROLE_SET:
-            player_left = cells[1] if len(cells) > 1 else ""
-            if player_left:
+        for base, val, done, starter, team in (
+            (0, left_val, left_done, left_starter, left_team),
+            (rt, right_val, right_done, right_starter, right_team),
+        ):
+            if done or val.lower() not in _ROLE_SET:
+                continue
+            col = lambda k: cells[base + layout[k]] if len(cells) > base + layout[k] else None
+            player = col("name") or ""
+            if player:
                 rows_out.append({
-                    "manager": left_team,
-                    "player": player_left,
-                    "is_starter": 1 if left_starter else 0,
-                    "score_no_bonus": _safe_float(cells[3] if len(cells) > 3 else None),
-                    "score_bonus": _safe_float(cells[4] if len(cells) > 4 else None),
-                })
-
-        # Right player (cols: 6=role, 7=name, 8=empty, 9=voto_no_bonus, 10=voto_con_bonus)
-        if not right_done and right_val.lower() in _ROLE_SET:
-            player_right = cells[7] if len(cells) > 7 else ""
-            if player_right:
-                rows_out.append({
-                    "manager": right_team,
-                    "player": player_right,
-                    "is_starter": 1 if right_starter else 0,
-                    "score_no_bonus": _safe_float(cells[9] if len(cells) > 9 else None),
-                    "score_bonus": _safe_float(cells[10] if len(cells) > 10 else None),
+                    "manager": team,
+                    "player": player,
+                    "is_starter": 1 if starter else 0,
+                    "score_no_bonus": _safe_float(col("no_bonus")),
+                    "score_bonus": _safe_float(col("bonus")),
                 })
 
     return rows_out, [], pairings
@@ -185,8 +192,9 @@ def _parse_excel(data: bytes) -> tuple[list[dict], list[str], list[tuple[str, st
     ws = wb.active
     all_rows = list(ws.iter_rows(values_only=True))
 
-    if _is_formazioni_format(all_rows):
-        return _parse_formazioni_rows(all_rows)
+    layout = _formazioni_layout(all_rows)
+    if layout:
+        return _parse_formazioni_rows(all_rows, layout)
     rows, warnings = _parse_flat_rows(all_rows)
     return rows, warnings, []
 
