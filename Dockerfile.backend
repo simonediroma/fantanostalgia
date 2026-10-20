@@ -11,6 +11,7 @@ COPY frontend/admin/ ./frontend/admin/
 COPY frontend/coach/ ./frontend/coach/
 COPY frontend/shared/ ./frontend/shared/
 COPY docs/webscraper/ ./docs/webscraper/
+COPY extension/ ./extension/
 
 ENV ENV=production
 ENV PORT=8080

@@ -2,6 +2,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -16,6 +17,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FantaNostalgia API", lifespan=lifespan)
+
+# Solo il popup dell'estensione Chrome (autenticato con chiave, senza cookie)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"chrome-extension://[a-p]{32}",
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 
 @app.middleware("http")

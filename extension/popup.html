@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>FantaNostalgia</title>
+  <style>
+    body { width: 340px; margin: 0; padding: 12px; background: #050510; color: #e0e0ff;
+           font: 13px/1.5 "Courier New", monospace; }
+    h1 { font-size: 14px; color: #ffe600; margin: 0 0 10px; }
+    label { display: block; margin-top: 8px; color: #9999cc; }
+    input, select { width: 100%; box-sizing: border-box; padding: 5px; margin-top: 2px;
+                    background: #0d0d2b; color: #e0e0ff; border: 1px solid #3333aa; font: inherit; }
+    button { margin-top: 10px; width: 100%; padding: 7px; border: 0; cursor: pointer;
+             background: #ffe600; color: #050510; font: bold 13px "Courier New", monospace; }
+    button.secondary { background: #3333aa; color: #e0e0ff; }
+    button:disabled { opacity: .5; cursor: wait; }
+    .msg { margin-top: 10px; padding: 6px; border: 1px solid #3333aa; white-space: pre-wrap; word-break: break-word; }
+    .msg.error { border-color: #ff3355; color: #ff8899; }
+    .link { color: #9999cc; cursor: pointer; text-decoration: underline; font-size: 12px; float: right; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>FantaNostalgia <span id="toggleSettings" class="link">impostazioni</span></h1>
+
+  <section id="settings" hidden>
+    <label>Indirizzo FantaNostalgia
+      <input id="baseUrl" placeholder="https://…run.app">
+    </label>
+    <label>Chiave estensione (admin → ⚽ Fantacalcio)
+      <input id="apiKey" type="password" placeholder="fn_…">
+    </label>
+    <button id="saveSettings">Salva</button>
+  </section>
+
+  <section id="main" hidden>
+    <label>Lega FantaNostalgia <select id="fnLeague"></select></label>
+    <button id="syncRosters" class="secondary">Aggiorna rose</button>
+    <label>Competizione Fantacalcio <select id="competition"></select></label>
+    <label>Giornata calcolata <select id="day"></select></label>
+    <label>Salva come giornata <input id="target" type="number" min="1"></label>
+    <button id="importDay">Importa giornata</button>
+  </section>
+
+  <div id="msg" class="msg" hidden></div>
+  <script src="popup.js"></script>
+</body>
+</html>

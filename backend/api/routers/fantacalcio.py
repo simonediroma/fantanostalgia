@@ -1,233 +1,164 @@
-"""Collegamento a Leghe Fantacalcio (API non ufficiale).
+"""Import da Leghe Fantacalcio tramite l'estensione Chrome (`extension/`).
 
-Ogni utente FantaNostalgia collega il proprio account incollando il suo JWT
-Fantacalcio; il token è salvato cifrato su `user.fantacalcio_jwt` e non viene
-mai restituito dalle API.
-
-L'import delle formazioni usa il token dell'admin loggato come utente e salva
-tramite lo stesso `save_lineups` dell'upload Excel.
+L'API di Fantacalcio risponde 403 alle chiamate fuori dal browser, quindi il
+server non la chiama mai: l'estensione scarica i dati dalla pagina di
+leghe.fantacalcio.it con la sessione dell'admin e li invia grezzi agli
+endpoint `/ext/v1`, autenticati con una chiave generata dall'admin.
+I token Fantacalcio non arrivano mai qui: un payload che ne contiene uno è
+rifiutato.
 """
-import requests
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query
-from itsdangerous import BadSignature
+import hashlib
+import io
+import os
+import secrets
+import zipfile
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.api import fantacalcio as fc
 from backend.api.db import get_db
+from backend.api.routers.auth import get_current_admin
 from backend.api.routers.lineups import save_lineups
 from backend.engine.rosters import RosterSyncError, sync_rosters
-from backend.api.routers.auth import (
-    USER_COOKIE_NAME,
-    _verify_user_session_cookie,
-    get_current_admin,
-    get_current_user,
-)
 
 router = APIRouter(tags=["fantacalcio"])
 
-
-def _call(fn, *args, **kwargs):
-    try:
-        return fn(*args, **kwargs)
-    except fc.FantacalcioError as exc:
-        raise HTTPException(status_code=502, detail=f"Fantacalcio ha risposto {exc}")
-    except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail=f"Fantacalcio non raggiungibile: {exc}")
+EXTENSION_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "extension")
 
 
-# ── Collegamento account (utente loggato) ───────────────────────────────────
-
-class TokenBody(BaseModel):
-    jwt: str
+def _hash(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
-def get_admin_user(user: dict = Depends(get_current_user)) -> dict:
-    """Il collegamento a Fantacalcio serve solo agli allenatori elevati ad admin."""
-    if not user["is_admin"]:
-        raise HTTPException(status_code=403, detail="Riservato agli amministratori")
-    return user
+# ── Chiavi dell'estensione (admin) ──────────────────────────────────────────
+
+class KeyBody(BaseModel):
+    label: str = ""
 
 
-@router.get("/auth/user/fantacalcio")
-def get_fantacalcio_link(user: dict = Depends(get_admin_user)):
-    """Stato del collegamento: scadenza del token e leghe visibili. Mai il token."""
+@router.get("/admin/fantacalcio/keys")
+def list_keys(_: str = Depends(get_current_admin)):
     with get_db() as conn:
-        jwt = fc.load_user_jwt(conn, user["id"])
-    if not jwt:
-        return {"connected": False, "token": None, "leagues": [], "error": None}
-    result = {"connected": True, "token": fc.token_expiry(jwt), "leagues": [], "error": None}
-    try:
-        result["leagues"] = [
-            {"id": lg.get("id"), "alias": lg.get("alias"), "name": lg.get("nome")}
-            for lg in fc.leagues(jwt)
-        ]
-    except fc.FantacalcioError as exc:
-        result["error"] = f"Fantacalcio ha risposto {exc}"
-    except requests.RequestException as exc:
-        result["error"] = f"Fantacalcio non raggiungibile: {exc}"
-    return result
+        rows = conn.execute(
+            "SELECT id, label, created_at, last_used_at FROM ext_api_key"
+            " WHERE revoked_at IS NULL ORDER BY id DESC").fetchall()
+    return [dict(r) for r in rows]
 
 
-@router.put("/auth/user/fantacalcio")
-def set_fantacalcio_link(body: TokenBody, user: dict = Depends(get_admin_user)):
-    jwt = body.jwt.strip().strip('"')
-    expiry = fc.token_expiry(jwt)
-    if expiry is None:
-        raise HTTPException(status_code=422, detail="Token non valido: deve essere un JWT (inizia con eyJ…).")
-    if expiry["days_left"] < 0:
-        raise HTTPException(status_code=422, detail="Token scaduto: rigeneralo accedendo di nuovo a Fantacalcio.")
+@router.post("/admin/fantacalcio/keys", status_code=201)
+def create_key(body: KeyBody, _: str = Depends(get_current_admin)):
+    """La chiave si vede solo ora: nel DB resta l'hash."""
+    key = "fn_" + secrets.token_urlsafe(32)
     with get_db() as conn:
-        conn.execute("UPDATE user SET fantacalcio_jwt = ? WHERE id = ?", (fc.encrypt_token(jwt), user["id"]))
-    return {"connected": True, "token": expiry}
+        kid = conn.execute("INSERT INTO ext_api_key (label, key_hash) VALUES (?, ?)",
+                           (body.label.strip() or "Estensione", _hash(key))).lastrowid
+    return {"id": kid, "key": key}
 
 
-@router.delete("/auth/user/fantacalcio")
-def delete_fantacalcio_link(user: dict = Depends(get_admin_user)):
+@router.delete("/admin/fantacalcio/keys/{key_id}")
+def revoke_key(key_id: int, _: str = Depends(get_current_admin)):
     with get_db() as conn:
-        conn.execute("UPDATE user SET fantacalcio_jwt = NULL WHERE id = ?", (user["id"],))
-    return {"connected": False}
+        conn.execute("UPDATE ext_api_key SET revoked_at = CURRENT_TIMESTAMP"
+                     " WHERE id = ? AND revoked_at IS NULL", (key_id,))
+    return {"revoked": key_id}
 
 
-# ── Esploratore (admin, con il token dell'admin loggato) ────────────────────
+@router.get("/admin/fantacalcio/extension.zip")
+def download_extension(_: str = Depends(get_current_admin)):
+    if not os.path.isdir(EXTENSION_DIR):
+        raise HTTPException(status_code=404, detail="Estensione non disponibile")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name in sorted(os.listdir(EXTENSION_DIR)):
+            path = os.path.join(EXTENSION_DIR, name)
+            if os.path.isfile(path):
+                zf.write(path, f"fantanostalgia-extension/{name}")
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="fantanostalgia-extension.zip"'})
 
-def _session_user_jwt(user_session: str | None) -> str:
-    """JWT Fantacalcio dell'utente loggato nell'admin (cookie user_session)."""
-    user_id = None
-    if user_session:
-        try:
-            user_id = _verify_user_session_cookie(user_session)
-        except (BadSignature, ValueError):
-            user_id = None
+
+# ── Endpoint per l'estensione ───────────────────────────────────────────────
+
+def get_ext_key(authorization: str | None = Header(default=None)) -> int:
+    key = authorization.removeprefix("Bearer ").strip() if authorization else ""
     with get_db() as conn:
-        jwt = fc.load_user_jwt(conn, user_id) if user_id else None
-    if not jwt:
-        raise HTTPException(
-            status_code=400,
-            detail="Nessun account Fantacalcio collegato: accedi con il tuo utente e collegalo da “Le mie leghe”.",
-        )
-    return jwt
+        row = conn.execute("SELECT id FROM ext_api_key WHERE key_hash = ? AND revoked_at IS NULL",
+                           (_hash(key),)).fetchone() if key else None
+        if row is None:
+            raise HTTPException(status_code=401, detail="Chiave dell'estensione non valida o revocata")
+        conn.execute("UPDATE ext_api_key SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],))
+    return row["id"]
 
 
-def _league_token(user_session: str | None, league: str) -> str:
-    jwt = _session_user_jwt(user_session)
-    try:
-        return _call(fc.league_jwt, jwt, league)
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Lega '{league}' non trovata tra quelle del tuo account.")
+def _no_tokens(body: BaseModel) -> None:
+    if fc.contains_token(body.model_dump()):
+        raise HTTPException(status_code=400, detail="Il payload contiene un token: non viene accettato")
 
 
-@router.get("/admin/fantacalcio/explore")
-def fantacalcio_explore(
-    league: str = Query(..., description="alias o id della lega su Fantacalcio"),
-    path: str = Query(..., description="es. /onboarding/v1/league/competitions"),
-    _: str = Depends(get_current_admin),
-    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
-):
-    """GET grezzo su un endpoint della lega, con i token oscurati nella risposta.
-    Serve a scoprire gli endpoint non ancora mappati."""
-    if not path.startswith("/") or "://" in path or ".." in path:
-        raise HTTPException(status_code=400, detail="Il percorso deve iniziare con / (es. /onboarding/v1/league/status).")
-    token = _league_token(user_session, league)
-    return fc.redact(_call(fc.get, path, token))
+def _check_league(conn, league_id: int) -> None:
+    if conn.execute("SELECT 1 FROM league WHERE id = ?", (league_id,)).fetchone() is None:
+        raise HTTPException(status_code=404, detail="Lega non trovata")
 
 
-# ── Import formazioni di giornata ───────────────────────────────────────────
-
-@router.get("/admin/fantacalcio/{league}/competitions")
-def fantacalcio_competitions(
-    league: str,
-    _: str = Depends(get_current_admin),
-    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
-):
-    token = _league_token(user_session, league)
-    return [{"id": c.get("id"), "name": c.get("name")} for c in _call(fc.competitions, token)]
-
-
-@router.get("/admin/fantacalcio/{league}/calendar/{competition_id}")
-def fantacalcio_calendar(
-    league: str,
-    competition_id: int,
-    _: str = Depends(get_current_admin),
-    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
-):
-    token = _league_token(user_session, league)
-    return [
-        {"match_day": d.get("matchDay"), "championship_match_day": d.get("championshipMatchDay"),
-         "calculated": bool(d.get("calculated"))}
-        for d in _call(fc.calendar, token, competition_id)
-    ]
-
-
-class ImportBody(BaseModel):
-    fc_league: str
-    competition_id: int
-    fc_match_day: int
-
-
-@router.post("/admin/league/{league_id}/lineups/{matchday}/fantacalcio")
-def import_lineups_from_fantacalcio(
-    league_id: int,
-    matchday: int,
-    body: ImportBody,
-    _: str = Depends(get_current_admin),
-    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
-):
-    """Scarica formazioni e voti di una giornata calcolata e li salva come l'upload Excel."""
-    token = _league_token(user_session, body.fc_league)
-    day = next((d for d in _call(fc.calendar, token, body.competition_id)
-                if d.get("matchDay") == body.fc_match_day), None)
-    if day is None:
-        raise HTTPException(status_code=404, detail=f"Giornata {body.fc_match_day} non trovata nel calendario.")
-    if not day.get("calculated"):
-        raise HTTPException(status_code=400, detail=f"La giornata {body.fc_match_day} non è ancora stata calcolata su Fantacalcio.")
-
-    team_names = {t.get("id"): (t.get("n") or t.get("name") or "").strip()
-                  for t in _call(fc.teams, token, body.competition_id)}
-    fc_players = _call(fc.players, token)
-    roster_sync = _sync_rosters(league_id, token, fc_players)
-    player_names = {p.get("id"): p.get("name") for p in fc_players}
-    player_roles = {p.get("id"): fc.FC_ROLES.get(p.get("fcrle")) for p in fc_players}
-    lineups = [
-        _call(fc.team_lineup, token, body.competition_id, day["matchDay"],
-              day["championshipMatchDay"], m["tIdH"], m["tIdA"])
-        for m in day.get("matches") or []
-    ]
-    rows, warnings, pairings = fc.lineup_rows(lineups, team_names, player_names, player_roles)
+@router.get("/ext/v1/leagues")
+def ext_leagues(_: int = Depends(get_ext_key)):
     with get_db() as conn:
-        result = save_lineups(conn, league_id, matchday, rows, warnings, pairings)
-    return {**result, "roster_sync": roster_sync}
+        return [dict(r) for r in conn.execute("SELECT id, name FROM league ORDER BY id DESC")]
 
 
-def _sync_rosters(league_id: int, token: str, fc_players: list[dict], force: bool = False) -> dict:
-    """Sync rose prima dell'import: se fallisce l'import va avanti e l'errore va nel riepilogo."""
-    try:
-        teams, total = fc.league_teams(token)
-        with get_db() as conn:
-            return sync_rosters(conn, league_id, teams, total, fc_players)
-    except (RosterSyncError, fc.FantacalcioError, requests.RequestException) as exc:
-        return {"error": str(exc)}
-
-
-class RosterSyncBody(BaseModel):
-    fc_league: str
+class RostersBody(BaseModel):
+    teams: list[dict]           # /onboarding/v1/league/teams, tutte le pagine
+    total: int | None = None    # `item` della risposta
+    players: list[dict]         # /onboarding/v1/league/players
     force: bool = False
 
 
-@router.post("/admin/league/{league_id}/rosters/fantacalcio")
-def sync_rosters_from_fantacalcio(
-    league_id: int,
-    body: RosterSyncBody,
-    _: str = Depends(get_current_admin),
-    user_session: str | None = Cookie(default=None, alias=USER_COOKIE_NAME),
-):
+@router.post("/ext/v1/league/{league_id}/rosters")
+def ext_rosters(league_id: int, body: RostersBody, _: int = Depends(get_ext_key)):
     """Allinea le rose a Leghe Fantacalcio: acquisti, spostamenti, svincoli."""
-    token = _league_token(user_session, body.fc_league)
-    fc_players = _call(fc.players, token)
-    teams, total = _call(fc.league_teams, token)
+    _no_tokens(body)
     with get_db() as conn:
-        if conn.execute("SELECT 1 FROM league WHERE id = ?", (league_id,)).fetchone() is None:
-            raise HTTPException(status_code=404, detail="Lega non trovata")
+        _check_league(conn, league_id)
         try:
-            return sync_rosters(conn, league_id, teams, total, fc_players, force=body.force)
+            return sync_rosters(conn, league_id, body.teams, body.total, body.players, force=body.force)
         except RosterSyncError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
+
+
+class LineupsBody(BaseModel):
+    day: dict                       # giornata del calendario (matchDay, calculated, matches)
+    lineups: list[dict]             # /gaming/v1/teamLineup/{comp}/{matchDay}/{champDay}
+    competition_teams: list[dict]   # /onboarding/v1/league/competition/teams (id, n)
+    players: list[dict]
+    league_teams: list[dict] | None = None  # se presenti, sync rose prima dell'import
+    league_total: int | None = None
+
+
+@router.post("/ext/v1/league/{league_id}/lineups/{matchday}")
+def ext_lineups(league_id: int, matchday: int, body: LineupsBody, _: int = Depends(get_ext_key)):
+    """Formazioni e voti di una giornata calcolata, salvati come l'upload Excel."""
+    _no_tokens(body)
+    if not body.day.get("calculated"):
+        raise HTTPException(status_code=400,
+                            detail=f"La giornata {body.day.get('matchDay')} non è ancora stata calcolata su Fantacalcio.")
+    roster_sync = None
+    if body.league_teams is not None:
+        # Sync rose non forzata: se fallisce l'import va avanti e l'errore va nel riepilogo
+        with get_db() as conn:
+            _check_league(conn, league_id)
+            try:
+                roster_sync = sync_rosters(conn, league_id, body.league_teams, body.league_total, body.players)
+            except RosterSyncError as exc:
+                roster_sync = {"error": str(exc)}
+
+    team_names = {t.get("id"): (t.get("n") or t.get("name") or "").strip() for t in body.competition_teams}
+    player_names = {p.get("id"): p.get("name") for p in body.players}
+    player_roles = {p.get("id"): fc.FC_ROLES.get(p.get("fcrle")) for p in body.players}
+    matches, pair_warnings = fc.pair_day_lineups(body.day, body.lineups)
+    rows, warnings, pairings = fc.lineup_rows(matches, team_names, player_names, player_roles)
+    with get_db() as conn:
+        _check_league(conn, league_id)
+        result = save_lineups(conn, league_id, matchday, rows, pair_warnings + warnings, pairings)
+    return {**result, "roster_sync": roster_sync}

@@ -1,132 +1,7 @@
-import base64
-import json
-import time
-
 import pytest
 
 from backend.api import fantacalcio as fc
 from backend.api.db import get_db
-
-
-def _jwt(days: int = 300) -> str:
-    def b64(d):
-        return base64.urlsafe_b64encode(json.dumps(d).encode()).decode().rstrip("=")
-    return f"{b64({'alg': 'RS256'})}.{b64({'exp': int(time.time()) + days * 86400, 'role': 'user'})}.sig"
-
-
-@pytest.fixture
-def coach(client):
-    """Utente allenatore registrato via invito, loggato con cookie user_session."""
-    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
-    lid = client.post("/admin/league", json={
-        "name": "FcLega", "season_current": "2024/25", "season_historic": "2003/04", "budget": 500,
-    }).json()["id"]
-    mid = client.post(f"/admin/league/{lid}/managers", json={"name": "Fc", "team_name": "Fc FC"}).json()["id"]
-    token = client.post(f"/admin/league/{lid}/managers/{mid}/invite").json()["token"]
-    client.post("/auth/logout")
-    email = f"fc{time.time_ns()}@example.com"
-    r = client.post("/auth/register", json={"name": "Fc", "email": email, "password": "pw", "invite_token": token})
-    assert r.status_code in (200, 201), r.text
-    with get_db() as conn:
-        user_id = conn.execute("SELECT id FROM user WHERE email = ?", (email,)).fetchone()["id"]
-    yield user_id
-    client.post("/auth/user/logout")
-    client.post("/auth/logout")
-
-
-@pytest.fixture
-def admin_coach(coach):
-    """Allenatore elevato ad admin: l'unico che può collegare il token Fantacalcio."""
-    with get_db() as conn:
-        conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (coach,))
-    return coach
-
-
-@pytest.fixture
-def fake_api(monkeypatch):
-    calls = []
-
-    def fake_get(path, token, params=None, headers=None):
-        calls.append((path, token))
-        if path == "/onboarding/v2/profile":
-            return {"leghe": [{"id": 7, "alias": "mia-lega", "nome": "Mia Lega", "jwt": "eyJLEAGUE"}]}
-        return {"path": path, "jwt": "eyJsecret", "nested": [{"token": "abc", "n": "Squadra"}]}
-
-    monkeypatch.setattr(fc, "get", fake_get)
-    return calls
-
-
-def test_link_requires_user_session(client):
-    assert client.get("/auth/user/fantacalcio").status_code == 401
-
-
-def test_link_forbidden_for_non_admin_coach(client, coach):
-    assert client.get("/auth/user/fantacalcio").status_code == 403
-    assert client.put("/auth/user/fantacalcio", json={"jwt": _jwt()}).status_code == 403
-    assert client.delete("/auth/user/fantacalcio").status_code == 403
-
-
-def test_link_save_encrypted_and_status(client, admin_coach, fake_api):
-    jwt = _jwt(300)
-    r = client.put("/auth/user/fantacalcio", json={"jwt": jwt})
-    assert r.status_code == 200, r.text
-    assert 298 <= r.json()["token"]["days_left"] <= 300
-
-    with get_db() as conn:
-        stored = conn.execute("SELECT fantacalcio_jwt FROM user WHERE id = ?", (admin_coach,)).fetchone()[0]
-        assert stored and jwt not in stored
-        assert fc.load_user_jwt(conn, admin_coach) == jwt
-
-    st = client.get("/auth/user/fantacalcio").json()
-    assert st["connected"] is True
-    assert st["leagues"] == [{"id": 7, "alias": "mia-lega", "name": "Mia Lega"}]
-    assert jwt not in json.dumps(st)
-    assert fake_api[0] == ("/onboarding/v2/profile", jwt)
-
-
-def test_link_rejects_invalid_and_expired(client, admin_coach):
-    assert client.put("/auth/user/fantacalcio", json={"jwt": "non-un-jwt"}).status_code == 422
-    assert client.put("/auth/user/fantacalcio", json={"jwt": _jwt(-1)}).status_code == 422
-
-
-def test_link_delete(client, admin_coach):
-    client.put("/auth/user/fantacalcio", json={"jwt": _jwt()})
-    assert client.delete("/auth/user/fantacalcio").status_code == 200
-    assert client.get("/auth/user/fantacalcio").json()["connected"] is False
-
-
-def test_link_status_reports_api_error(client, admin_coach, monkeypatch):
-    def failing(*a, **k):
-        raise fc.FantacalcioError(401, "ATH003", "token non valido", "u")
-    monkeypatch.setattr(fc, "get", failing)
-    client.put("/auth/user/fantacalcio", json={"jwt": _jwt()})
-    st = client.get("/auth/user/fantacalcio").json()
-    assert st["connected"] is True and "ATH003" in st["error"]
-
-
-def test_explore_uses_league_token_and_redacts(client, admin_coach, fake_api):
-    client.put("/auth/user/fantacalcio", json={"jwt": _jwt()})
-    r = client.get("/admin/fantacalcio/explore", params={"league": "mia-lega", "path": "/gaming/v1/x/1"})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["jwt"] == "***" and body["nested"][0]["token"] == "***" and body["nested"][0]["n"] == "Squadra"
-    assert fake_api[-1] == ("/gaming/v1/x/1", "eyJLEAGUE")
-
-    assert client.get("/admin/fantacalcio/explore", params={"league": "altra", "path": "/x"}).status_code == 404
-    assert client.get("/admin/fantacalcio/explore", params={"league": "mia-lega", "path": "https://evil"}).status_code == 400
-
-
-def test_explore_env_admin_without_user_gets_clear_error(client):
-    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
-    r = client.get("/admin/fantacalcio/explore", params={"league": "x", "path": "/x"})
-    client.post("/auth/logout")
-    assert r.status_code == 400
-    assert "Fantacalcio" in r.json()["detail"]
-
-
-def test_explore_requires_admin(client, coach):
-    r = client.get("/admin/fantacalcio/explore", params={"league": "x", "path": "/x"})
-    assert r.status_code == 403
 
 
 # ── Conversione e import formazioni ─────────────────────────────────────────
@@ -176,60 +51,127 @@ def test_lineup_rows_unknown_team_skips_pairing():
     assert pairings == [] and len(rows) == 1 and any("77" in w for w in warnings)
 
 
+def test_contains_token():
+    assert fc.contains_token({"a": [{"token": "eyJhbGciOi.eyJleHAi.sig"}]})
+    assert not fc.contains_token({"a": ["eyJ senza punti", 3, None], "n": "Casa FC"})
+
+
+def test_pair_day_lineups_uses_calendar_matches():
+    day = {"matches": [{"tIdH": 10, "tIdA": 20}, {"tIdH": 30, "tIdA": 40}]}
+    teams = [{"tid": 20, "starts": []}, {"tid": 10, "starts": []}, {"tid": 30, "starts": []}]
+    matches, warnings = fc.pair_day_lineups(day, teams)
+    assert [(m["home"]["tid"], m["away"]["tid"]) for m in matches] == [(10, 20), (30, 40)]
+    assert len(warnings) == 1 and "40" in warnings[0]
+
+
 @pytest.fixture
-def import_setup(client, coach, monkeypatch):
-    """Lega FantaNostalgia con 2 manager e rose, admin = coach con token collegato."""
+def admin(client):
+    client.post("/auth/login", json={"username": "admin", "password": "testpass"})
+    yield
+    client.post("/auth/logout")
+
+
+@pytest.fixture
+def ext_key(client, admin):
+    return client.post("/admin/fantacalcio/keys", json={"label": "Chrome"}).json()["key"]
+
+
+def test_keys_require_admin(client):
+    assert client.get("/admin/fantacalcio/keys").status_code == 401
+    assert client.post("/admin/fantacalcio/keys", json={}).status_code == 401
+
+
+def test_key_lifecycle(client, admin):
+    r = client.post("/admin/fantacalcio/keys", json={"label": "PC casa"})
+    assert r.status_code == 201
+    key, kid = r.json()["key"], r.json()["id"]
     with get_db() as conn:
-        conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (coach,))
-    client.put("/auth/user/fantacalcio", json={"jwt": _jwt()})
+        stored = conn.execute("SELECT key_hash FROM ext_api_key WHERE id = ?", (kid,)).fetchone()["key_hash"]
+    assert stored != key  # solo l'hash
+    listed = client.get("/admin/fantacalcio/keys").json()
+    assert any(k["id"] == kid and k["label"] == "PC casa" and "key" not in k for k in listed)
+
+    auth = {"Authorization": f"Bearer {key}"}
+    assert client.get("/ext/v1/leagues", headers=auth).status_code == 200
+    assert client.get("/admin/fantacalcio/keys").json()[0]["last_used_at"]
+    client.delete(f"/admin/fantacalcio/keys/{kid}")
+    assert client.get("/ext/v1/leagues", headers=auth).status_code == 401
+    assert all(k["id"] != kid for k in client.get("/admin/fantacalcio/keys").json())
+
+
+def test_ext_requires_key(client):
+    assert client.get("/ext/v1/leagues").status_code == 401
+    assert client.get("/ext/v1/leagues", headers={"Authorization": "Bearer fn_nope"}).status_code == 401
+
+
+def test_extension_zip(client, admin):
+    r = client.get("/admin/fantacalcio/extension.zip")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    import io, zipfile
+    names = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+    assert "fantanostalgia-extension/manifest.json" in names
+
+
+def test_cors_only_for_extension(client):
+    origin = "chrome-extension://" + "a" * 32
+    r = client.options("/ext/v1/leagues", headers={
+        "Origin": origin, "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization"})
+    assert r.headers.get("access-control-allow-origin") == origin
+    r = client.options("/ext/v1/leagues", headers={
+        "Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
+    assert "access-control-allow-origin" not in r.headers
+
+
+CALENDAR_DAY = {"matchDay": 1, "championshipMatchDay": 5, "calculated": True,
+                "matches": [{"tIdH": 10, "tIdA": 20}]}
+PLAYERS = [{"id": 1, "name": "Rossi A.", "fcrle": 4}, {"id": 3, "name": "Verdi C.", "fcrle": 4}]
+COMP_TEAMS = [{"id": 10, "n": "Casa FC "}, {"id": 20, "n": "OSPITE FC"}]
+LEAGUE_TEAMS = [
+    {"id": 10, "n": "Casa FC", "cal": "1", "cs": "12", "r": {"p": 0, "d": 0, "c": 0, "a": 1}},
+    {"id": 20, "n": "Ospite FC", "cal": "3", "cs": "8", "r": {"p": 0, "d": 0, "c": 0, "a": 1}}]
+
+
+def _team(tid, starts, bench=()):
+    return {"tid": tid, "starts": list(starts), "bench": list(bench)}
+
+
+@pytest.fixture
+def league(client, admin):
+    """Lega FantaNostalgia con 2 manager e rose."""
     lid = client.post("/admin/league", json={
         "name": "ImportLega", "season_current": "2024/25", "season_historic": "2003/04", "budget": 500,
     }).json()["id"]
+    ids = {}
     with get_db() as conn:
-        ids = {}
         for name in ("Casa", "Ospite"):
-            mid = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
-                               (lid, name, f"{name} FC")).lastrowid
-            ids[name] = mid
+            ids[name] = conn.execute("INSERT INTO manager (league_id, name, team_name) VALUES (?, ?, ?)",
+                                     (lid, name, f"{name} FC")).lastrowid
         for pname, mname in (("Rossi A.", "Casa"), ("Verdi C.", "Ospite")):
             conn.execute("INSERT INTO player_current (league_id, manager_id, name, role, team)"
                          " VALUES (?, ?, ?, 'A', 'X')", (lid, ids[mname], pname))
-
-    calls = []
-
-    def fake_get(path, token, params=None, headers=None):
-        calls.append(path)
-        if path == "/onboarding/v2/profile":
-            return {"leghe": [{"id": 7, "alias": "mia-lega", "nome": "Mia Lega", "jwt": "eyJLEAGUE"}]}
-        if path == "/onboarding/v1/league/competition/calendar/5":
-            return [
-                {"matchDay": 1, "championshipMatchDay": 5, "calculated": True,
-                 "matches": [{"tIdH": 10, "tIdA": 20}]},
-                {"matchDay": 2, "championshipMatchDay": 6, "calculated": False, "matches": []},
-            ]
-        if path == "/onboarding/v1/league/competition/teams":
-            return {"nextPage": False, "data": [{"id": 10, "n": "Casa FC "}, {"id": 20, "n": "OSPITE FC"}]}
-        if path == "/onboarding/v1/league/players":
-            return {"players": [{"id": 1, "name": "Rossi A.", "fcrle": 4}, {"id": 3, "name": "Verdi C.", "fcrle": 4}]}
-        if path == "/onboarding/v1/league/teams":
-            return {"nextPage": False, "item": 2, "data": [
-                {"id": 10, "n": "Casa FC", "cal": "1", "cs": "12", "r": {"p": 0, "d": 0, "c": 0, "a": 1}},
-                {"id": 20, "n": "Ospite FC", "cal": "3", "cs": "8", "r": {"p": 0, "d": 0, "c": 0, "a": 1}}]}
-        if path == "/gaming/v1/teamLineup/5/1/5/10/20":
-            return _match(10, 20, [{"pid": 1, "scr": 7, "cscr": 10, "b": _b(i2=1)}],
-                          [{"pid": 3, "scr": 5.5, "cscr": 5, "b": _b(i0=1)}])
-        raise AssertionError(path)
-
-    monkeypatch.setattr(fc, "get", fake_get)
-    return lid, ids, calls
+    return lid, ids
 
 
-def test_import_lineups_saves_like_excel(client, import_setup):
-    lid, ids, calls = import_setup
-    r = client.post(f"/admin/league/{lid}/lineups/1/fantacalcio",
-                    json={"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1})
+def _lineups_body(**over):
+    body = {
+        "day": CALENDAR_DAY,
+        "lineups": [_team(20, [{"pid": 3, "scr": 5.5, "cscr": 5, "b": _b(i0=1)}]),
+                    _team(10, [{"pid": 1, "scr": 7, "cscr": 10, "b": _b(i2=1)}])],
+        "competition_teams": COMP_TEAMS, "players": PLAYERS,
+        "league_teams": LEAGUE_TEAMS, "league_total": 2,
+    }
+    return {**body, **over}
+
+
+def test_ext_lineups_saves_like_excel(client, league, ext_key):
+    lid, ids = league
+    r = client.post(f"/ext/v1/league/{lid}/lineups/1", json=_lineups_body(),
+                    headers={"Authorization": f"Bearer {ext_key}"})
     assert r.status_code == 200, r.text
     assert r.json()["managers_imported"] == 2
+    # La sync rose parte prima dell'import: rose già allineate, nessuna modifica
+    assert r.json()["roster_sync"] == {"added": [], "moved": [], "released": [], "realign": []}
     with get_db() as conn:
         rows = conn.execute(
             "SELECT pc.name, l.is_starter, l.score_no_bonus, l.score_bonus FROM lineup l"
@@ -239,88 +181,52 @@ def test_import_lineups_saves_like_excel(client, import_setup):
                            " WHERE league_id = ? AND matchday = 1", (lid,)).fetchall()
     assert [tuple(r) for r in rows] == [("Rossi A.", 1, 7.0, 10.0), ("Verdi C.", 1, 5.5, 5.0)]
     assert [tuple(h) for h in h2h] == [(ids["Casa"], ids["Ospite"])]
-    assert "/gaming/v1/teamLineup/5/1/5/10/20" in calls
-    # La sync rose parte prima dell'import: rose già allineate, nessuna modifica
-    assert r.json()["roster_sync"] == {"added": [], "moved": [], "released": [], "realign": []}
 
 
-def test_import_lineups_rejects_uncalculated_or_missing_day(client, import_setup):
-    lid, _, _ = import_setup
-    body = {"fc_league": "mia-lega", "competition_id": 5}
-    assert client.post(f"/admin/league/{lid}/lineups/2/fantacalcio", json={**body, "fc_match_day": 2}).status_code == 400
-    assert client.post(f"/admin/league/{lid}/lineups/9/fantacalcio", json={**body, "fc_match_day": 9}).status_code == 404
-
-
-def test_calendar_endpoint(client, import_setup):
-    r = client.get("/admin/fantacalcio/mia-lega/calendar/5")
-    assert r.json() == [
-        {"match_day": 1, "championship_match_day": 5, "calculated": True},
-        {"match_day": 2, "championship_match_day": 6, "calculated": False},
-    ]
-
-
-def test_elevated_user_can_use_matchday_admin_endpoints(client, coach):
-    """L'import richiede l'accesso da utente: anche gli endpoint giornate
-    (get_current_admin_or_bearer) devono accettare un utente admin."""
+def test_ext_lineups_rejects_uncalculated_day_and_tokens(client, league, ext_key):
+    lid, _ = league
+    auth = {"Authorization": f"Bearer {ext_key}"}
+    r = client.post(f"/ext/v1/league/{lid}/lineups/2", headers=auth,
+                    json=_lineups_body(day={**CALENDAR_DAY, "calculated": False}))
+    assert r.status_code == 400
+    r = client.post(f"/ext/v1/league/{lid}/lineups/1", headers=auth,
+                    json=_lineups_body(players=PLAYERS + [{"id": 9, "jwt": "eyJa.eyJb.c"}]))
+    assert r.status_code == 400 and "token" in r.json()["detail"]
     with get_db() as conn:
-        lid = conn.execute("SELECT id FROM league ORDER BY id DESC LIMIT 1").fetchone()["id"]
-    assert client.get(f"/admin/league/{lid}/matchdays").status_code == 403
-    with get_db() as conn:
-        conn.execute("UPDATE user SET is_admin = 1 WHERE id = ?", (coach,))
-    assert client.get(f"/admin/league/{lid}/matchdays").status_code == 200
+        assert conn.execute("SELECT COUNT(*) FROM lineup WHERE league_id = ?", (lid,)).fetchone()[0] == 0
 
 
-def test_import_never_writes_rosters(client, import_setup, monkeypatch):
+def test_ext_lineups_unknown_player_never_writes_rosters(client, league, ext_key):
     """Giocatore sconosciuto: creato in anagrafica senza squadra, formazione salvata,
-    avviso per rilanciare la sync rose. La rosa non cambia, anche reimportando."""
-    lid, ids, _ = import_setup
-    base_get = fc.get
-
-    def fake_get(path, token, params=None, headers=None):
-        if path == "/onboarding/v1/league/players":
-            return {"players": [{"id": 1, "name": "Rossi A.", "fcrle": 4}, {"id": 3, "name": "Verdi C.", "fcrle": 4},
-                                {"id": 4, "name": "Nuovo P.", "fcrle": 1}]}
-        if path == "/onboarding/v1/league/teams":
-            raise fc.FantacalcioError(500, None, "down", path)
-        if path == "/gaming/v1/teamLineup/5/1/5/10/20":
-            return _match(10, 20, [{"pid": 4, "scr": 6.5, "cscr": 5.5, "b": _b()},
-                                   {"pid": 1, "scr": 7, "cscr": 10, "b": _b(i2=1)}],
-                          [{"pid": 3, "scr": 5.5, "cscr": 5, "b": _b(i0=1)}])
-        return base_get(path, token, params, headers)
-
-    monkeypatch.setattr(fc, "get", fake_get)
-    body = {"fc_league": "mia-lega", "competition_id": 5, "fc_match_day": 1}
-    r = client.post(f"/admin/league/{lid}/lineups/1/fantacalcio", json=body)
+    avviso per rilanciare la sync rose. Sync fallita: l'import va avanti."""
+    lid, ids = league
+    players = PLAYERS + [{"id": 4, "name": "Nuovo P.", "fcrle": 1}]
+    body = _lineups_body(
+        players=players,
+        lineups=[_team(10, [{"pid": 4, "scr": 6.5, "cscr": 5.5, "b": _b()}]), _team(20, [])],
+        league_teams=[LEAGUE_TEAMS[0]], league_total=2)  # squadre lette ≠ item → sync fallita
+    r = client.post(f"/ext/v1/league/{lid}/lineups/1", json=body,
+                    headers={"Authorization": f"Bearer {ext_key}"})
     assert r.status_code == 200, r.text
     res = r.json()
-    assert res["roster_sync"]["error"]  # sync fallita: l'import va avanti e lo segnala
+    assert res["roster_sync"]["error"]
     assert any("Nuovo P." in w and "rilancia la sync rose" in w for w in res["warnings"])
-    client.post(f"/admin/league/{lid}/lineups/1/fantacalcio", json=body)
     with get_db() as conn:
-        ps = conn.execute("SELECT id, role, manager_id, fc_id FROM player_current"
-                          " WHERE league_id = ? AND name = 'Nuovo P.'", (lid,)).fetchall()
-        lu = conn.execute("SELECT manager_id, score_no_bonus FROM lineup"
-                          " WHERE league_id = ? AND matchday = 1 AND player_current_id = ?",
-                          (lid, ps[0]["id"])).fetchone()
-    assert len(ps) == 1 and (ps[0]["role"], ps[0]["manager_id"], ps[0]["fc_id"]) == ("P", None, 4)
-    assert tuple(lu) == (ids["Casa"], 6.5)
+        p = conn.execute("SELECT role, manager_id, fc_id FROM player_current"
+                         " WHERE league_id = ? AND name = 'Nuovo P.'", (lid,)).fetchone()
+    assert tuple(p) == ("P", None, 4)
 
 
-def test_roster_sync_endpoint(client, import_setup, monkeypatch):
-    lid, ids, _ = import_setup
-    base_get = fc.get
-    teams = {"nextPage": False, "item": 2, "data": [
-        {"id": 10, "n": "Casa FC", "cal": "1;3", "cs": "12;8", "r": {"p": 0, "d": 0, "c": 0, "a": 2}},
-        {"id": 20, "n": "Ospite FC", "cal": "", "cs": "", "r": {"p": 0, "d": 0, "c": 0, "a": 0}}]}
-    monkeypatch.setattr(fc, "get", lambda path, token, params=None, headers=None:
-                        teams if path == "/onboarding/v1/league/teams" else base_get(path, token, params, headers))
-    url = f"/admin/league/{lid}/rosters/fantacalcio"
-    r = client.post(url, json={"fc_league": "mia-lega"})
+def test_ext_rosters(client, league, ext_key):
+    lid, _ = league
+    auth = {"Authorization": f"Bearer {ext_key}"}
+    url = f"/ext/v1/league/{lid}/rosters"
+    teams = [{**LEAGUE_TEAMS[0], "cal": "1;3", "cs": "12;8", "r": {"p": 0, "d": 0, "c": 0, "a": 2}},
+             {**LEAGUE_TEAMS[1], "cal": "", "cs": "", "r": {"p": 0, "d": 0, "c": 0, "a": 0}}]
+    r = client.post(url, headers=auth, json={"teams": teams, "total": 2, "players": PLAYERS})
     assert r.status_code == 409 and "Rosa vuota" in r.json()["detail"]
-
-    teams["data"][1].update(cal="", r={})
-    teams["data"] = teams["data"][:1]
-    teams["item"] = 1
-    r = client.post(url, json={"fc_league": "mia-lega"})
+    r = client.post(url, headers=auth, json={"teams": teams[:1], "total": 1, "players": PLAYERS})
     assert r.status_code == 200, r.text
     assert r.json()["moved"] == ["Verdi C.: Ospite FC → Casa FC"]
+    assert client.post("/ext/v1/league/99999/rosters", headers=auth,
+                       json={"teams": [], "players": []}).status_code == 404

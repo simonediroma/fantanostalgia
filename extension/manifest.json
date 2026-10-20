@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "FantaNostalgia Admin",
+  "version": "1.0.0",
+  "description": "Invia rose, formazioni e voti dalla tua lega su leghe.fantacalcio.it a FantaNostalgia.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": ["https://leghe.fantacalcio.it/*"],
+  "action": {
+    "default_title": "FantaNostalgia",
+    "default_popup": "popup.html"
+  }
+}

@@ -164,6 +164,14 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass
         conn.executescript("""
+            CREATE TABLE IF NOT EXISTS ext_api_key (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                label TEXT NOT NULL,
+                key_hash TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_used_at TIMESTAMP,
+                revoked_at TIMESTAMP
+            );
             CREATE TABLE IF NOT EXISTS h2h_match (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 league_id INTEGER REFERENCES league(id),
@@ -329,6 +337,8 @@ def init_db() -> None:
                 UNIQUE(season, matchday, home_team, away_team)
             );
         """)
+        # Il server non chiama più Fantacalcio (estensione Chrome): niente token salvati
+        conn.execute("UPDATE user SET fantacalcio_jwt = NULL WHERE fantacalcio_jwt IS NOT NULL")
         conn.commit()
 
     if ENV != "development":
