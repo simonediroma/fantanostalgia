@@ -479,6 +479,57 @@ def test_upload_formazioni_panchina_flag(client, formazioni_setup):
     assert by_name["Albertini"] == 0
 
 
+def test_upload_formazioni_new_export_format(client, formazioni_setup):
+    """Export 2026-10: squadre a 17 colonne (Ruolo|Calciatore||Sq.|V|FV|bonus...),
+    risultato in col 17, squadra destra da col 18, nessuna riga TOTALE."""
+    league_id, *_ = formazioni_setup
+
+    def side(*cells):
+        return list(cells) + [None] * (17 - len(cells))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Championship · Giornata 5"])
+    ws.append(["Ⓒ Capitano  ·  Ⓥ Vice capitano"])
+    ws.append([None])
+    ws.append(side("ALPHA ") + ["2-1", "BETA"])
+    ws.append(side("ALPHA ") + [None, "BETA"])
+    ws.append(side("Modulo", "3-4-3", None, None, "Totale", 64) + [None]
+              + side("Modulo", "3-4-3", None, None, "Totale", 70))
+    ws.append(side(None, None, None, None, "Voti", None, "Bonus e Malus") + [None]
+              + side(None, None, None, None, "Voti", None, "Bonus e Malus"))
+    header = side("Ruolo", "Calciatore", None, "Sq.", "V", "FV", "G", "GS")
+    ws.append(header + [None] + header)
+    ws.append(side("A", "Ronaldo", None, "JUV", 7, 10, 3) + [None]
+              + side("A", "Toldo", None, "MIL", 5.5, 2.5, "-", -3))
+    ws.append(side("Panchina") + [None] + side("Panchina"))
+    ws.append(side("A", "Pirlo", None, "JUV", "SV", "SV") + [None]
+              + side("A", "Albertini", None, "MIL", 6, 6))
+
+    buf = BytesIO()
+    wb.save(buf)
+    r = client.post(
+        f"/admin/league/{league_id}/lineups/13",
+        files={"file": ("formazioni.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["managers_imported"] == 2
+
+    from backend.api.db import get_db
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT pc.name, l.is_starter, l.score_no_bonus, l.score_bonus FROM lineup l"
+            " JOIN player_current pc ON pc.id = l.player_current_id"
+            " WHERE l.league_id = ? AND l.matchday = 13", (league_id,)).fetchall()
+    got = {r["name"]: (r["is_starter"], r["score_no_bonus"], r["score_bonus"]) for r in rows}
+    assert got == {
+        "Ronaldo": (1, 7.0, 10.0),
+        "Toldo": (1, 5.5, 2.5),
+        "Pirlo": (0, None, None),
+        "Albertini": (0, 6.0, 6.0),
+    }
+
+
 def test_team_name_is_pivot_for_lineups_and_calendario(client, login):
     """Due manager con lo stesso nome e un nome manager uguale alla squadra di un altro:
     formazioni e calendario seguono sempre il nome squadra."""

@@ -1,9 +1,11 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-17
-**Branch attivo:** `claude/eager-johnson-sc1kz5`
+**Ultima sessione:** 2026-10-20
+**Branch attivo:** `claude/compassionate-gauss-kmz0il`
 **PR in corso:** nessuna aperta (push del branch fatto, PR solo su richiesta).
+
+**Sessione 2026-10-20 — Import formazioni dal nuovo export Excel (file `erculotuo_formazioni_726561_g5.xlsx` dell'utente):** il nuovo export ha blocchi squadra di 17 colonne (`Ruolo | Calciatore | vuota | Sq. | V | FV | G | GS | AU | RS | RSb | RP | A | AS | AG | GV | GP`), risultato in col 17, squadra destra da col 18, righe intestazione/Modulo/Voti ripetute, `SV` per senza voto, **nessuna riga TOTALE**. Il parser vecchio lo scartava ("Header non trovato"). `lineups.py`: `_FORMAZIONI_LAYOUTS` (vecchio + nuovo) e `_formazioni_layout` rileva quale; `_parse_formazioni_rows` parametrizzato. Mapping: `V` → `score_no_bonus` (voto in pagella, come `scr` dell'import API), `FV` → `score_bonus`. Colonne bonus/malus ignorate. Sul file reale: 250 giocatori, 10 squadre (11+14), 5 accoppiamenti. Test `test_upload_formazioni_new_export_format`. Ambiente: fallimenti preesistenti identici prima/dopo (versioni jinja/starlette più nuove in questo container).
 
 **Sessione 2026-10-17 — Completa associazioni mancanti (richiesto in chat):** a periodo chiuso, gli storici arrivati dopo (Gran Premio, assegnazione giornata) restavano senza giocatore e "Chiudi periodo associazioni" rispondeva 400. Nuovo `complete_missing_assignments` (`engine/mapping.py`) + `POST /admin/league/{id}/mapping/complete-missing`: per ogni voce pool non associata sceglie il giocatore della rosa dello stesso ruolo **ancora libero** (ordine PGv); se non ce n'è, la voce resta vuota (niente doppioni). Le squadre complete vengono bloccate (flush `alter_ego`). Bottone "Completa associazioni mancanti" in admin Step 2 (pannello 4) con riepilogo per squadra. Non toccato: `auto_assign_remaining` (chiusura periodo) ha ancora il fallback che può associare due storici allo stesso giocatore. Test `test_complete_missing.py` (2); suite 360 passed + soliti 3.
 
