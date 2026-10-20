@@ -181,10 +181,10 @@ def export_classifica_csv(league_id: int):
 
 
 def _score_to_goals(score: float) -> int:
-    """Convert a nostalgia match score to goals. Base 66 pts = 0 goals, then +1 per 6 pts."""
+    """Convert a nostalgia match score to goals. 66 pts = 1 goal, then +1 per 6 pts."""
     if score < 66:
         return 0
-    return int((score - 66) // 6)
+    return int((score - 66) // 6) + 1
 
 
 def _compute_h2h(matches: list) -> list[dict]:

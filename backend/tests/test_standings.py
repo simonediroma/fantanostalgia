@@ -256,3 +256,12 @@ def test_last_draw_no_auth_required(client):
     # 404 because no draw exists — but not a 401
     r = client.get(f"/league/{league['id']}/last-draw")
     assert r.status_code == 404
+
+
+def test_score_to_goals_threshold():
+    from backend.api.routers.standings import _score_to_goals
+    assert _score_to_goals(65.5) == 0
+    assert _score_to_goals(66.0) == 1
+    assert _score_to_goals(66.5) == 1
+    assert _score_to_goals(70.5) == 1
+    assert _score_to_goals(72.0) == 2
