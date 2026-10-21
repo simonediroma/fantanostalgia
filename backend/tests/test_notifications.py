@@ -313,9 +313,13 @@ def test_gran_premio_resolve_enqueues_email_for_linked_winner(client):
         rows = _queue_rows_for(conn, "winner@test.com")
     assert len(rows) == 1
     assert rows[0]["template"] == "gran_premio_won"
-    assert json.loads(rows[0]["params"]) == {
+    params = json.loads(rows[0]["params"])
+    players = params.pop("players")
+    assert params == {
         "name": "M2", "league_name": "NotifLega", "league_id": league_id, "prize_player_name": "PrizeGuy",
     }
+    assert [p["id"] for p in players] == [prize]
+    assert players[0]["name"] == "PrizeGuy"
 
 
 def test_gran_premio_resolve_no_email_if_winner_not_linked(client):

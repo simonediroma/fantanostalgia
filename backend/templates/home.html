@@ -150,7 +150,7 @@
         {% for p in hall_of_fame %}
         <tr>
           <td class="rank">{{ loop.index }}</td>
-          <td class="historic-name" style="text-align:left">{{ p.name }}</td>
+          <td class="historic-name" style="text-align:left"><a href="/storico/{{ p.id }}">{{ p.name }}</a></td>
           <td><span class="ds-badge ds-badge--cyan">{{ p.role }}</span></td>
           <td style="color:var(--muted)">{{ p.team }}</td>
           <td style="color:var(--muted)">{{ p.season }}</td>

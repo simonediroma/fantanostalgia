@@ -75,6 +75,57 @@ def _layout(title: str, body_html: str, cta_label: str, cta_url: str) -> str:
     """
 
 
+def player_cards(conn: sqlite3.Connection, player_historic_ids: list[int]) -> list[dict]:
+    """Dati per la card del giocatore storico nelle email (foto, media voto della stagione)."""
+    cards = []
+    for pid in player_historic_ids:
+        row = conn.execute(
+            """
+            SELECT ph.id, ph.name, ph.role, ph.team, ph.season, ph.photo_url,
+                   ROUND(AVG(hr.rating), 2) AS avg_rating, COUNT(hr.rating) AS appearances
+            FROM player_historic ph
+            LEFT JOIN historic_rating hr ON hr.player_historic_id = ph.id
+            WHERE ph.id = ?
+            GROUP BY ph.id
+            """,
+            (pid,),
+        ).fetchone()
+        if row is not None:
+            cards.append(dict(row))
+    return cards
+
+
+def _player_cards_html(cards: list[dict], base_url: str) -> str:
+    pixel = "'Press Start 2P','Courier New',monospace"
+    out = []
+    for c in cards:
+        url = f"{base_url}/storico/{c['id']}"
+        photo = (
+            f'<td width="96" valign="top" style="padding-right:12px;">'
+            f'<a href="{url}"><img src="{c["photo_url"]}" alt="{c["name"]}" width="96" '
+            f'style="display:block;width:96px;height:auto;border:2px solid #3333aa;"></a></td>'
+            if c.get("photo_url") else ""
+        )
+        avg = f"{c['avg_rating']:.2f}" if c.get("avg_rating") is not None else "—"
+        out.append(f"""
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="margin:16px 0;border:2px solid #3333aa;background:#050510;">
+          <tr><td style="padding:12px;">
+            <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+              {photo}
+              <td valign="top" style="font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
+                <div style="font-family:{pixel};font-size:12px;color:#00d4ff;margin-bottom:6px;">{c['name']}</div>
+                <div style="color:#7777aa;">{c['role']} · {c['team']} · {c['season']}</div>
+                <div style="margin-top:6px;">Media voto <strong style="color:#ffe600;">{avg}</strong>
+                  · {c['appearances']} presenze</div>
+                <div style="margin-top:8px;"><a href="{url}" style="color:#ffe600;">Scheda giocatore →</a></div>
+              </td>
+            </tr></table>
+          </td></tr>
+        </table>""")
+    return "".join(out)
+
+
 def _render_registration(params: dict, base_url: str) -> tuple[str, str]:
     name, league_name = params["name"], params["league_name"]
     html = _layout(
@@ -131,7 +182,8 @@ def _render_gran_premio_won(params: dict, base_url: str) -> tuple[str, str]:
         "Gran Premio vinto!",
         f"<p>Complimenti {name}, hai vinto il Gran Premio in <strong>{league_name}</strong> "
         f"e hai ricevuto <strong>{prize_player_name}</strong> come slot extra nella tua rosa "
-        "nostalgia. Accedi per associare il nuovo giocatore al suo alter ego attuale.</p>",
+        "nostalgia. Accedi per associare il nuovo giocatore al suo alter ego attuale.</p>"
+        + _player_cards_html(params.get("players", []), base_url),
         "Associa il premio",
         f"{base_url}/coach/lega/{league_id}",
     )
@@ -145,7 +197,8 @@ def _render_giveaway_assigned(params: dict, base_url: str) -> tuple[str, str]:
         "Nuovo giocatore storico!",
         f"<p>Ciao {name}, con l'assegnazione della giornata {matchday} in <strong>{league_name}</strong> "
         f"hai ricevuto <strong>{player_name}</strong> nella tua rosa nostalgia. "
-        "Accedi per associarlo a un giocatore della tua rosa: puoi riassociare tutti i tuoi storici.</p>",
+        "Accedi per associarlo a un giocatore della tua rosa: puoi riassociare tutti i tuoi storici.</p>"
+        + _player_cards_html(params.get("players", []), base_url),
         "Associa il nuovo giocatore",
         f"{base_url}/coach/lega/{league_id}",
     )
@@ -159,7 +212,8 @@ def _render_market_won(params: dict, base_url: str) -> tuple[str, str]:
     html = _layout(
         "Mercato: giocatori aggiudicati!",
         f"<p>Complimenti {name}, hai vinto le offerte sul mercato di <strong>{league_name}</strong> "
-        f"per: <strong>{players_list}</strong>. Accedi per associarli ai giocatori della tua rosa.</p>",
+        f"per: <strong>{players_list}</strong>. Accedi per associarli ai giocatori della tua rosa.</p>"
+        + _player_cards_html(params.get("players", []), base_url),
         "Associa i nuovi acquisti",
         f"{base_url}/coach/lega/{league_id}",
     )

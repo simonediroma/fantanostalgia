@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% set role_names = {'P': 'Portiere', 'D': 'Difensore', 'C': 'Centrocampista', 'A': 'Attaccante'} %}
+
+{% block title %}{{ player.name }} — {{ player.season }} — FantaNostalgia{% endblock %}
+{% block og_title %}{{ player.name }} ({{ player.team }}, {{ player.season }}){% endblock %}
+{% block og_description %}Scheda del giocatore storico {{ player.name }}: statistiche della stagione {{ player.season }} e media voto FantaNostalgia.{% endblock %}
+
+{% block nav %}
+<a href="/">Home</a>
+{% endblock %}
+
+{% block head %}
+<style>
+.st-card { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+.st-photo { flex: 0 0 auto; width: 180px; }
+.st-photo img { display: block; width: 100%; height: auto; border: 2px solid var(--border); image-rendering: auto; }
+.st-photo-fallback {
+  width: 180px; height: 220px; display: flex; align-items: center; justify-content: center;
+  border: 2px dashed var(--border); font-family: var(--font-pixel); font-size: 3rem; color: var(--muted);
+}
+.st-credit { font-size: 0.6rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.4; word-break: break-word; }
+.st-credit a { color: var(--muted); }
+.st-info { flex: 1 1 260px; min-width: 0; }
+.st-info h1 { margin-bottom: 0.5rem; }
+.st-avg { font-family: var(--font-data); font-size: 2.2rem; color: var(--accent); line-height: 1; }
+.st-avg-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+.st-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; margin-top: 1.5rem; }
+.st-stat { border: 2px solid var(--border); background: var(--surface); padding: 0.75rem; }
+.st-stat .v { font-family: var(--font-data); font-size: 1.3rem; color: var(--text); }
+.st-stat .l { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; margin-top: 0.25rem; }
+@media (max-width: 480px) { .st-photo, .st-photo-fallback { width: 140px; } .st-photo-fallback { height: 170px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="st-card">
+  <div class="st-photo">
+    {% if player.photo_url %}
+    <img src="{{ player.photo_url }}" alt="{{ player.name }}">
+    {% if player.photo_credit %}
+    <div class="st-credit">
+      Foto: {% if player.photo_source_url %}<a href="{{ player.photo_source_url }}" target="_blank" rel="noopener">{{ player.photo_credit }}</a>{% else %}{{ player.photo_credit }}{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="st-photo-fallback" aria-hidden="true">{{ player.role }}</div>
+    {% endif %}
+  </div>
+
+  <div class="st-info">
+    <h1>{{ player.name }}</h1>
+    <p class="subtitle">
+      <span class="ds-badge ds-badge--cyan">{{ player.role }}</span>
+      {{ role_names.get(player.role, player.role) }} &nbsp;·&nbsp; {{ player.team }} &nbsp;·&nbsp; Stagione {{ player.season }}
+    </p>
+    <div class="st-avg-label">Media voto FantaNostalgia</div>
+    <div class="st-avg">{{ '%.2f'|format(stats.avg_rating) if stats.avg_rating is not none else '—' }}</div>
+  </div>
+</div>
+
+<div class="st-stats">
+  <div class="st-stat"><div class="v">{{ stats.appearances }}</div><div class="l">Presenze con voto</div></div>
+  <div class="st-stat"><div class="v">{{ stats.minutes }}</div><div class="l">Minuti</div></div>
+  {% if player.role == 'P' %}
+  <div class="st-stat"><div class="v">{{ stats.goals_conceded }}</div><div class="l">Gol subiti</div></div>
+  {% endif %}
+  <div class="st-stat"><div class="v">{{ stats.goals }}</div><div class="l">Gol</div></div>
+  <div class="st-stat"><div class="v">{{ stats.assists }}</div><div class="l">Assist</div></div>
+  <div class="st-stat"><div class="v">{{ stats.penalties_scored }}</div><div class="l">Rigori segnati</div></div>
+  <div class="st-stat"><div class="v">{{ stats.penalties_missed }}</div><div class="l">Rigori sbagliati</div></div>
+  <div class="st-stat"><div class="v">{{ stats.own_goals }}</div><div class="l">Autogol</div></div>
+  <div class="st-stat"><div class="v">{{ stats.yellow_cards }}</div><div class="l">Ammonizioni</div></div>
+  <div class="st-stat"><div class="v">{{ stats.red_cards }}</div><div class="l">Espulsioni</div></div>
+</div>
+{% endblock %}

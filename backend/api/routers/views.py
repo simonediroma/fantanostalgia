@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 
@@ -53,7 +53,7 @@ def home(request: Request):
         ).fetchall()
         hof_rows = conn.execute(
             """
-            SELECT ph.name, ph.role, ph.team, ph.season,
+            SELECT ph.id, ph.name, ph.role, ph.team, ph.season,
                    COUNT(hr.matchday) AS n,
                    ROUND(AVG(hr.rating), 2) AS avg_rating
             FROM player_historic ph
@@ -69,6 +69,39 @@ def home(request: Request):
     return templates.TemplateResponse(
         "home.html",
         {"request": request, "leagues": leagues, "hall_of_fame": hall_of_fame},
+    )
+
+
+@router.get("/storico/{player_id}", include_in_schema=False)
+def storico(request: Request, player_id: int):
+    with get_db() as conn:
+        player = conn.execute(
+            "SELECT * FROM player_historic WHERE id = ?", (player_id,)
+        ).fetchone()
+        if player is None:
+            raise HTTPException(status_code=404, detail="Giocatore storico non trovato")
+        # Media voto = stessa di Hall of Fame e scelta premi Gran Premio: AVG(rating).
+        stats = conn.execute(
+            """
+            SELECT COUNT(rating) AS appearances,
+                   ROUND(AVG(rating), 2) AS avg_rating,
+                   COALESCE(SUM(minutes), 0) AS minutes,
+                   COALESCE(SUM(goals), 0) AS goals,
+                   COALESCE(SUM(assists), 0) AS assists,
+                   COALESCE(SUM(penalties_scored), 0) AS penalties_scored,
+                   COALESCE(SUM(penalties_missed), 0) AS penalties_missed,
+                   COALESCE(SUM(own_goals), 0) AS own_goals,
+                   COALESCE(SUM(yellow_cards), 0) AS yellow_cards,
+                   COALESCE(SUM(red_cards), 0) AS red_cards,
+                   COALESCE(SUM(goals_conceded), 0) AS goals_conceded
+            FROM historic_rating
+            WHERE player_historic_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
+    return templates.TemplateResponse(
+        "storico.html",
+        {"request": request, "player": dict(player), "stats": dict(stats)},
     )
 
 

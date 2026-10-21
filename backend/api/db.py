@@ -92,6 +92,18 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE historic_rating ADD COLUMN {_col} {_def}")
             except sqlite3.OperationalError:
                 pass
+        # Foto da Wikimedia (backend/api/wikimedia.py); photo_checked_at = ricerca già fatta.
+        for _col, _def in [
+            ("wikidata_id", "TEXT"),
+            ("photo_url", "TEXT"),
+            ("photo_credit", "TEXT"),
+            ("photo_source_url", "TEXT"),
+            ("photo_checked_at", "TIMESTAMP"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE player_historic ADD COLUMN {_col} {_def}")
+            except sqlite3.OperationalError:
+                pass
         for _col, _def in [
             ("score_no_bonus", "REAL"),
             ("score_bonus", "REAL"),

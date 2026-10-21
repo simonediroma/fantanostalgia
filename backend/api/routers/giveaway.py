@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.api.db import get_db
-from backend.api.notifications import enqueue_email
+from backend.api.notifications import enqueue_email, player_cards
 from backend.api.routers.auth import get_current_admin
 from backend.engine.giveaway import SEQUENCE, check_preconditions, get_rules, plan_giveaway, run_giveaway
 
@@ -122,6 +122,7 @@ def run(league_id: int, matchday: int, _: str = Depends(get_current_admin)):
                 enqueue_email(conn, "giveaway_assigned", mgr["email"], {
                     "name": mgr["name"], "league_name": league["name"], "league_id": league_id,
                     "player_name": a["name"], "matchday": matchday,
+                    "players": player_cards(conn, [a["player_historic_id"]]),
                 })
     return {"done": True, "awards": awards}
 

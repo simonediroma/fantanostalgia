@@ -9,6 +9,12 @@ POST /admin/historic/import-matches
   Accetta il CSV partite dello scraper calcioseriea (<nome>_partite.csv) e
   popola historic_match. Reimport idempotente (INSERT OR REPLACE).
 
+POST /admin/historic/photos/fetch
+  Cerca su Wikidata la foto dei giocatori storici non ancora controllati, a lotti.
+
+PUT /admin/historic/players/{id}/photo
+  Correzione manuale della foto (o rimozione con photo_url vuoto).
+
 POST /admin/historic/normalize-seasons
   Bonifica il DB convertendo tutti i valori di season al formato canonico YYYY/YY.
 """
@@ -17,7 +23,11 @@ import csv
 import io
 import sqlite3
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from pydantic import BaseModel
+
+from backend.api import wikimedia
 
 from backend.api.db import get_db
 from backend.api.routers.auth import get_current_admin
@@ -232,6 +242,80 @@ async def import_historic_matches_csv(
         "seasons": seasons,
         "message": f"Importazione partite completata — {len(rows)} partite ({', '.join(seasons)})",
     }
+
+
+PHOTO_BATCH_SIZE = 20
+
+
+@router.post("/photos/fetch")
+def fetch_photos(limit: int = PHOTO_BATCH_SIZE, _admin=Depends(get_current_admin)):
+    """Un lotto di ricerche foto, solo per le stagioni storiche delle leghe esistenti
+    (sono gli unici giocatori che si possono vincere). L'admin richiama finché
+    `remaining` è 0. Le chiamate esterne avvengono fuori dalla transazione DB."""
+    pending_sql = """
+        FROM player_historic
+        WHERE photo_checked_at IS NULL
+          AND season IN (SELECT season_historic FROM league)
+    """
+    with get_db() as conn:
+        players = conn.execute(
+            f"SELECT id, name, season {pending_sql} ORDER BY id LIMIT ?", (limit,)
+        ).fetchall()
+
+    results: list[tuple[int, dict | None]] = []
+    error = None
+    for p in players:
+        try:
+            results.append((p["id"], wikimedia.find_photo(p["name"], p["season"])))
+        except requests.RequestException as e:
+            # Non segna il giocatore come controllato: verrà ritentato al prossimo lotto.
+            error = str(e)
+            break
+
+    with get_db() as conn:
+        for pid, photo in results:
+            photo = photo or {}
+            conn.execute(
+                """
+                UPDATE player_historic
+                SET wikidata_id = ?, photo_url = ?, photo_credit = ?, photo_source_url = ?,
+                    photo_checked_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (photo.get("wikidata_id"), photo.get("photo_url"), photo.get("photo_credit"),
+                 photo.get("photo_source_url"), pid),
+            )
+        remaining = conn.execute(f"SELECT COUNT(*) {pending_sql}").fetchone()[0]
+
+    return {
+        "processed": len(results),
+        "found": sum(1 for _, photo in results if photo),
+        "remaining": remaining,
+        "error": error,
+    }
+
+
+class PhotoOverride(BaseModel):
+    photo_url: str = ""
+    photo_credit: str = ""
+
+
+@router.put("/players/{player_id}/photo")
+def set_photo(player_id: int, body: PhotoOverride, _admin=Depends(get_current_admin)):
+    url = body.photo_url.strip() or None
+    with get_db() as conn:
+        cur = conn.execute(
+            """
+            UPDATE player_historic
+            SET photo_url = ?, photo_credit = ?, photo_source_url = ?, wikidata_id = NULL,
+                photo_checked_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (url, body.photo_credit.strip() or None if url else None, url, player_id),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Giocatore storico non trovato")
+    return {"id": player_id, "photo_url": url}
 
 
 @router.post("/normalize-seasons")

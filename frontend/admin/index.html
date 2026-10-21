@@ -84,6 +84,18 @@
               <p class="ds-help-box__text">I voti storici (usati per generare i pool nostalgia) vengono raccolti con uno scraper da riga di comando e poi importati nel database. Non c'è ancora un'interfaccia di caricamento: genera il CSV con uno degli scraper in <code>backend/scrapers/</code> (vedi <code>CLAUDE_MEMORY.md</code>), poi caricalo con una chiamata a <code>POST /admin/historic/import</code>. Questa lega non richiede l'import se i dati storici sono già presenti nel database.</p>
             </div>
           </div>
+          <div class="ds-panel ds-panel--default" style="margin-top:1rem">
+            <h4 class="ds-panel__title">Foto giocatori storici</h4>
+            <p style="font-size:0.85rem;line-height:1.6">Cerca su Wikidata la foto dei giocatori delle stagioni storiche delle leghe (compare nella scheda <code>/storico/{id}</code> e nelle email di premio vinto). Lavora a lotti finché non resta nessuno da controllare.</p>
+            <button class="ds-button ds-button--primary" id="histPhotosBtn">Cerca foto</button>
+            <div id="histPhotosMsg" class="mt-sm"></div>
+            <p style="font-size:0.85rem;line-height:1.6;margin-top:1rem">Foto sbagliata? Correggila a mano: l'ID è nell'indirizzo della scheda. URL vuoto = nessuna foto.</p>
+            <label>ID giocatore storico <input type="number" id="histPhotoId" min="1"></label>
+            <label>URL foto <input type="text" id="histPhotoUrl" placeholder="https://upload.wikimedia.org/..."></label>
+            <label>Crediti (autore, licenza) <input type="text" id="histPhotoCredit"></label>
+            <button class="ds-button ds-button--secondary" id="histPhotoSaveBtn">Salva foto</button>
+            <div id="histPhotoMsg" class="mt-sm"></div>
+          </div>
         </details>
       </div>
 
@@ -588,6 +600,7 @@
 <script src="js/email.js"></script>
 <script src="js/fantacalcio.js"></script>
 <script src="js/giveaway.js"></script>
+<script src="js/historic.js"></script>
 <script>
 'use strict';
 
@@ -836,6 +849,41 @@ document.getElementById('usersNavLink').addEventListener('click', (e) => {
   loadUsers();
 });
 document.getElementById('usersToDashBtn').addEventListener('click', () => showPage('pg-dashboard'));
+
+// ── Foto giocatori storici ───────────────────────────────────────────────────
+document.getElementById('histPhotosBtn').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const box = document.getElementById('histPhotosMsg');
+  btn.disabled = true;
+  let processed = 0, found = 0;
+  try {
+    for (;;) {
+      const r = await apiFetchHistoricPhotos();
+      processed += r.processed;
+      found += r.found;
+      box.innerHTML = `<div class="ds-message ds-message--ok">Controllati ${processed}, foto trovate ${found}, restanti ${r.remaining}…</div>`;
+      if (r.error) throw new Error(`Wikidata non raggiungibile: ${r.error}`);
+      if (r.remaining === 0 || r.processed === 0) break;
+    }
+    box.innerHTML = `<div class="ds-message ds-message--ok">Fatto: controllati ${processed}, foto trovate ${found}.</div>`;
+  } catch (err) {
+    box.innerHTML = `<div class="ds-message ds-message--err">${esc(err.message)} (controllati ${processed}, trovate ${found})</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('histPhotoSaveBtn').addEventListener('click', async () => {
+  const id = document.getElementById('histPhotoId').value;
+  if (!id) return showMsg('histPhotoMsg', 'Inserisci l\'ID del giocatore storico', true);
+  try {
+    await apiSetHistoricPhoto(id, document.getElementById('histPhotoUrl').value,
+      document.getElementById('histPhotoCredit').value);
+    showMsg('histPhotoMsg', 'Foto aggiornata');
+  } catch (err) {
+    showMsg('histPhotoMsg', err.message, true);
+  }
+});
 
 // ── Diagnostica email (pannello globale) ─────────────────────────────────────
 const emailTestInput = DS.Input({

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.api.db import get_db
-from backend.api.notifications import enqueue_email
+from backend.api.notifications import enqueue_email, player_cards
 from backend.api.routers.auth import get_current_admin
 from backend.engine.granpremio import CRITERIA, free_historic_players, resolve_gran_premio
 
@@ -108,6 +108,7 @@ def resolve(
             enqueue_email(conn, "gran_premio_won", winner_user["email"], {
                 "name": winner["name"], "league_name": league["name"], "league_id": league_id,
                 "prize_player_name": prize["name"],
+                "players": player_cards(conn, [gp["prize_player_historic_id"]]),
             })
 
     return {

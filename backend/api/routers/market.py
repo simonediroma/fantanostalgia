@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.api.db import get_db
-from backend.api.notifications import enqueue_email
+from backend.api.notifications import enqueue_email, player_cards
 from backend.api.routers.auth import get_current_admin, get_current_user
 from backend.api.routers.coach import _get_manager_for_user
 from backend.engine import market as market_engine
@@ -213,12 +213,12 @@ def resolve_market(
 
         league = conn.execute("SELECT name FROM league WHERE id = ?", (league_id,)).fetchone()
 
-        won_by_manager: dict[int, list[str]] = {}
+        won_by_manager: dict[int, list[dict]] = {}
         for r in results:
             if r["winner_manager_id"] is not None:
-                won_by_manager.setdefault(r["winner_manager_id"], []).append(r["name"])
+                won_by_manager.setdefault(r["winner_manager_id"], []).append(r)
 
-        for manager_id, player_names in won_by_manager.items():
+        for manager_id, won in won_by_manager.items():
             manager = conn.execute(
                 "SELECT name, user_id FROM manager WHERE id = ?", (manager_id,)
             ).fetchone()
@@ -229,7 +229,8 @@ def resolve_market(
             ).fetchone()
             enqueue_email(conn, "market_won", user["email"], {
                 "name": manager["name"], "league_name": league["name"], "league_id": league_id,
-                "won_players_names": player_names,
+                "won_players_names": [r["name"] for r in won],
+                "players": player_cards(conn, [r["player_historic_id"] for r in won]),
             })
 
     return {"id": market_session_id, "status": "resolved", "results": results}

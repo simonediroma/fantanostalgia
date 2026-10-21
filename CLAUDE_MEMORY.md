@@ -1,9 +1,15 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-20
-**Branch attivo:** `claude/keen-einstein-n6ce9p`
+**Ultima sessione:** 2026-10-21
+**Branch attivo:** `ccr-9db99b82-rfu04t`
 **PR in corso:** nessuna — #132 (fix gol scontri diretti) e la successiva (sfide + classifica nella pagina giornata) mergiate in `main`.
+
+**Sessione 2026-10-21 — Foto e scheda dei giocatori storici (richiesto in chat):** colonne `player_historic.wikidata_id/photo_url/photo_credit/photo_source_url/photo_checked_at` (ALTER in `db.py`). `backend/api/wikimedia.py::find_photo`: ricerca Wikidata per nome (iniziali tolte), primo candidato calciatore (P106 Q937857) con immagine (P18) ed età 15-45 nella stagione (P569), miniatura 300px + crediti autore/licenza da Commons. Batch admin `POST /admin/historic/photos/fetch?limit=20` (solo stagioni `season_historic` delle leghe; errore di rete → si ferma senza marcare, `error` nella risposta), override manuale `PUT /admin/historic/players/{id}/photo`. UI: Dashboard → "Dati storici (avanzato)" → "Foto giocatori storici" (bottone in loop fino a `remaining` 0 + form correzione). Scheda pubblica `/storico/{id}` (`storico.html`): foto con crediti (fallback lettera ruolo), media voto = `AVG(rating)` come Hall of Fame/Gran Premio, presenze, minuti, gol, assist, rigori, autogol, cartellini, gol subiti (P). Hall of Fame linka la scheda. Email con card (foto, media, presenze, link scheda) solo per giocatori vinti: `gran_premio_won`, `giveaway_assigned`, `market_won` (param `players` da `notifications.player_cards`, righe vecchie senza param ok). Foto via hotlink a `upload.wikimedia.org` (non copiate su GCS). Test `test_historic_photos.py` (8); suite 372 passed + soliti 3. Verificato con Playwright (scheda desktop/mobile, email, pannello admin). **Wikidata bloccato dal sandbox: ricerca reale non verificata.**
+
+## Prossima sessione — inizia da qui (foto storici)
+
+Dopo il deploy: admin → "Cerca foto" e controllare a campione le schede (formato nomi dello scraper, omonimi). Correggere le foto sbagliate col form manuale.
 
 **Sessione 2026-10-20 — Pagina giornata pubblica: sfide e classifica alla giornata (richiesto in chat):** `/lega/{id}/giornata/{n}` (`views.py::giornata` + `giornata.html`) mostra ora la sezione "Sfide": una `<details>` per scontro diretto con gol e punteggi nostalgia, che si espande sulle formazioni delle due squadre (macro Jinja `formazione`, la stessa usata dalle vecchie tab, ora mostrate solo se la giornata non ha scontri diretti). Sotto, "Classifica dopo la G{n}": `_compute_h2h` sugli scontri con punteggio delle giornate ≤ n (punti 3/1/0, GF/GS/DR). Tabella "Punteggi" invariata. Test `test_giornata_page_shows_sfide_and_standings_up_to_matchday`; verificato con screenshot Playwright.
 
