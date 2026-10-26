@@ -350,8 +350,10 @@ def test_scores_no_alter_ego_stored_lineup_excludes_bonus(client):
 
 
 def test_scores_alter_ego_sv(client):
-    """Alter ego exists but no historic_rating for that matchday → 6.0 (sv)."""
+    """Alter ego sv (no historic_rating for that matchday) → voto in pagella del giocatore
+    attuale; se anche quello è sv, entra il primo panchinaro valido dello stesso ruolo."""
     from backend.api.db import get_db
+    from backend.engine.scoring import compute_player_breakdown
 
     league_id = _create_league(client)
 
@@ -361,31 +363,45 @@ def test_scores_alter_ego_sv(client):
             (league_id,),
         )
         manager_id = cur.lastrowid
-        cur = conn.execute(
-            "INSERT INTO player_current (league_id, name, role, team) VALUES (?, 'Ronaldo R.', 'A', 'Real')",
-            (league_id,),
-        )
-        player_id = cur.lastrowid
-        conn.execute(
-            "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id, is_starter) VALUES (?, ?, 1, ?, 1)",
-            (league_id, manager_id, player_id),
-        )
         conn.execute(
             "INSERT INTO matchday_draw (league_id, matchday_current, matchday_historic, cycle) VALUES (?, 1, 10, 1)",
             (league_id,),
         )
-        hist_id = _add_historic_player(conn, "Del Piero A.", "A")
-        # No historic_rating inserted for matchday 10 → sv
-        conn.execute(
-            "INSERT INTO alter_ego (league_id, manager_id, player_current_id, player_historic_id)"
-            " VALUES (?, ?, ?, ?)",
-            (league_id, manager_id, player_id, hist_id),
-        )
+        # (nome, titolare, voto senza bonus, fantavoto, alter ego sv)
+        players = [
+            ("Ronaldo R.", 1, 6.5, 7.5, True),   # alter ego sv, voto reale → 6.5
+            ("Vieri C.", 1, None, None, True),   # alter ego sv e s.v. reale → sostituito
+            ("Panca", 0, 5.5, 5.5, False),       # entra
+        ]
+        ids = {}
+        for name, starter, no_bonus, bonus, has_ae in players:
+            pid = conn.execute(
+                "INSERT INTO player_current (league_id, name, role, team) VALUES (?, ?, 'A', 'Real')",
+                (league_id, name),
+            ).lastrowid
+            ids[name] = pid
+            conn.execute(
+                "INSERT INTO lineup (league_id, manager_id, matchday, player_current_id, is_starter,"
+                " score_no_bonus, score_bonus) VALUES (?, ?, 1, ?, ?, ?, ?)",
+                (league_id, manager_id, pid, starter, no_bonus, bonus),
+            )
+            if has_ae:
+                # No historic_rating inserted for matchday 10 → sv
+                hist_id = _add_historic_player(conn, f"Storico {name}", "A")
+                conn.execute(
+                    "INSERT INTO alter_ego (league_id, manager_id, player_current_id, player_historic_id)"
+                    " VALUES (?, ?, ?, ?)",
+                    (league_id, manager_id, pid, hist_id),
+                )
 
     r = client.post(f"/admin/league/{league_id}/scores/1", json={})
     assert r.status_code == 200, r.text
     s = r.json()["scores"][0]
-    assert s["score_nostalgia"] == pytest.approx(6.0)
+    assert s["score_nostalgia"] == pytest.approx(12.0)  # 6.5 + 5.5, niente 6 d'ufficio
+
+    with get_db() as conn:
+        bd = compute_player_breakdown(conn, league_id, 1)
+    assert {b["name"]: b["ns"] for b in bd} == {"Ronaldo R.": 6.5, "Panca": 5.5}
 
 
 def test_scores_alter_ego_archive(client):
@@ -510,13 +526,13 @@ def test_nostalgia_sub_status_marks_in_and_out():
     """Calendario: panchinaro entrato = "in", titolare sostituito/scoperto = "out"."""
     from backend.api.routers.views import _nostalgia_sub_status
 
-    def row(i, role, starter, ae=None, vote=None):
+    def row(i, role, starter, hist=None, vote=None):
         return {"lineup_id": i, "manager_id": 1, "role": role, "is_starter": starter,
-                "alter_ego_name": ae, "score_bonus": vote}
+                "rating": hist, "score_bonus": vote}
 
     rows = [
-        row(1, "A", 1),                  # s.v. senza alter ego → sostituito
-        row(2, "C", 1, ae="Rivera"),     # alter ego → resta
+        row(1, "A", 1),                  # s.v. senza voto storico → sostituito
+        row(2, "C", 1, hist=7.0),        # voto storico → resta
         row(3, "D", 1),                  # scoperto
         row(4, "A", 0),                  # s.v. → non entra
         row(5, "A", 0, vote=6.5),        # entra
