@@ -46,17 +46,13 @@ def _nostalgia_score(
     real_map: dict[str, dict],
 ) -> float:
     """Nostalgia score for a single starter (alter ego historic rating, or real
-    rating without bonus if the player has no alter ego)."""
+    rating without bonus if the player has no alter ego or the alter ego is sv)."""
     pcid = p["player_current_id"]
     role = p["role"]
     name_key = p["name"].strip().lower()
 
-    hist_id = alter_ego_map.get(pcid)
-    if hist_id is not None:
-        hr = rating_map.get(hist_id)
-        if hr is None or hr["rating"] is None:
-            # Alter ego not available or sv → 6.0
-            return 6.0
+    if _has_historic_vote(p, alter_ego_map, rating_map):
+        hr = rating_map[alter_ego_map[pcid]]
         # Both archive and synthetic store hr.rating as the final computed score
         # (archive: real fantacalcio vote with bonuses; synthetic: compute_rating()
         # which already adds goal bonus, win bonus, card malus, etc.).
@@ -90,6 +86,11 @@ def _nostalgia_score(
 def _has_real_vote(p: dict, real_map: dict[str, dict]) -> bool:
     rr = real_map.get(p["name"].strip().lower())
     return rr is not None and rr.get("rating") is not None
+
+
+def _has_historic_vote(p: dict, alter_ego_map: dict[int, int], rating_map: dict[int, dict]) -> bool:
+    hr = rating_map.get(alter_ego_map.get(p["player_current_id"]))
+    return hr is not None and hr["rating"] is not None
 
 
 def _apply_substitutions(rows: list[dict], has_vote) -> list[dict]:
@@ -266,9 +267,9 @@ def calculate_scores(
         total_normal: Optional[float] = 0.0 if real_ratings is not None else None
         total_nostalgia = 0.0
 
-        # Nostalgia: sostituito solo chi non ha voto reale né alter ego
+        # Nostalgia: alter ego sv → voto in pagella; sostituito chi non ha né voto storico né voto reale
         for p in _apply_substitutions(
-                players, lambda p: p["player_current_id"] in alter_ego_map or _has_real_vote(p, real_map)):
+                players, lambda p: _has_historic_vote(p, alter_ego_map, rating_map) or _has_real_vote(p, real_map)):
             total_nostalgia += _nostalgia_score(p, alter_ego_map, rating_map, real_map)
 
         # Normal score: sostituito chi non ha voto reale
@@ -355,7 +356,7 @@ def compute_player_breakdown(
 
     breakdown: list[dict] = []
     for p in (p for players in by_manager.values() for p in _apply_substitutions(
-            players, lambda p: p["player_current_id"] in alter_ego_map or _has_real_vote(p, real_map))):
+            players, lambda p: _has_historic_vote(p, alter_ego_map, rating_map) or _has_real_vote(p, real_map))):
         breakdown.append({
             "manager_id": p["manager_id"],
             "player_current_id": p["player_current_id"],

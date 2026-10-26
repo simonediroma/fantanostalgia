@@ -32,7 +32,7 @@ def _nostalgia_sub_status(lineup_rows) -> dict[int, str]:
     for r in sorted(lineup_rows, key=lambda r: r["lineup_id"]):
         by_manager.setdefault(r["manager_id"], []).append({
             "id": r["lineup_id"], "role": r["role"], "is_starter": r["is_starter"],
-            "valid": r["alter_ego_name"] is not None or r["score_bonus"] is not None,
+            "valid": r["rating"] is not None or r["score_bonus"] is not None,
         })
     status: dict[int, str] = {}
     for rows in by_manager.values():
@@ -332,10 +332,8 @@ def calendario_dati(league_id: int, matchday: int):
         ns_score = None
         if r["rating"] is not None:
             ns_score = float(r["rating"])
-        elif r["alter_ego_name"]:
-            ns_score = 6.0
         elif r["score_no_bonus"] is not None:
-            # senza alter ego: voto in pagella, lo stesso usato dallo scoring
+            # senza alter ego o alter ego sv: voto in pagella, lo stesso usato dallo scoring
             ns_score = float(r["score_no_bonus"])
         entry = {
             "role": r["role"],
@@ -545,10 +543,8 @@ def giornata(request: Request, league_id: int, matchday: int):
         ns_score = None
         if r["rating"] is not None:
             ns_score = float(r["rating"])
-        elif r["alter_ego_name"]:
-            ns_score = 6.0  # sv o non trovato
         elif r["score_no_bonus"] is not None:
-            ns_score = float(r["score_no_bonus"])  # senza alter ego: voto in pagella
+            ns_score = float(r["score_no_bonus"])  # senza alter ego o alter ego sv: voto in pagella
 
         entry = {
             "player_name": r["player_name"],

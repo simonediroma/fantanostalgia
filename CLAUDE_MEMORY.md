@@ -1,9 +1,11 @@
 # Stato Corrente
 > Versionato nel repo — unica memoria persistente tra sessioni web. Aggiornare a fine ogni task.
 
-**Ultima sessione:** 2026-10-20
+**Ultima sessione:** 2026-10-26
 **Branch attivo:** `claude/keen-einstein-n6ce9p`
 **PR in corso:** nessuna — #132 (fix gol scontri diretti) e la successiva (sfide + classifica nella pagina giornata) mergiate in `main`.
+
+**Sessione 2026-10-26 — Alter ego sv: niente più 6 d'ufficio (regola scelta dall'utente, opzione 2):** se l'alter ego non ha voto nella giornata storica, il nostalgia usa il voto in pagella del giocatore attuale (`score_no_bonus`); se anche quello è sv, il titolare viene sostituito dal primo panchinaro valido dello stesso ruolo (come chi non ha alter ego), altrimenti 0. `scoring.py`: `_has_historic_vote`, criterio di sostituzione nostalgia = voto storico o voto reale (calcolo e breakdown Gran Premio). `views.py`: rimosso il 6.0 per alter ego sv in Calendario e pagina giornata, `_nostalgia_sub_status` usa `rating` storico. Le giornate già calcolate cambiano solo con "Ricalcola". Test `test_scores_alter_ego_sv` riscritto; suite 364 passed + soliti 3.
 
 **Sessione 2026-10-20 — Pagina giornata pubblica: sfide e classifica alla giornata (richiesto in chat):** `/lega/{id}/giornata/{n}` (`views.py::giornata` + `giornata.html`) mostra ora la sezione "Sfide": una `<details>` per scontro diretto con gol e punteggi nostalgia, che si espande sulle formazioni delle due squadre (macro Jinja `formazione`, la stessa usata dalle vecchie tab, ora mostrate solo se la giornata non ha scontri diretti). Sotto, "Classifica dopo la G{n}": `_compute_h2h` sugli scontri con punteggio delle giornate ≤ n (punti 3/1/0, GF/GS/DR). Tabella "Punteggi" invariata. Test `test_giornata_page_shows_sfide_and_standings_up_to_matchday`; verificato con screenshot Playwright.
 
